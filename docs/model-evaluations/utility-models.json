@@ -28,7 +28,7 @@
   ],
   "case_count_per_model": 9,
   "notes": [
-    "Every listed case used a live OpenAI-compatible llama.cpp endpoint; MODEL_MOCK_ENABLED was false.",
+    "Every listed case used a live OpenAI-compatible llama.cpp endpoint; MOCK_MODEL was false.",
     "Qwen was rejected because the namespace-isolation safety gate failed even though every response was valid JSON.",
     "Gemma is selected as a limited Utility fallback; source-role assignment remains guarded by deterministic application code.",
     "Vision acceptance is tracked separately because this utility suite evaluates text/JSON behavior."
