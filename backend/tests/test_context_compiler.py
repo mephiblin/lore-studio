@@ -7,7 +7,10 @@ from app.services.context_compiler import compile_context, tiptap_to_text
 
 
 def make_db() -> Session:
-    engine = create_engine("sqlite+pysqlite:///:memory:")
+    engine = create_engine(
+        "sqlite+pysqlite:///:memory:",
+        execution_options={"schema_translate_map": {"lore_app": None, "lore_vector": None}},
+    )
     Base.metadata.create_all(engine)
     return Session(engine)
 
@@ -73,5 +76,7 @@ def test_context_separates_facts_and_discourse_references() -> None:
     pack = compile_context(db, session)
     assert [item["title"] for item in pack["selected_concepts"]] == ["검은 등대"]
     assert [item["title"] for item in pack["discourse_or_inspiration_references"]] == ["좋아하는 설정 글"]
+    assert pack["discourse_or_inspiration_references"][0]["body"] == ""
+    assert "외부 IP 사실" not in str(pack)
     assert pack["locked_facts"][0]["fact"] == "북부 항로에 존재한다"
     assert pack["policy"]["reference_facts_are_forbidden"] is True

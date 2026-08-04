@@ -9,7 +9,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-API_BASE = os.getenv("LORE_STUDIO_API", "http://localhost:8000/api/v1").rstrip("/")
+API_BASE = os.getenv("LORE_STUDIO_API", "http://localhost:18000/api/v1").rstrip("/")
 
 
 def request(method: str, path: str, payload=None):
@@ -200,6 +200,6 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - CLI boundary converts failures to a nonzero exit
         print(f"ERROR: {exc}", file=sys.stderr)
         raise SystemExit(1)

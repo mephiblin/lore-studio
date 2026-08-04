@@ -13,7 +13,9 @@ from app.services.config_loader import seed_builtin_recipes
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    Base.metadata.create_all(bind=engine)
+    # SQLite is an isolated test convenience. PostgreSQL is migrated by Alembic.
+    if settings.database_url.startswith("sqlite"):
+        Base.metadata.create_all(bind=engine)
     with SessionLocal() as db:
         seed_builtin_recipes(db)
     yield

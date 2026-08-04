@@ -17,3 +17,24 @@
 
 # 출력
 JSON 객체만 출력한다.
+
+반드시 다음 구조를 사용한다. 다른 최상위 wrapper를 추가하지 않는다.
+
+```json
+{
+  "title": "글 제목",
+  "angle": "중심 해석",
+  "blocks": [
+    {
+      "move": "ORIENT",
+      "purpose": "문단 목적",
+      "evidence_ids": ["컨셉 페이지 ID"],
+      "word_budget": 250,
+      "must_include": [],
+      "avoid": [],
+      "locked": false
+    }
+  ],
+  "warnings": []
+}
+```

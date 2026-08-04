@@ -5,6 +5,7 @@ import pytest
 
 from app.config import settings
 from app.services.model_gateway import ModelGateway
+from app.services.utility_tools import analyze_image
 
 
 @pytest.mark.skipif(not settings.run_local_model_tests, reason="RUN_LOCAL_MODEL_TESTS=true에서만 실행")
@@ -40,3 +41,16 @@ def test_real_embedding_profile() -> None:
     assert len(vectors) == 1
     assert len(vectors[0]) == settings.embedding_dimension
     assert metadata["model"]
+
+
+@pytest.mark.skipif(not settings.run_vision_tests, reason="RUN_VISION_TESTS=true에서만 실행")
+def test_real_vision_profile() -> None:
+    one_pixel_png = (
+        "data:image/png;base64,"
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+    )
+    suggestion, result = asyncio.run(
+        analyze_image(ModelGateway(), one_pixel_png, "이미지를 간단히 설명하고 불확실성을 표시하라.")
+    )
+    assert suggestion["caption"]
+    assert result.role == "vision"

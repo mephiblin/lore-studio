@@ -8,9 +8,8 @@ from sqlalchemy.orm import Session
 
 from app.models import ConceptPage, DirectionCard, PlaybookSession, Project, WritingRecipe
 
-
-ROLE_FACT = {"PROJECT_CANON", "DRAFT_SETTING", "SOURCE_EVIDENCE", "SECONDARY_INTERPRETATION", "CANDIDATE"}
-ROLE_REFERENCE = {"DISCOURSE_REFERENCE", "INSPIRATION_ONLY"}
+ROLE_FACT = {"PROJECT_CANON", "DRAFT_SETTING", "CANON_EVIDENCE", "SECONDARY_INTERPRETATION"}
+ROLE_REFERENCE = {"DISCOURSE_REFERENCE", "INSPIRATION"}
 
 
 def tiptap_to_text(node: Any) -> str:
@@ -56,14 +55,21 @@ def compile_context(db: Session, session: PlaybookSession) -> dict[str, Any]:
 
     pages: list[ConceptPage] = []
     if selected_ids:
-        rows = db.scalars(select(ConceptPage).where(ConceptPage.id.in_(selected_ids))).all()
+        rows = db.scalars(
+            select(ConceptPage).where(
+                ConceptPage.id.in_(selected_ids), ConceptPage.project_id == session.project_id
+            )
+        ).all()
         by_id = {page.id: page for page in rows}
         pages = [by_id[page_id] for page_id in selected_ids if page_id in by_id]
 
     cards: list[DirectionCard] = []
     if session.direction_card_ids:
         rows = db.scalars(
-            select(DirectionCard).where(DirectionCard.id.in_(session.direction_card_ids))
+            select(DirectionCard).where(
+                DirectionCard.id.in_(session.direction_card_ids),
+                DirectionCard.project_id == session.project_id,
+            )
         ).all()
         by_id = {card.id: card for card in rows}
         cards = [by_id[card_id] for card_id in session.direction_card_ids if card_id in by_id]
@@ -73,8 +79,10 @@ def compile_context(db: Session, session: PlaybookSession) -> dict[str, Any]:
 
     facts: list[dict[str, Any]] = []
     references: list[dict[str, Any]] = []
+    candidate_material: list[dict[str, Any]] = []
     locked_facts: list[dict[str, str]] = []
     open_questions: list[dict[str, str]] = []
+    forbidden_changes: list[dict[str, str]] = []
     warnings: list[str] = []
     namespaces: set[str] = set()
 
@@ -99,6 +107,8 @@ def compile_context(db: Session, session: PlaybookSession) -> dict[str, Any]:
             "usage_role": page.usage_role,
             "status": page.status,
             "namespace": page.namespace,
+            "era": page.era,
+            "continuity": page.continuity,
             "playbook_roles": roles_by_page.get(page.id, []),
             "summary": page.summary,
             "body": body_text,
@@ -106,14 +116,36 @@ def compile_context(db: Session, session: PlaybookSession) -> dict[str, Any]:
         if page.status == "rejected" or page.usage_role == "REJECTED":
             warnings.append(f"폐기된 페이지가 선택되어 제외됨: {page.title}")
             continue
-        if page.usage_role in ROLE_REFERENCE:
-            references.append(item)
-        else:
+        if page.usage_role == "DISCOURSE_REFERENCE":
+            references.append(
+                {
+                    **item,
+                    "summary": "",
+                    "body": "",
+                    "approved_analysis": (page.properties_json or {}).get("approved_analysis", {}),
+                    "fact_eligible": False,
+                }
+            )
+        elif page.usage_role == "INSPIRATION":
+            references.append({**item, "body": "", "fact_eligible": False})
+        elif page.usage_role == "CANDIDATE":
+            candidate_material.append({**item, "fact_eligible": False})
+        elif page.usage_role in ROLE_FACT:
             facts.append(item)
-        locked_facts.extend({"page_id": page.id, "page_title": page.title, "fact": fact} for fact in page.locked_facts)
-        open_questions.extend({"page_id": page.id, "page_title": page.title, "question": question} for question in page.open_questions)
+            locked_facts.extend(
+                {"page_id": page.id, "page_title": page.title, "fact": fact}
+                for fact in page.locked_facts
+            )
+            open_questions.extend(
+                {"page_id": page.id, "page_title": page.title, "question": question}
+                for question in page.open_questions
+            )
+            forbidden_changes.extend(
+                {"page_id": page.id, "page_title": page.title, "rule": rule}
+                for rule in page.forbidden_changes
+            )
 
-    factual_namespaces = {item["namespace"] for item in facts if item["usage_role"] not in {"INSPIRATION_ONLY", "DISCOURSE_REFERENCE"}}
+    factual_namespaces = {item["namespace"] for item in facts}
     if len(factual_namespaces) > 1:
         warnings.append("서로 다른 네임스페이스의 사실 자료가 함께 선택되었습니다. 의도적인 크로스오버인지 확인하십시오.")
     if project.universe_namespace and factual_namespaces and project.universe_namespace not in factual_namespaces:
@@ -129,8 +161,10 @@ def compile_context(db: Session, session: PlaybookSession) -> dict[str, Any]:
         },
         "selected_concepts": facts,
         "discourse_or_inspiration_references": references,
+        "candidate_material": candidate_material,
         "locked_facts": locked_facts,
         "open_questions": open_questions,
+        "forbidden_material": forbidden_changes,
         "direction_cards": [
             {
                 "id": card.id,
@@ -154,7 +188,7 @@ def compile_context(db: Session, session: PlaybookSession) -> dict[str, Any]:
                 "CURRENT_USER_DIRECTION",
                 "PROJECT_CANON_AND_LOCKED_FACTS",
                 "DRAFT_SETTING",
-                "SOURCE_EVIDENCE",
+                "CANON_EVIDENCE",
                 "ALLOWED_INFERENCE",
                 "MODEL_CREATION",
             ],

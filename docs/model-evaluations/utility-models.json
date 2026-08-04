@@ -1,0 +1,36 @@
+{
+  "evaluated_at": "2026-08-05",
+  "mode": "real_local_inference",
+  "selection": "Gemma4-26B-A4B-QAT-Uncensored-HauhauCS-Balanced-MTP-Q4_K_M",
+  "models": [
+    {
+      "model": "Qwen3.5-4B-Q4_K_M",
+      "passed": false,
+      "json_valid_rate": 1.0,
+      "required_missing_rate": 0.0,
+      "semantic_accuracy": 0.6666666667,
+      "namespace_leakage_pass": false,
+      "average_latency_seconds": 2.7514372418,
+      "average_tokens_per_second": 28.6937004397,
+      "failed_cases": ["category_tags", "source_role", "namespace_leakage"]
+    },
+    {
+      "model": "Gemma4-26B-A4B-QAT-Uncensored-HauhauCS-Balanced-MTP-Q4_K_M",
+      "passed": true,
+      "json_valid_rate": 1.0,
+      "required_missing_rate": 0.0,
+      "semantic_accuracy": 0.8888888889,
+      "namespace_leakage_pass": true,
+      "average_latency_seconds": 2.645269902,
+      "average_tokens_per_second": 38.8334524835,
+      "failed_cases": ["source_role"]
+    }
+  ],
+  "case_count_per_model": 9,
+  "notes": [
+    "Every listed case used a live OpenAI-compatible llama.cpp endpoint; MODEL_MOCK_ENABLED was false.",
+    "Qwen was rejected because the namespace-isolation safety gate failed even though every response was valid JSON.",
+    "Gemma is selected as a limited Utility fallback; source-role assignment remains guarded by deterministic application code.",
+    "Vision acceptance is tracked separately because this utility suite evaluates text/JSON behavior."
+  ]
+}

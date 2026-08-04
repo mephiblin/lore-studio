@@ -10,7 +10,6 @@ import httpx
 
 from app.config import ModelRole, settings
 
-
 ResponseMode = Literal["text", "json_object", "json_schema"]
 
 
@@ -154,6 +153,22 @@ class ModelGateway:
         }
 
     async def health(self, role: ModelRole) -> dict[str, Any]:
+        if settings.mock_model:
+            return {
+                "role": role,
+                "available": True,
+                "model": "mock",
+                "capabilities": {
+                    "chat": role != "embedding",
+                    "streaming": role != "embedding",
+                    "json_object": role != "embedding",
+                    "json_schema": role != "embedding",
+                    "vision": role == "vision",
+                    "input_modalities": ["text", "image"] if role == "vision" else ["text"],
+                    "context_size": None,
+                },
+                "error": None,
+            }
         profile = self.profile(role)
         try:
             model, info = await self.resolve_model(profile)
@@ -236,6 +251,65 @@ class ModelGateway:
         seed: int | None = None,
         extra_params: dict[str, Any] | None = None,
     ) -> ModelCallResult:
+        if settings.mock_model:
+            mock_objects: dict[str, dict[str, Any]] = {
+                "direction_card_rules": {
+                    "goals": ["방향성 원문을 유지한다"],
+                    "sequence": ["효능", "의존", "대가"],
+                    "must_include": ["사용자 의도"],
+                    "avoid": ["자동 정사 승격"],
+                    "ending_preference": "열린 결말",
+                },
+                "concept_candidates": {
+                    "candidates": [
+                        {
+                            "title": "Mock 검토 후보",
+                            "category_key": "free",
+                            "candidate_sentence": "사용자가 검토할 새 설정 후보이다.",
+                            "source_excerpt": "Mock 원고에서 추출",
+                            "related_page_ids": [],
+                            "conflict_risk": "low",
+                        }
+                    ]
+                },
+                "reference_analysis": {
+                    "paragraphs": [
+                        {
+                            "index": 0,
+                            "primary_move": "ORIENT",
+                            "secondary_move": "ANCHOR",
+                            "scale": "중간",
+                            "certainty": "분석",
+                            "tension": 1,
+                            "sentence_length_pattern": "혼합",
+                            "ending": "진술",
+                        }
+                    ],
+                    "recipe_candidate": {"moves": ["ORIENT", "ANCHOR"]},
+                    "voice_candidate": {"rhythm": "혼합"},
+                    "similarity_risks": [],
+                },
+                "image_concept_analysis": {
+                    "caption": "Mock 이미지 캡션",
+                    "people": [],
+                    "places": [],
+                    "objects": ["이미지 대상"],
+                    "tags": ["이미지"],
+                    "uncertainties": ["Mock 분석"],
+                },
+            }
+            if response_mode in {"json_object", "json_schema"}:
+                content = json.dumps(mock_objects.get(schema_name, {}), ensure_ascii=False)
+            else:
+                content = "Mock 재작성 문단입니다. 기존 사실을 유지합니다."
+            return ModelCallResult(
+                content=content,
+                role=role,
+                model="mock",
+                endpoint="",
+                params={"temperature": temperature, "max_tokens": max_tokens, "seed": seed},
+                usage={"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+            )
         profile = self.profile(role)
         model, _ = await self.resolve_model(profile)
         payload: dict[str, Any] = {
@@ -280,6 +354,9 @@ class ModelGateway:
         max_tokens: int | None = None,
         seed: int | None = None,
     ) -> AsyncIterator[str]:
+        if settings.mock_model:
+            yield "Mock 스트리밍 응답"
+            return
         profile = self.profile(role)
         model, _ = await self.resolve_model(profile)
         payload: dict[str, Any] = {
@@ -325,6 +402,15 @@ class ModelGateway:
                 code="EMBEDDING_DISABLED",
                 role="embedding",
             )
+        if settings.mock_model:
+            return [[0.0] * settings.embedding_dimension for _ in texts], {
+                "role": "embedding",
+                "model": "mock",
+                "endpoint": "",
+                "usage": {},
+                "dimension": settings.embedding_dimension,
+                "version": settings.embedding_version,
+            }
         profile = self.profile("embedding")
         model, _ = await self.resolve_model(profile)
         payload = {"model": model, "input": texts}

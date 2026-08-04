@@ -61,3 +61,29 @@ def test_embedding_dimension_mismatch_stops_indexing(monkeypatch) -> None:
     with pytest.raises(ModelGatewayError) as error:
         asyncio.run(gateway.embed(["차원 불일치"] ))
     assert error.value.code == "EMBEDDING_DIMENSION_MISMATCH"
+
+
+def test_mock_mode_never_contacts_external_model(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "mock_model", True)
+    monkeypatch.setattr(settings, "embedding_enabled", True)
+    monkeypatch.setattr(settings, "embedding_dimension", 4)
+    gateway = ModelGateway(
+        transport=httpx.MockTransport(lambda request: pytest.fail(f"unexpected request: {request.url}"))
+    )
+
+    health = asyncio.run(gateway.health("writer"))
+    result = asyncio.run(
+        gateway.complete(
+            [{"role": "user", "content": "구조화"}],
+            role="utility",
+            response_mode="json_schema",
+            json_schema={"type": "object"},
+            schema_name="direction_card_rules",
+        )
+    )
+    vectors, metadata = asyncio.run(gateway.embed(["격리 테스트"]))
+
+    assert health["model"] == "mock"
+    assert json.loads(result.content)["sequence"] == ["효능", "의존", "대가"]
+    assert vectors == [[0.0, 0.0, 0.0, 0.0]]
+    assert metadata["endpoint"] == ""

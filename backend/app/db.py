@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from collections.abc import Generator
 
-from sqlalchemy import create_engine
+from sqlalchemy import MetaData, create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.config import settings
 
 
 class Base(DeclarativeBase):
-    pass
+    metadata = MetaData(schema="lore_app")
 
 
 connect_args: dict[str, object] = {}
@@ -20,6 +20,11 @@ engine = create_engine(
     settings.database_url,
     pool_pre_ping=True,
     connect_args=connect_args,
+    execution_options=(
+        {"schema_translate_map": {"lore_app": None, "lore_vector": None}}
+        if settings.database_url.startswith("sqlite")
+        else {}
+    ),
 )
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
 
