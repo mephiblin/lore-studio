@@ -16,8 +16,6 @@ class Settings(BaseSettings):
     app_config_root: Path = Path("../config")
     cors_origins: str = "http://localhost:5173"
 
-    mock_model: bool = False
-
     writer_model_base_url: str = "http://localhost:8080/v1"
     writer_model_api_key: str = "local"
     writer_model_name: str = ""

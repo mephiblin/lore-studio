@@ -1,11 +1,11 @@
 # 검증 기록
 
-실행일: 2026-08-05, DGX Spark, `MOCK_MODEL=false`
+실행일: 2026-08-05, DGX Spark, 실제 로컬 모델 endpoint
 
 ## 자동 검증
 
 - Ruff: `All checks passed`
-- pytest: `11 passed, 3 skipped` (Writer/Utility, Embedding, Vision 실제 endpoint tests는 기본 suite에서 의도적으로 skip)
+- pytest: `10 passed, 3 skipped` (Writer/Utility, Embedding, Vision 실제 endpoint tests는 기본 suite에서 의도적으로 skip)
 - 실제 모델 opt-in: `3 passed` (Writer/Utility structured output, BGE-M3 1024차원, Vision data URL)
 - SvelteKit adapter-node production build: PASS
 - Playwright Chromium desktop 1600×900/mobile 390×844: `10 passed`, 브라우저/API 오류와 가로 overflow 없음
@@ -15,7 +15,7 @@
 
 ## 실제 모델/DB 인수
 
-- `/models/status`: Writer/Utility/Vision/Embedding 모두 available, `mock_mode=false`; endpoint/key 비노출
+- `/models/status`: `mode=live`, Writer/Utility/Vision/Embedding 모두 available; endpoint/key 비노출
 - Utility 합성 9건: Qwen3.5-4B FAIL(66.7%, namespace 누출), Gemma4-26B PASS(88.9%, namespace 격리 통과)
 - BGE-M3: Compose backend에서 1024차원 1 page/1 chunk 재색인 COMPLETED, Dense 검색으로 `검은 등대` 반환, `dense_error=null`
 - Vision: 실제 PNG data URL 분석, caption/objects/tags/uncertainties 반환, `persisted=false`

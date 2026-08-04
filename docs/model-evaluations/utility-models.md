@@ -1,7 +1,7 @@
 # Utility model real-inference evaluation
 
 Evaluation date: 2026-08-05  
-Execution mode: local llama.cpp endpoints, `MOCK_MODEL=false`  
+Execution mode: live local llama.cpp endpoints
 Cases per model: 9 synthetic Korean lore tasks
 
 | Model | Gate | JSON | Semantic | Namespace isolation | Avg. latency | Tokens/s |

@@ -23,4 +23,4 @@ curl http://127.0.0.1:18000/api/v1/models/status
 
 인증이 없는 단일 사용자 앱이므로 신뢰하는 내부망에서만 사용하고 라우터 포트 포워딩은 설정하지 마십시오. NAS 자료는 읽기 전용 bind mount를 별도로 추가하고, 실제 NAS 경로를 Git 추적 파일에 넣지 마십시오.
 
-도구 설치 후 `make test && make lint && make build`를 실행합니다. 기존 DB에는 `make migrate`, 데모에는 `make seed`를 사용합니다.
+도구 설치 후 `make test && make lint && make build`를 실행합니다. 기존 DB에는 `make migrate`, 검은 항로 정식 세계관 자료 적재에는 `make seed`를 사용합니다.

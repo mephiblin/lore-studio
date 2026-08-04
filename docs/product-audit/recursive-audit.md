@@ -9,7 +9,7 @@ Overall status: COMPLETE
 - In scope: 첨부 v1.0의 DB, API, 역할별 모델, 검색, UI, 감사, 후보 승격, 멀티모달 최소 경로, 테스트, CI, 운영 문서.
 - Non-goals: 외부 cloud LLM, 다중 사용자 인증, 모델 파일 배포, 자동 정사 승격, 실제 TTS/ComfyUI 서버 자체 제공.
 - Constraints: Ubuntu ARM64/DGX Spark, Docker Compose, PostgreSQL/pgvector, 로컬 OpenAI-compatible API, 프로젝트 데이터 격리.
-- Completion gates: 25개 인수 조건, 실제 Writer/Utility/Vision/Embedding 대표 실행, offline test/build/Mock E2E, Compose/migration/browser, 모든 FIX_NOW 검증.
+- Completion gates: 25개 인수 조건, 실제 Writer/Utility/Vision/Embedding 대표 실행, offline test/build/UI E2E, Compose/migration/browser, 모든 FIX_NOW 검증.
 
 ## Product snapshot
 
@@ -20,7 +20,7 @@ Overall status: COMPLETE
 
 ## Current conclusion
 
-Lore Studio는 starter가 아니라 실제 local-first v1.0으로 신뢰할 수 있다. 운영 DB는 Alembic과 전용 vector schema를 사용하고, 권위·reference·namespace 경계는 모델 판단이 아닌 서비스 코드와 테스트가 강제한다. 현재 Compose는 Mock이 아니며 Gemma Writer/Utility/Vision과 BGE-M3로 대표 생성·검색·이미지·수정·후보·export를 완료했다. 외부 TTS/ComfyUI가 없을 때는 명시된 fallback만 사용한다.
+Lore Studio는 starter가 아니라 실제 local-first v1.0으로 신뢰할 수 있다. 운영 DB는 Alembic과 전용 vector schema를 사용하고, 권위·reference·namespace 경계는 모델 판단이 아닌 서비스 코드와 테스트가 강제한다. 현재 Compose는 가상 생성 경로 없이 Gemma Writer/Utility/Vision과 BGE-M3로 대표 생성·검색·이미지·수정·후보·export를 완료했다. 외부 TTS/ComfyUI가 없을 때는 명시된 fallback만 사용한다.
 
 ## Cycle 1
 
@@ -55,20 +55,20 @@ Lore Studio는 starter가 아니라 실제 local-first v1.0으로 신뢰할 수 
 
 | Check | Command or method | Result | Artifact / evidence |
 |---|---|---|---|
-| Python logic/API | `.venv/bin/pytest -q` | PASS; 11 passed, 3 opt-in skipped | authority, leakage, context, search, gateway, generation, API integration tests |
+| Python logic/API | `.venv/bin/pytest -q` | PASS; 10 passed, 3 opt-in skipped | authority, leakage, context, search, gateway, generation, API integration tests |
 | Static/bundle | Ruff and `scripts/validate_bundle.py` | PASS | Python, JSON Schema, YAML |
 | Frontend | `npm --prefix frontend run build` | PASS | adapter-node production output |
-| Browser real data | `make e2e` | PASS; 10 passed, 2 Mock-flow skipped | desktop 1600x900 and mobile 390x844, controls and overflow |
-| Mock isolated authoring | Mock Compose plus `E2E_API_FLOW=true` Playwright | PASS; 10 passed, 2 real-data skipped | project through plan, document, Diff, candidate, three exports; no model network |
+| Browser real data | `make e2e` | PASS; 10 passed | desktop 1600x900 and mobile 390x844, controls and overflow |
+| Model-offline UI | Compose with model endpoints unavailable | PASS | fabricated generation response 없이 OFFLINE 상태와 주요 UI 렌더링 |
 | PostgreSQL migration | Alembic upgrade, downgrade, upgrade | PASS | vector extension and two schemas |
-| Actual model stack | Compose status and representative API calls | PASS | mock false; Gemma and BGE available; endpoint/key hidden |
+| Actual model stack | Compose status and representative API calls | PASS | live mode; Gemma and BGE available; endpoint/key hidden |
 | Actual model opt-in tests | `make test-models` | PASS; 3 passed | Writer/Utility JSON, BGE-M3 dimension, Vision data URL |
 | Actual creative loop | plan, generate, rewrite, candidate, reference, Vision, export, SSE | PASS | local DB runs and `VERIFICATION.md` metrics |
 | Utility evaluation | two real local model candidates, 9 cases each | PASS decision | Qwen rejected; Gemma selected; committed JSON/Markdown |
 
 ### Re-audit
 
-- Regressions checked: build, API startup/migration, authority invariant, reference fact exclusion, search filters, model-disabled Mock flow, desktop/mobile viewport and existing real data reload.
+- Regressions checked: build, API startup/migration, authority invariant, reference fact exclusion, search filters, model-offline explicit failure, desktop/mobile viewport and curated real data reload.
 - New or changed findings: no remaining in-scope correctness finding. Static Playwright session tool was unavailable, so equivalent Chromium runner evidence and screenshots were reviewed.
 - Remaining `FIX_NOW` items: none.
 - Recursion decision: STOP_COMPLETE

@@ -6,8 +6,8 @@
 - `direction-card.yaml`: 재사용 가능한 방향성 카드
 - `playbook-request.json`: API로 플레이북 세션을 만드는 예시
 
-실제 DB 데모는 루트에서 다음을 실행하십시오.
+실제 DB에 정식 검은 항로 세계관을 적재하려면 루트에서 다음을 실행하십시오.
 
 ```bash
-python scripts/seed_demo.py --generate
+python scripts/seed_world.py --generate
 ```

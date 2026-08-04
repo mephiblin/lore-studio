@@ -30,4 +30,4 @@ python scripts/evaluate_utility_model.py --output-dir artifacts/model-evaluation
 
 fallback 다운로드는 기본 차단됩니다. 정확한 Hugging Face repo/file을 정하고 크기/SHA256을 검토한 뒤에만 `ALLOW_MODEL_DOWNLOAD=true python scripts/download_fallback_model.py`를 사용하십시오. `.gguf`와 mmproj는 Git에 포함되지 않습니다. 현재 선택과 탈락 사유는 `docs/model-evaluations/`에 기록합니다.
 
-장애 확인 순서는 `/v1/models` → 앱 `/models/status` → alias → host binding → context 크기 → mmproj입니다. 운영에서 `MOCK_MODEL=true`는 장애 격리/오프라인 E2E용이며 실제 품질 검증 결과로 간주하지 않습니다.
+장애 확인 순서는 `/v1/models` → 앱 `/models/status` → alias → host binding → context 크기 → mmproj입니다. 운영 앱에는 가상 모델 fallback이 없으며, endpoint 장애는 UI에 `OFFLINE`과 명시 오류로 드러납니다.

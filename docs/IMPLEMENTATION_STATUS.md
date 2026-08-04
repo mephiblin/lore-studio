@@ -16,19 +16,19 @@
 
 ## 실제 환경 증거
 
-현재 Compose는 `MOCK_MODEL=false`이고 `/models/status`에서 Gemma Writer/Utility/Vision과 BGE-M3가 available입니다. 대표 실행은 5-block 계획, 1,039자/5 LoreBlock 원고, 실제 Diff, 2 후보, 세 export, Vision caption, Dense 검색을 완료했습니다. SSE progress/complete도 실제 Writer로 통과했습니다.
+현재 Compose는 가상 모델 경로 없이 `/models/status`에서 Gemma Writer/Utility/Vision과 BGE-M3 실제 endpoint를 확인합니다. 대표 실행은 5-block 계획, 1,039자/5 LoreBlock 원고, 실제 Diff, 2 후보, 세 export, Vision caption, Dense 검색을 완료했습니다. SSE progress/complete도 실제 Writer로 통과했습니다.
 
 Utility 9-case 결과는 Qwen3.5-4B가 namespace 누출로 탈락했고 Gemma4-26B가 88.9%와 격리 gate 통과로 선택됐습니다. source-role 모델 판단은 완전하지 않으므로 애플리케이션의 결정론적 권위 코드가 항상 최종 판정을 합니다.
 
 ## 최종 검증
 
 - Ruff PASS
-- pytest `11 passed, 3 skipped` (실제 endpoint opt-in tests는 기본 run에서 skip)
+- pytest `10 passed, 3 skipped` (실제 endpoint opt-in tests는 기본 run에서 skip)
 - 실제 모델 opt-in `3 passed` (Writer/Utility, Embedding, Vision)
 - bundle/schema/YAML PASS
 - Svelte production build PASS
-- 실제 데이터 Playwright `10 passed, 2 skipped`
-- 외부 모델 차단 Mock API E2E `10 passed, 2 skipped`
+- 실제 데이터 Playwright `10 passed`
+- 모델 서비스 미연결 UI E2E `10 passed`
 - Compose build/up 및 DB health PASS
 - PostgreSQL Alembic upgrade/downgrade/upgrade PASS
 

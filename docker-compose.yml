@@ -25,7 +25,6 @@ services:
       - .env
     environment:
       APP_CONFIG_ROOT: /app/config
-      MOCK_MODEL: ${MOCK_MODEL:-false}
       EMBEDDING_ENABLED: ${EMBEDDING_ENABLED:-true}
     volumes:
       - ./config:/app/config:ro

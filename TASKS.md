@@ -16,7 +16,7 @@
 - [x] 이미지 Vision 제안, video beat/sound cue/ComfyUI 초안, TTS 문자 수 fallback
 - [x] Markdown/HTML/JSON 내보내기
 - [x] 한국어 반응형 UI, loading/error/empty/progress, Playwright desktop/mobile 검사
-- [x] 기본 offline test, 실제 모델 opt-in test, Mock authoring E2E, CI guard
+- [x] 기본 offline test, 실제 모델 opt-in test, 모델 미연결 UI E2E, CI guard
 - [x] Makefile, DGX/모델/격리/운영/백업/사용/개발/보안 문서
 
 ## v1.0 이후

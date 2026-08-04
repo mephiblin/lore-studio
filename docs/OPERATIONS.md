@@ -4,7 +4,7 @@
 make dev                 # foreground Compose
 make logs                # 앱/DB 로그
 make migrate             # Alembic head
-make seed                # 재실행 가능한 데모
+make seed                # 재실행 가능한 검은 항로 정식 세계관
 make reindex             # 모든 프로젝트 재색인
 make backup              # timestamped custom-format dump
 make down                # 컨테이너만 종료, volume 유지

@@ -29,7 +29,7 @@ docker compose up --build
 
 UI/API는 현재 신뢰하는 LAN 접속을 위해 `0.0.0.0`에 바인딩되며, DB는 로컬호스트에만 유지됩니다. 인증이 없으므로 라우터 포트 포워딩으로 인터넷에 공개하지 마십시오.
 
-현재 DGX 실측 설정은 Mock이 아닌 Gemma 4 26B Writer/Utility/Vision과 BGE-M3를 사용합니다. Qwen3.5-4B는 namespace 격리 평가 실패로 기본 Utility에서 제외했습니다. 결과는 [`docs/model-evaluations/utility-models.md`](docs/model-evaluations/utility-models.md)에 있습니다.
+현재 DGX 실측 설정은 Gemma 4 26B Writer/Utility/Vision과 BGE-M3 실제 endpoint만 사용합니다. 앱 내 가상 모델 경로는 제거했습니다. Qwen3.5-4B는 namespace 격리 평가 실패로 기본 Utility에서 제외했습니다. 결과는 [`docs/model-evaluations/utility-models.md`](docs/model-evaluations/utility-models.md)에 있습니다.
 
 ## 검증
 

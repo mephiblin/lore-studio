@@ -23,9 +23,9 @@
 | 19 | 후보 추출/승인 | PASS | real extraction/two-step audit |
 | 20 | 참고 구조 분석·사실 격리 | PASS | raw body excluded + leakage tests |
 | 21 | MD/HTML/JSON export | PASS | 실제 byte 결과 |
-| 22 | 외부 모델 없는 Mock E2E | PASS | CI-gated Playwright API loop |
+| 22 | 모델 서비스 미연결 UI E2E | PASS | 성공 응답 조작 없이 OFFLINE 상태와 반응형 UI 검증 |
 | 23 | 실제 Writer/Utility/Embedding 결과 | PASS | `VERIFICATION.md`/evaluation JSON |
 | 24 | migration/tests | PASS | PostgreSQL up/down/up, pytest/build/e2e |
 | 25 | 상태 문서 일치 | PASS | README/TASKS/status/audit updated |
 
-대표 실제 프로젝트 slug는 `real-model-acceptance-20260805`이며 로컬 전용 DB에 남겨 UI 재확인이 가능합니다.
+대표 실제 프로젝트 slug는 `black-route-chronicle`이며 로컬 전용 DB에 정식 컨셉 페이지 9개와 관계·방향성 카드를 보관합니다.

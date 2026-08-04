@@ -10,6 +10,6 @@ Context compiler는 프로젝트 scope, namespace, source role, era/continuity�
 
 Planner는 title/angle/blocks(move, purpose, evidence_ids, budget, must/avoid, locked)의 strict JSON Schema를 반환합니다. 사용자가 계획을 수정·저장한 뒤 Writer가 LoreBlock을 생성합니다. Audit는 원고를 자동 수정하지 않고 finding/Diff로만 제안합니다.
 
-모델 장애 시 세션과 입력은 보존되고 구조화 오류는 명시 오류가 됩니다. Embedding 장애는 lexical search로 축소됩니다. `MOCK_MODEL=true`는 network call 없이 health/JSON/embedding/streaming과 전체 데이터 흐름을 재현하는 CI 경로지만 문체 품질 증거로 사용하지 않습니다.
+모델 장애 시 세션과 입력은 보존되고 구조화 오류는 명시 오류가 됩니다. Embedding 장애는 lexical search로 축소됩니다. 운영 경로는 실제 OpenAI 호환 endpoint만 호출하며 모델이 없거나 응답하지 않으면 성공 응답을 조작하지 않고 명시적으로 실패합니다.
 
 실제 모델 결과와 선택 기준은 `docs/model-evaluations/utility-models.*`와 `VERIFICATION.md`를 참조하십시오.

@@ -39,7 +39,7 @@ migrate:
 	docker compose run --rm backend alembic upgrade head
 
 seed:
-	DATABASE_URL=$(HOST_DATABASE_URL) LORE_STUDIO_API=$(API_URL) $(PYTHON) scripts/seed_demo.py
+	LORE_STUDIO_API=$(API_URL) $(PYTHON) scripts/seed_world.py
 
 reindex:
 	LORE_STUDIO_API=$(API_URL) $(PYTHON) scripts/reindex_all.py

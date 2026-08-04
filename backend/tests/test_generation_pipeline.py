@@ -1,15 +1,53 @@
 import asyncio
+import json
 
-from conftest import isolated_session
+import httpx
+from conftest import HandlerTransport, isolated_session
 from sqlalchemy import select
 
 from app.config import settings
 from app.models import GenerationRun, GenerationStage, LoreBlock, PlaybookSession, Project, WritingRecipe
 from app.services.harness import LoreHarness
+from app.services.model_gateway import ModelGateway
 
 
 def test_generation_persists_required_stages_and_lore_blocks(monkeypatch) -> None:
-    monkeypatch.setattr(settings, "mock_model", True)
+    monkeypatch.setattr(settings, "utility_model_base_url", "http://models.test/v1")
+    monkeypatch.setattr(settings, "utility_model_name", "utility-test")
+    monkeypatch.setattr(settings, "writer_model_base_url", "http://models.test/v1")
+    monkeypatch.setattr(settings, "writer_model_name", "writer-test")
+    monkeypatch.setattr(settings, "model_retry_attempts", 0)
+
+    async def model_handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/v1/models":
+            return httpx.Response(200, json={"data": [{"id": "utility-test"}, {"id": "writer-test"}]})
+        payload = json.loads(request.content)
+        if payload["model"] == "utility-test":
+            content = json.dumps(
+                {
+                    "title": "파이프라인 검증",
+                    "angle": "저장 경계를 검증한다.",
+                    "blocks": [
+                        {
+                            "move": "ORIENT",
+                            "purpose": "맥락을 설명한다.",
+                            "evidence_ids": [],
+                            "word_budget": 300,
+                            "must_include": [],
+                            "avoid": [],
+                        }
+                    ],
+                    "warnings": [],
+                },
+                ensure_ascii=False,
+            )
+        else:
+            content = "첫 문단은 선택한 설정의 맥락을 설명한다.\n\n둘째 문단은 근거와 결론을 연결한다."
+        return httpx.Response(
+            200,
+            json={"model": payload["model"], "choices": [{"message": {"content": content}}], "usage": {}},
+        )
+
     db = isolated_session()
     project = Project(name="파이프라인", slug="pipeline")
     recipe = WritingRecipe(
@@ -40,7 +78,7 @@ def test_generation_persists_required_stages_and_lore_blocks(monkeypatch) -> Non
     db.add(session)
     db.commit()
 
-    harness = LoreHarness()
+    harness = LoreHarness(ModelGateway(transport=HandlerTransport(model_handler)))
     harness.context_preview(db, session)
     asyncio.run(harness.plan(db, session))
     document = asyncio.run(harness.generate(db, session))

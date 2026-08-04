@@ -72,6 +72,6 @@ schema/concept-page.schema.json
 schema/direction-card.schema.json
 schema/playbook-session.schema.json
 schema/writing-recipe.schema.json
-scripts/seed_demo.py
+scripts/seed_world.py
 scripts/smoke_test.sh
 scripts/validate_bundle.py

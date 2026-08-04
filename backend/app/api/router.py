@@ -12,7 +12,6 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.config import settings
 from app.db import get_db
 from app.models import (
     AuditFinding,
@@ -109,7 +108,7 @@ def health() -> dict[str, str]:
 @router.get("/models/status")
 async def model_status() -> dict[str, Any]:
     """Return model availability without exposing endpoints or credentials."""
-    return {"mock_mode": settings.mock_model, "profiles": await harness.gateway.health_all()}
+    return {"mode": "live", "profiles": await harness.gateway.health_all()}
 
 
 @router.get("/presets/page-templates")
