@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.lore-studio/schema/concept-page.schema.json",
+  "title": "ConceptPage",
+  "type": "object",
+  "required": [
+    "project_id",
+    "title",
+    "category_key",
+    "usage_role",
+    "namespace",
+    "body_json"
+  ],
+  "properties": {
+    "project_id": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "category_key": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "usage_role": {
+      "enum": [
+        "PROJECT_CANON",
+        "DRAFT_SETTING",
+        "SOURCE_EVIDENCE",
+        "SECONDARY_INTERPRETATION",
+        "INSPIRATION_ONLY",
+        "DISCOURSE_REFERENCE",
+        "CANDIDATE",
+        "REJECTED"
+      ]
+    },
+    "status": {
+      "enum": [
+        "active",
+        "archived",
+        "candidate",
+        "rejected"
+      ]
+    },
+    "namespace": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "body_json": {
+      "type": "object"
+    },
+    "properties_json": {
+      "type": "object"
+    },
+    "locked_facts": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "open_questions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

@@ -1,0 +1,41 @@
+key: novel_scene
+version: "1.0.0"
+name: 소설 장면형
+description: 인물의 지각·행동·선택을 중심으로 하나의 시간 연속 장면을 작성한다.
+philosophy:
+  - 장면 안에서 시간과 공간의 연속성을 유지한다.
+  - 설명은 인물의 행동·감각·대화 속에 배치한다.
+  - 장면이 끝날 때 상태, 관계, 지식 중 하나는 달라져야 한다.
+required_moves:
+  - ENTER_SCENE
+  - ESTABLISH_GOAL
+  - PRESSURE
+  - CHOICE
+  - CONSEQUENCE
+optional_moves:
+  - REVEAL
+  - REVERSAL
+  - QUIET_BEAT
+moves:
+  - id: ENTER_SCENE
+    purpose: 인물, 장소, 즉각적인 상황을 빠르게 세운다.
+  - id: ESTABLISH_GOAL
+    purpose: 인물이 지금 원하는 것을 장면 안에서 드러낸다.
+  - id: PRESSURE
+    purpose: 목표를 어렵게 만드는 장애·상대·시간 압박을 가한다.
+  - id: CHOICE
+    purpose: 인물이 결과를 바꾸는 선택을 하게 한다.
+  - id: CONSEQUENCE
+    purpose: 선택의 직접 결과와 다음 장면의 긴장을 남긴다.
+planner_rules:
+  - POV 인물이 알 수 없는 정보는 직접 서술하지 않는다.
+  - 두 문단 이상 배경 설명만 이어지면 행동 또는 감각으로 전환한다.
+  - 장면의 핵심 갈등은 하나로 제한한다.
+style_defaults:
+  narrator: third_limited
+  information_density: medium
+  dialogue_ratio: medium
+  temporal_continuity: strict
+audit_rules:
+  - 인물의 위치·소유·지식이 컨셉 페이지와 충돌하지 않는지 확인한다.
+  - 장면이 단순 설명으로 끝나지 않는지 확인한다.

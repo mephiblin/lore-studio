@@ -1,0 +1,28 @@
+key: place
+name: 장소
+icon: map-pin
+properties:
+  - key: parent_location
+    label: 상위 위치
+    type: relation
+    target_categories: [place, region, planet]
+  - key: scale
+    label: 규모
+    type: text
+  - key: environment
+    label: 환경
+    type: text
+  - key: inhabitants
+    label: 주민
+    type: relation_list
+  - key: governing_power
+    label: 통치 세력
+    type: relation
+    target_categories: [organization, person]
+  - key: hazards
+    label: 위험
+    type: list
+  - key: current_state
+    label: 현재 상태
+    type: text
+optional: true

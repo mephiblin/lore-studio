@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WritingRecipe",
+  "type": "object",
+  "required": [
+    "key",
+    "version",
+    "name",
+    "moves",
+    "planner_rules"
+  ],
+  "properties": {
+    "key": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "moves": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "planner_rules": {
+      "type": "array",
+      "items": {
+        "type": [
+          "string",
+          "object"
+        ]
+      }
+    },
+    "style_defaults": {
+      "type": "object"
+    },
+    "audit_rules": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PlaybookSession",
+  "type": "object",
+  "required": [
+    "project_id",
+    "concept_slots",
+    "writing_recipe_id",
+    "settings_json"
+  ],
+  "properties": {
+    "project_id": {
+      "type": "string"
+    },
+    "concept_slots": {
+      "type": "object",
+      "properties": {
+        "subject": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "background": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "elements": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "conflicts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "wildcards": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "direction_card_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "user_direction": {
+      "type": "string"
+    },
+    "writing_recipe_id": {
+      "type": "string"
+    },
+    "output_profile": {
+      "type": "string"
+    },
+    "settings_json": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "enum": [
+            "short",
+            "normal",
+            "long",
+            "very_long",
+            "custom"
+          ]
+        },
+        "detail_level": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "context_depth": {
+          "enum": [
+            "core",
+            "balanced",
+            "wide",
+            "max"
+          ]
+        },
+        "creativity": {
+          "enum": [
+            "strict",
+            "conservative",
+            "balanced",
+            "free"
+          ]
+        }
+      }
+    },
+    "seed": {
+      "type": "integer"
+    }
+  }
+}

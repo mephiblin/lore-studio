@@ -1,0 +1,43 @@
+key: dramatized_lore
+version: "1.0.0"
+name: 극화형 로어
+description: 현재 남은 흔적에서 출발해 장소·사건·괴물의 과거를 짧은 서사로 복원한다.
+philosophy:
+  - 장기 성장 서사보다 로어 대상이 현재 모습이 된 과정을 중심에 둔다.
+  - 확정된 설정 사이의 공백만 보수적으로 극화한다.
+  - 현재의 익숙한 이미지로 돌아오며 로어의 의미를 바꾼다.
+required_moves:
+  - PRESENT_TRACE
+  - BEFORE_STATE
+  - FIRST_FRACTURE
+  - IRREVERSIBLE_EVENT
+  - CANONICAL_ARRIVAL
+optional_moves:
+  - WITNESS
+  - AFTERMATH
+  - CODA
+moves:
+  - id: PRESENT_TRACE
+    purpose: 독자가 이미 알 법한 현재의 장소·괴물·흔적을 제시한다.
+  - id: BEFORE_STATE
+    purpose: 변화 이전의 정상 상태와 원래 기능을 보여준다.
+  - id: FIRST_FRACTURE
+    purpose: 이상 징후 또는 최초의 균열을 구체적인 감각으로 나타낸다.
+  - id: IRREVERSIBLE_EVENT
+    purpose: 되돌릴 수 없는 참사·변질·탄생을 극화한다.
+  - id: CANONICAL_ARRIVAL
+    purpose: 알려진 현재 시점 또는 원작의 상태로 자연스럽게 합류한다.
+  - id: CODA
+    purpose: 대상의 이름·용도·상징을 새롭게 느끼게 하는 여운을 남긴다.
+planner_rules:
+  - 원작에 없는 고유명사와 정밀한 수치를 불필요하게 만들지 않는다.
+  - 목격자는 로어를 보여주는 카메라로 사용하고 장기 주인공 서사를 만들지 않는다.
+  - 확정 사실과 극화용 감각 묘사를 구분한다.
+style_defaults:
+  narrator: historical_external
+  information_density: medium
+  abstract_to_concrete: alternating
+  ending: resonant
+audit_rules:
+  - 극화가 새로운 정사처럼 보이는 고유 사실을 만들지 않았는지 확인한다.
+  - 현재와 과거가 명확히 연결되는지 확인한다.

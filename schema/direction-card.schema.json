@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DirectionCard",
+  "type": "object",
+  "required": [
+    "project_id",
+    "title",
+    "body"
+  ],
+  "properties": {
+    "project_id": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "body": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "weight": {
+      "type": "number",
+      "minimum": 0
+    },
+    "parsed_rules": {
+      "type": "object",
+      "properties": {
+        "must_include": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "avoid": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sequence": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ending_preference": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

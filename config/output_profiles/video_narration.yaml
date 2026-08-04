@@ -1,0 +1,16 @@
+key: video_narration
+version: "1.0.0"
+name: 영상 내레이션
+rules:
+  paragraph_density: medium
+  sentence_length: short_to_medium
+  spoken_clarity: high
+  visual_beat_interval_sentences: [2, 4]
+  parentheses: avoid
+  headings: false
+  evidence_display: hidden
+  target_units: spoken_seconds
+length_presets:
+  short: [90, 180]
+  normal: [240, 480]
+  long: [600, 900]

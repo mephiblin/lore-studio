@@ -1,0 +1,26 @@
+key: artifact
+name: 유물·기술
+icon: box
+properties:
+  - key: maker
+    label: 제작자
+    type: relation
+  - key: origin
+    label: 기원
+    type: relation_list
+  - key: function
+    label: 알려진 기능
+    type: list
+  - key: limits
+    label: 한계·조건
+    type: list
+  - key: owners
+    label: 소유자
+    type: relation_list
+  - key: current_location
+    label: 현재 위치
+    type: relation
+  - key: unknowns
+    label: 미해결 사항
+    type: list
+optional: true

@@ -1,0 +1,30 @@
+{
+  "project_id": "<replace-with-project-id>",
+  "name": "검은 등대 설정 풀이",
+  "concept_slots": {
+    "subject": [
+      "<black-lighthouse-id>"
+    ],
+    "background": [
+      "<era-id>"
+    ],
+    "elements": [
+      "<order-id>"
+    ],
+    "conflicts": [],
+    "wildcards": []
+  },
+  "direction_card_ids": [
+    "<direction-card-id>"
+  ],
+  "user_direction": "개인의 타락보다 사회 전체가 이 기술에 의존하는 과정에 집중한다.",
+  "writing_recipe_id": "<progressive-exposition-recipe-id>",
+  "output_profile": "lore_article",
+  "settings_json": {
+    "length": "long",
+    "detail_level": 4,
+    "context_depth": "wide",
+    "creativity": "conservative"
+  },
+  "seed": 817261
+}

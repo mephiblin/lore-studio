@@ -1,0 +1,15 @@
+key: novel_prose
+version: "1.0.0"
+name: 소설 산문
+rules:
+  paragraph_density: medium
+  sentence_length: varied
+  spoken_clarity: medium
+  scene_continuity: strict
+  headings: false
+  evidence_display: hidden
+  target_units: korean_characters
+length_presets:
+  short: [1500, 3000]
+  normal: [4000, 8000]
+  long: [9000, 16000]

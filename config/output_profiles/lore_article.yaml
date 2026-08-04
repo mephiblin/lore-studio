@@ -1,0 +1,16 @@
+key: lore_article
+version: "1.0.0"
+name: 설정 글
+rules:
+  paragraph_density: high
+  sentence_length: medium_to_long
+  spoken_clarity: medium
+  visual_beat_interval: null
+  headings: optional
+  evidence_display: metadata
+  target_units: korean_characters
+length_presets:
+  short: [800, 1500]
+  normal: [2000, 4000]
+  long: [5000, 8000]
+  very_long: [10000, 18000]

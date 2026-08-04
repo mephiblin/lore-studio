@@ -1,0 +1,31 @@
+key: person
+name: 인물
+icon: user
+properties:
+  - key: aliases
+    label: 별칭
+    type: list
+  - key: affiliation
+    label: 소속
+    type: relation
+    target_categories: [organization]
+  - key: origin
+    label: 출신
+    type: text
+  - key: current_state
+    label: 현재 상태
+    type: text
+  - key: active_era
+    label: 활동 시대
+    type: relation
+    target_categories: [era]
+  - key: goals
+    label: 목표
+    type: list
+  - key: relationships
+    label: 관계
+    type: relation_list
+  - key: secrets
+    label: 비밀
+    type: list
+optional: true

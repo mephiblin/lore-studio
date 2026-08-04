@@ -1,0 +1,25 @@
+key: event
+name: 사건
+icon: calendar
+properties:
+  - key: era
+    label: 시대
+    type: relation
+    target_categories: [era]
+  - key: location
+    label: 장소
+    type: relation_list
+  - key: participants
+    label: 관련 인물·조직
+    type: relation_list
+  - key: causes
+    label: 원인
+    type: relation_list
+  - key: consequences
+    label: 결과
+    type: relation_list
+  - key: certainty
+    label: 확실성
+    type: select
+    options: [confirmed, reported, disputed, inference, open]
+optional: true
