@@ -1,6 +1,6 @@
-import { PUBLIC_API_BASE_URL } from '$env/static/public';
+import { env } from '$env/dynamic/public';
 
-export const API_BASE = PUBLIC_API_BASE_URL || 'http://localhost:8000/api/v1';
+export const API_BASE = env.PUBLIC_API_BASE_URL || 'http://localhost:8000/api/v1';
 
 async function request(path, options = {}) {
   const response = await fetch(`${API_BASE}${path}`, {

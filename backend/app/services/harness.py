@@ -12,7 +12,7 @@ from app.config import settings
 from app.models import GenerationRun, LoreDocument, LoreRevision, PlaybookSession, WritingRecipe
 from app.services.config_loader import load_prompt
 from app.services.context_compiler import compile_context
-from app.services.model_gateway import ModelGateway
+from app.services.model_gateway import ModelCallResult, ModelGateway
 
 
 LENGTH_BUDGETS = {
@@ -136,21 +136,24 @@ class LoreHarness:
 
     async def plan(self, db: Session, session: PlaybookSession) -> dict[str, Any]:
         pack = compile_context(db, session)
+        call_result: ModelCallResult | None = None
         if settings.mock_model:
             plan = _mock_plan(pack)
         else:
             system_prompt = load_prompt("planner.md")
             user_prompt = json.dumps(pack, ensure_ascii=False, indent=2)
-            output = await self.gateway.complete(
+            call_result = await self.gateway.complete(
                 [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
+                role="utility",
                 temperature=0.35,
-                json_mode=True,
+                response_mode="json_object",
                 max_tokens=5000,
+                seed=session.seed,
             )
-            plan = _json_from_text(output)
+            plan = _json_from_text(call_result.content)
 
         session.plan_json = plan
         session.evidence_pack_json = pack
@@ -160,7 +163,7 @@ class LoreHarness:
             project_id=session.project_id,
             session_id=session.id,
             task="plan",
-            model="mock" if settings.mock_model else settings.model_name,
+            model="mock" if settings.mock_model else str(call_result.model),
             runtime="mock" if settings.mock_model else "openai-compatible",
             prompt_components={
                 "recipe": pack.get("writing_recipe", {}).get("key"),
@@ -169,7 +172,10 @@ class LoreHarness:
             },
             selected_concept_ids=_selected_ids(session),
             direction_card_ids=session.direction_card_ids,
-            params_json=session.settings_json,
+            params_json={
+                **session.settings_json,
+                "model_call": call_result.audit_metadata() if call_result else {},
+            },
             input_hash=_stable_hash(pack),
             output_text=json.dumps(plan, ensure_ascii=False),
         )
@@ -182,6 +188,7 @@ class LoreHarness:
         pack = compile_context(db, session)
         plan = session.plan_json or await self.plan(db, session)
 
+        call_result: ModelCallResult | None = None
         if settings.mock_model:
             body = _mock_draft(pack, plan)
         else:
@@ -191,14 +198,17 @@ class LoreHarness:
                 "article_plan": plan,
                 "instruction": "완성된 한국어 본문만 출력하라.",
             }
-            body = await self.gateway.complete(
+            call_result = await self.gateway.complete(
                 [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": json.dumps(payload, ensure_ascii=False, indent=2)},
                 ],
+                role="writer",
                 temperature=0.72,
                 max_tokens=None,
+                seed=session.seed,
             )
+            body = call_result.content
 
         title = str(plan.get("title") or "새 로어 문서")
         document = LoreDocument(
@@ -227,7 +237,7 @@ class LoreHarness:
                 session_id=session.id,
                 document_id=document.id,
                 task="draft",
-                model="mock" if settings.mock_model else settings.model_name,
+                model="mock" if settings.mock_model else str(call_result.model),
                 runtime="mock" if settings.mock_model else "openai-compatible",
                 prompt_components={
                     "recipe": pack.get("writing_recipe", {}).get("key"),
@@ -236,7 +246,10 @@ class LoreHarness:
                 },
                 selected_concept_ids=_selected_ids(session),
                 direction_card_ids=session.direction_card_ids,
-                params_json=session.settings_json,
+                params_json={
+                    **session.settings_json,
+                    "model_call": call_result.audit_metadata() if call_result else {},
+                },
                 input_hash=_stable_hash({"pack": pack, "plan": plan}),
                 output_text=body,
             )

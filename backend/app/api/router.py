@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.db import get_db
 from app.models import ConceptPage, DirectionCard, LoreDocument, PlaybookSession, Project, WritingRecipe
 from app.schemas import (
@@ -42,6 +43,12 @@ def _get_or_404(db: Session, model: type[Any], object_id: str, label: str) -> An
 @router.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@router.get("/models/status")
+async def model_status() -> dict[str, Any]:
+    """Return model availability without exposing endpoints or credentials."""
+    return {"mock_mode": settings.mock_model, "profiles": await harness.gateway.health_all()}
 
 
 @router.get("/presets/page-templates")
