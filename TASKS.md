@@ -1,68 +1,30 @@
-# Lore Studio 구현 백로그
+# Lore Studio 작업 상태
 
-## P0 — 실행 가능한 기반
+마지막 갱신: 2026-08-05
 
-- [x] Docker Compose로 PostgreSQL·백엔드·프론트엔드 기동
-- [x] 프로젝트, 컨셉 페이지, 방향성 카드, 집필 레시피, 플레이북 세션, 로어 문서 모델
-- [x] OpenAI 호환 모델 게이트웨이와 Mock 모드
-- [x] 기본 컨텍스트 컴파일러
-- [x] 구성안 생성과 전체 원고 생성 API
-- [x] 기본 SvelteKit 화면
-- [ ] 데이터베이스 마이그레이션(Alembic)
-- [ ] 인증 없이도 안전한 단일 사용자 로컬 모드 정리
+## v1.0 완료
 
-## P1 — 실제로 매일 쓰는 MVP
+- [x] 전용 PostgreSQL/pgvector volume·network·schema와 Alembic up/down/up
+- [x] 프로젝트, 카테고리, 컨셉, 관계/백링크, 방향성, 버전 레시피, 플레이북 CRUD
+- [x] 권위 상태와 감사 로그, revision, 후보 승인 경계
+- [x] Writer/Utility/Vision/Embedding 역할별 실제 모델 routing·health·retry·JSON Schema·streaming
+- [x] Utility 모델 합성 평가와 Qwen 탈락/Gemma 제한 fallback 기록
+- [x] 프로젝트/namespace/source-role 격리 BGE-M3 청크·재색인·FTS/Dense RRF
+- [x] editable plan, 10단계 generation stage, Tiptap LoreBlock와 근거 메타데이터
+- [x] 문단 잠금, 실제 부분 재작성 Diff, Canon/Discourse/Style 감사
+- [x] 후보 추출과 이번 글만/초안/정사 승인, reference 구조 분석 승인
+- [x] 이미지 Vision 제안, video beat/sound cue/ComfyUI 초안, TTS 문자 수 fallback
+- [x] Markdown/HTML/JSON 내보내기
+- [x] 한국어 반응형 UI, loading/error/empty/progress, Playwright desktop/mobile 검사
+- [x] 기본 offline test, 실제 모델 opt-in test, Mock authoring E2E, CI guard
+- [x] Makefile, DGX/모델/격리/운영/백업/사용/개발/보안 문서
 
-- [ ] Tiptap 커스텀 `LoreBlock` 노드와 문단 메타데이터
-- [ ] 카테고리 프리셋 편집 및 사용자 정의 속성
-- [ ] 태그 자동완성·저장 필터·무작위 풀
-- [ ] 컨셉 페이지 관계 링크와 백링크
-- [ ] 플레이북에서 역할별 다중 선택과 고정/다시 뽑기
-- [ ] 구성안 블록 드래그·잠금·삭제
-- [ ] 선택 문단 재작성, 길이 변경, 설명형↔장면형 변환
-- [ ] Markdown/HTML 내보내기
+## v1.0 이후
 
-## P2 — 근거와 기억
+- [ ] 실제 TTS endpoint adapter와 음성 실측 시간
+- [ ] ComfyUI 작업 제출/상태 수집(현재는 안전한 prompt 초안만)
+- [ ] 대형 관계 그래프·타임라인 전용 시각화
+- [ ] 다중 사용자 인증과 원격 배포 hardening
+- [ ] 다국어 cross-encoder reranker A/B(현재는 lexical + BGE-M3 RRF)
 
-- [ ] PostgreSQL 전문 검색
-- [ ] BGE-M3 임베딩 및 pgvector 또는 Qdrant
-- [ ] 키워드+Dense 하이브리드 검색과 reranker
-- [ ] 문단별 근거 칩 및 출처 열람
-- [ ] Canon Auditor와 Discourse Auditor 분리
-- [ ] 최근 생성의 도입·반전·결말 중복 감지
-- [ ] 네임스페이스/연속성 충돌 경고
-
-## P3 — 순환형 세계관 확장
-
-- [ ] 완성 원고에서 컨셉 후보 추출
-- [ ] 새 페이지 생성 / 기존 페이지 추가 / 이번 글 전용 / 폐기 승인 UI
-- [ ] `CANDIDATE → DRAFT → PROJECT_CANON` 승격 흐름
-- [ ] 후속 로어, 이전 시대, 반대 관점, 다른 레시피로 재작성
-- [ ] 생성 이력과 레시피 버전 A/B 비교
-
-## P4 — 작문 참고 분석
-
-- [ ] 참고 글 문단 분리 및 Rhetorical Move 태깅
-- [ ] 스케일·확실성·긴장·문장 리듬 곡선 시각화
-- [ ] 참고 표본에서 집필 레시피 후보 추출
-- [ ] 원문 문구 모방 억제 및 유사도 검사
-- [ ] 사용자 승인 후 레시피/Voice Profile 저장
-
-## P5 — 멀티모달·영상
-
-- [ ] PDF/웹/영상 전사 수집 계층
-- [ ] 이미지 컨셉 페이지와 캡션 검색
-- [ ] 영상 내레이션 출력 프로필
-- [ ] TTS 실측 길이 기반 축약·확장
-- [ ] 영상 비트·샷 설명·ComfyUI 프롬프트 생성
-
-## 완료 정의
-
-하나의 기능은 다음 조건을 모두 만족할 때 완료로 본다.
-
-- 사용자 흐름에서 접근 가능
-- API·데이터 스키마가 명시됨
-- 실패 상태가 사용자에게 설명됨
-- 생성 실행 또는 데이터 변경이 추적됨
-- 최소 테스트가 존재
-- 관련 문서가 갱신됨
+이 항목들은 현재 단일 사용자 로컬 문서 중심 v1.0의 완료 조건을 막지 않습니다.

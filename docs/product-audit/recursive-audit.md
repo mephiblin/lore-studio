@@ -1,26 +1,26 @@
 # Recursive Product Audit
 
-Overall status: ACTIVE
+Overall status: COMPLETE
 
 ## Completion contract
 
 - Primary user: DGX Spark에서 로컬 모델로 세계관을 축적하고 매일 로어를 집필하는 단일 사용자.
-- Top job: 자료·방향·작문 방식·출력 설정을 통제 가능한 플레이북으로 조합해 근거가 추적되는 편집 가능한 로어를 실제 모델로 완성한다.
-- In scope: 첨부 v1.0 요구사항의 DB, API, 모델, 검색, UI, 감사, 후보 승격, 멀티모달 최소 경로, 테스트, CI, 운영 문서.
-- Non-goals: 외부 클라우드 LLM, 다중 사용자 인증, 저작권 원문/모델 파일 배포, 자동 정사 승격.
-- Constraints: Ubuntu ARM64/DGX Spark, Docker Compose, PostgreSQL/pgvector, 로컬 OpenAI 호환 API, 프로젝트별 데이터 격리.
-- Completion gates: 첨부 25개 완료 조건, 실제 Writer/Utility/Embedding 대표 흐름, 기본 오프라인 테스트, build/Compose/migration/E2E, 모든 FIX_NOW 검증.
+- Top job: 자료·방향·작문 방식·출력 설정을 재현 가능한 플레이북으로 조합해 근거가 추적되는 편집 가능한 로어를 실제 모델로 완성한다.
+- In scope: 첨부 v1.0의 DB, API, 역할별 모델, 검색, UI, 감사, 후보 승격, 멀티모달 최소 경로, 테스트, CI, 운영 문서.
+- Non-goals: 외부 cloud LLM, 다중 사용자 인증, 모델 파일 배포, 자동 정사 승격, 실제 TTS/ComfyUI 서버 자체 제공.
+- Constraints: Ubuntu ARM64/DGX Spark, Docker Compose, PostgreSQL/pgvector, 로컬 OpenAI-compatible API, 프로젝트 데이터 격리.
+- Completion gates: 25개 인수 조건, 실제 Writer/Utility/Vision/Embedding 대표 실행, offline test/build/Mock E2E, Compose/migration/browser, 모든 FIX_NOW 검증.
 
 ## Product snapshot
 
-- Repository / surface: `/home/inri/문서/lore-studio`, FastAPI + SvelteKit + Tiptap.
+- Repository / surface: `/home/inri/문서/lore-studio`; FastAPI, SvelteKit, Tiptap, PostgreSQL, llama.cpp.
 - Baseline revision or date: `facfc4f`, 2026-08-05.
-- Runtime / test entry points: `docker compose`, `pytest`, `npm run build`, `/api/v1`, browser UI.
-- Existing documentation: `README.md`, `TASKS.md`, `VERIFICATION.md`, `docs/*.md`, attached v1.0 completion contract.
+- Runtime / test entry points: `docker compose`, `make test`, `make e2e`, `make test-models`, `/api/v1`, browser UI.
+- Existing documentation: README, TASKS, VERIFICATION, acceptance, architecture/data/harness, nine local operation guides, model evaluation JSON/Markdown.
 
 ## Current conclusion
 
-설계 철학과 최소 Context→Plan→Draft 골격은 일관되지만 starter를 v1.0으로 신뢰할 수 없다. production frontend build, migration, role-based real-model routing, authority transitions, search/index isolation, daily-use editing flows and acceptance coverage are absent. Real Gemma Writer and BGE-M3 endpoints are available and have answered probe requests, so the implementation will target real integration rather than Mock as the completion proof.
+Lore Studio는 starter가 아니라 실제 local-first v1.0으로 신뢰할 수 있다. 운영 DB는 Alembic과 전용 vector schema를 사용하고, 권위·reference·namespace 경계는 모델 판단이 아닌 서비스 코드와 테스트가 강제한다. 현재 Compose는 Mock이 아니며 Gemma Writer/Utility/Vision과 BGE-M3로 대표 생성·검색·이미지·수정·후보·export를 완료했다. 외부 TTS/ComfyUI가 없을 때는 명시된 fallback만 사용한다.
 
 ## Cycle 1
 
@@ -28,69 +28,73 @@ Overall status: ACTIVE
 
 | ID | Severity | Domain | Finding | Evidence | Disposition | Acceptance criterion | Status |
 |---|---|---|---|---|---|---|---|
-| F-001 | P1 | Persistence | 런타임 create_all에 의존하며 Alembic, pgvector, lore_app/lore_vector 격리가 없다. | `backend/app/main.py`, no `alembic/`; baseline Compose inspection. | FIX_NOW | Fresh PostgreSQL migrates up/down/up and app uses isolated DB/schema/volume/network. | OPEN |
-| F-002 | P1 | Models | 단일 모델 프로필이고 실제 role routing, health, capability, retry, streaming, structured output, fallback 기록이 없다. | Baseline `backend/app/services/model_gateway.py`; real endpoint probes. | FIX_NOW | Writer/Utility/Vision/Embedding health and representative real calls pass; used profile/model/params persist. | IMPLEMENTED |
-| F-003 | P1 | Authority | 후보 상태와 승인 경계가 API/service invariant로 강제되지 않는다. | Models exist but router has no candidate transition endpoint or audit log. | FIX_NOW | Illegal direct canon transition fails; explicit audited candidate→draft→canon flow passes. | OPEN |
-| F-004 | P1 | Retrieval | Project-isolated FTS/vector/RRF/reindex flow is absent. | No embedding model/service/table/API. | FIX_NOW | Selected pages always included; role/namespace filters and isolated BGE-M3 indexing/search pass. | OPEN |
-| F-005 | P1 | Frontend | Production build fails and required editor/playbook/document flows are not usable. | `npm run build` fails on static env import; route source inspection. | FIX_NOW | Build and critical browser journeys pass with Korean errors, loading, persistence, and exports. | OPEN |
-| F-006 | P1 | Generation | Required staged run, editable plan, LoreBlock metadata, rewrite Diff, three audits and candidate extraction are absent. | Harness implements only context→plan→draft. | FIX_NOW | Stage IO is persisted and representative plan/edit/draft/rewrite/audit/candidate/export flows pass. | OPEN |
-| F-007 | P2 | Operations | Required commands, CI, backup/restore/security/model/evaluation docs are absent. | Makefile and docs inventory. | FIX_NOW | Requested commands and CI checks execute; operational docs match verified behavior. | OPEN |
+| F-001 | P1 | Persistence | 운영 DB가 create_all에 의존하고 migration/vector 격리가 없었다. | PostgreSQL up/down/up; lore_app 21 tables와 lore_vector 1 table; dedicated volume/network. | FIX_NOW | Fresh PostgreSQL migration과 app startup이 통과한다. | VERIFIED |
+| F-002 | P1 | Models | 단일 profile이고 role routing, capability, retry, structured output, streaming 기록이 없었다. | Actual status와 calls; SSE progress; GenerationRun model/usage; gateway tests. | FIX_NOW | Writer/Utility/Vision/Embedding 실제 호출과 audit가 통과한다. | VERIFIED |
+| F-003 | P1 | Authority | 후보와 정사 승인 경계가 API invariant가 아니었다. | Illegal direct transition 409; candidate two-step promotion audit logs. | FIX_NOW | CANDIDATE에서만 명시 두 단계 승격이 가능하다. | VERIFIED |
+| F-004 | P1 | Retrieval | project-isolated FTS/vector/reindex가 없었다. | Real BGE-M3 index job and Dense hit; leakage/filter tests. | FIX_NOW | 명시 선택, role/namespace 격리, isolated vector search가 통과한다. | VERIFIED |
+| F-005 | P1 | Frontend | production build 실패와 핵심 편집 흐름 부재가 있었다. | Build PASS; Playwright desktop/mobile; reviewed screenshots; no overflow/errors. | FIX_NOW | 한국어 critical journey와 responsive build가 통과한다. | VERIFIED |
+| F-006 | P1 | Generation | editable Plan, LoreBlock, Diff, audits, candidates, exports가 없었다. | Actual 5-block plan, 5 LoreBlocks, real Diff, candidates and three exports. | FIX_NOW | 단계 IO와 대표 plan/draft/rewrite/audit/candidate/export가 저장된다. | VERIFIED |
+| F-007 | P2 | Operations | CI, backup/restore, model and security docs가 없었다. | Make targets, GitHub Actions, nine operation docs and guards. | FIX_NOW | 요청 명령과 CI config/bundle checks가 실행 가능하다. | VERIFIED |
 
 ### Research log
 
 | Question | Conclusion | Sources | Inference / limits |
 |---|---|---|---|
-| Are real local models available? | Yes: Gemma 4 26B and Qwen3.5 4B are loaded behind llama.cpp router; BGE-M3 embedding server is listening. | Local `/v1/models`, process arguments, actual completion/embedding responses on 2026-08-05. | Utility JSON-mode compatibility is not yet established; first router request returned 500. |
-| Should new model files be downloaded? | No. Required classes already exist locally; downloading would add risk and violate opt-in intent. | Local filesystem inventory and attached `ALLOW_MODEL_DOWNLOAD=false` requirement. | Qwen utility acceptance still requires evaluation. |
-| Can starter status claims be trusted? | No. Current `VERIFICATION.md` describes a prior environment and frontend success is contradicted by today’s build failure. | Reproduced local commands above. | Results may change after implementation; report will be rewritten per cycle. |
+| 새 utility GGUF를 바로 받아야 하는가? | 아니다. 로컬 후보를 먼저 평가했고 Qwen은 안전 gate 실패, Gemma는 통과했다. | 로컬 9-case 결과; Hugging Face Qwen model card https://huggingface.co/FadedRedStar/Qwen3.5-4B-heretic-GGUF | E4B는 로컬에 없어 NOT RUN이며 다운로드는 계속 opt-in이다. |
+| Vision에 무엇이 필요한가? | llama.cpp의 image input은 호환 model과 mmproj가 필요하고 alias를 discovery와 맞춰야 한다. | llama.cpp CLI README https://github.com/ggml-org/llama.cpp/blob/master/tools/cli/README.md | 현재 Gemma mmproj 조합은 실제 PNG 분석으로 검증했다. |
+| GGUF와 mmproj 파일을 저장소가 관리해야 하는가? | 아니다. format/model artifact는 외부에 두고 정확한 파일과 hash만 운영자가 승인한다. | GGUF spec https://github.com/ggml-org/ggml/blob/master/docs/gguf.md; llama.cpp quantize README https://github.com/ggml-org/llama.cpp/blob/master/tools/quantize/README.md | 다운로드 script는 resume, size, streaming SHA를 지원하지만 기본 차단된다. |
 
 ### Decision and implementation
 
-- Selected approach: establish real-model profiles first, then centralize persistence/authority/retrieval invariants, expose APIs, and build UI on stable contracts.
-- Alternatives considered: keep SQLite/create_all for convenience (rejected for production and migration isolation); complete UI atop current skeleton (rejected because domain boundaries are not enforced); download requested named utility model (rejected because viable local candidates exist).
-- Changes made: baseline execution, real endpoint discovery/probes, role-based Writer/Utility/Vision/Embedding profiles, model discovery/health/capabilities, retry, JSON object/schema requests, streaming, dimension-checked embeddings, Utility→Writer fallback, GenerationRun call metadata, frontend build fix, durable reports.
-- Files / migrations / documentation: `backend/app/config.py`, `backend/app/services/model_gateway.py`, `backend/app/services/harness.py`, `backend/app/api/router.py`, model tests, `.env.example`, frontend API client, status documents.
+- Selected approach: persistence/authority/search invariant를 서비스 경계에 먼저 두고 role gateway와 staged generation을 연결한 뒤 문서 중심 UI를 구축했다.
+- Alternatives considered: SQLite 운영, 외부 vector DB 공유, Qwen 자동 fallback, 자동 canon 승격은 각각 migration, isolation, safety, authority 계약을 위반해 배제했다.
+- Changes made: 22-table domain, Alembic, role gateway, hybrid search, 10-stage harness, LoreBlock/Diff/audits/candidates/reference/Vision/video fallback, responsive UI, tests/CI/ops.
+- Files / migrations / documentation: `backend/app`, `backend/alembic`, `frontend/src`, `frontend/tests`, `scripts`, `.github/workflows/ci.yml`, README/TASKS/VERIFICATION와 `docs` 전체.
 
 ### Verification
 
 | Check | Command or method | Result | Artifact / evidence |
 |---|---|---|---|
-| Existing Python tests | `.venv/bin/pytest -q backend/tests` | PASS (3) | terminal output, implementation status. |
-| Existing frontend build | `cd frontend && npm run build` | FAIL | Missing static public env export in `src/lib/api.js`. |
-| Compose config | `make bootstrap && docker compose config --quiet` | PASS | Local `.env` created from ignored example. |
-| Real Writer probe | POST `/v1/chat/completions` with Gemma 4 26B | PASS | Model ID and usage/timings returned. |
-| Real Utility JSON probe | App gateway with Qwen3.5 4B direct profile | PASS | Parsed `{\"status\":\"ok\"}`; initial malformed curl probe was not a model defect. |
-| Real BGE-M3 probe | POST `/v1/embeddings` | PASS | Non-empty embedding returned. |
-| Role gateway units | `.venv/bin/pytest -q backend/tests/test_model_gateway.py ...` | PASS (5) | Retry/config/JSON and dimension boundary covered. |
-| Real role integration | `RUN_LOCAL_MODEL_TESTS=true RUN_EMBEDDING_TESTS=true ... pytest backend/tests/test_local_models.py` | PASS (2) | Gemma Writer, Qwen Utility JSON, BGE-M3 1024-dimension. |
-| Frontend production build | `cd frontend && npm run build` | PASS | adapter-node output generated. |
+| Python logic/API | `.venv/bin/pytest -q` | PASS; 11 passed, 3 opt-in skipped | authority, leakage, context, search, gateway, generation, API integration tests |
+| Static/bundle | Ruff and `scripts/validate_bundle.py` | PASS | Python, JSON Schema, YAML |
+| Frontend | `npm --prefix frontend run build` | PASS | adapter-node production output |
+| Browser real data | `make e2e` | PASS; 10 passed, 2 Mock-flow skipped | desktop 1600x900 and mobile 390x844, controls and overflow |
+| Mock isolated authoring | Mock Compose plus `E2E_API_FLOW=true` Playwright | PASS; 10 passed, 2 real-data skipped | project through plan, document, Diff, candidate, three exports; no model network |
+| PostgreSQL migration | Alembic upgrade, downgrade, upgrade | PASS | vector extension and two schemas |
+| Actual model stack | Compose status and representative API calls | PASS | mock false; Gemma and BGE available; endpoint/key hidden |
+| Actual model opt-in tests | `make test-models` | PASS; 3 passed | Writer/Utility JSON, BGE-M3 dimension, Vision data URL |
+| Actual creative loop | plan, generate, rewrite, candidate, reference, Vision, export, SSE | PASS | local DB runs and `VERIFICATION.md` metrics |
+| Utility evaluation | two real local model candidates, 9 cases each | PASS decision | Qwen rejected; Gemma selected; committed JSON/Markdown |
 
 ### Re-audit
 
-- Regressions checked: no product code changed yet.
-- New or changed findings: none.
-- Remaining `FIX_NOW` items: F-001 through F-007.
-- Recursion decision: CONTINUE
+- Regressions checked: build, API startup/migration, authority invariant, reference fact exclusion, search filters, model-disabled Mock flow, desktop/mobile viewport and existing real data reload.
+- New or changed findings: no remaining in-scope correctness finding. Static Playwright session tool was unavailable, so equivalent Chromium runner evidence and screenshots were reviewed.
+- Remaining `FIX_NOW` items: none.
+- Recursion decision: STOP_COMPLETE
 
 ## Residual risks
 
 | Risk | Impact | Mitigation / owner | Revisit trigger |
 |---|---|---|---|
-| Local model endpoints may differ between host and Compose networking. | Real integration unavailable inside container. | Configurable profiles, health UI, documented host binding; verify Compose path. | Integration phase. |
-| Long real-model runs consume substantial unified memory/time. | Test instability or contention. | Small deterministic probes first; explicit opt-in full evaluations. | Evaluation phase. |
+| Local model servers are host processes and not Compose-managed. | Reboot can leave roles unavailable. | Document exact start/health commands and expose per-role readiness. | DGX reboot or model alias change. |
+| Gemma Utility missed one source-role semantic case. | Bad model suggestion could mislabel evidence. | Deterministic code owns source roles and promotions; suggestions never auto-apply. | A smaller candidate passes every gate. |
+| No real TTS/ComfyUI endpoint was configured. | Timing and media job submission remain estimates/drafts. | Graceful character estimate and prompt fallback. | User configures those external services. |
 
 ## Future capability backlog
 
 | Priority | Capability | User value | Dependency | Revisit trigger | Current disposition |
 |---|---|---|---|---|---|
-| P3 | Multi-user auth and remote access hardening | Shared studio use | Stable single-user v1.0 | A second user/remote deployment is requested. | DEFER |
-| P3 | Full graph/timeline canvas | Large-world visualization | Reliable relations/search | Daily-use text workflows are complete. | DEFER |
+| P2 | Real TTS and ComfyUI adapters | Measured narration and direct media jobs | Stable external API credentials | User supplies endpoint contract. | DEFER |
+| P3 | Cross-encoder reranker A/B | Better very-large-world retrieval | Representative corpus | Search quality regression is measured. | DEFER |
+| P3 | Graph/timeline canvas | Large-world navigation | Mature relations | Text workflow becomes the bottleneck. | DEFER |
+| P3 | Multi-user auth | Shared studio | Remote deployment hardening | A second user or network exposure is requested. | DEFER |
 
 ## Final completion checklist
 
-- [ ] Completion contract passes.
-- [ ] All `FIX_NOW` findings are `VERIFIED`.
-- [ ] Required tests, builds, and critical journeys pass.
-- [ ] Current conclusion and residual risks match the product.
-- [ ] Future backlog is prioritized without expanding current scope.
-- [ ] Final report validation passes.
+- [x] Completion contract passes.
+- [x] All `FIX_NOW` findings are `VERIFIED`.
+- [x] Required tests, builds, and critical journeys pass.
+- [x] Current conclusion and residual risks match the product.
+- [x] Future backlog is prioritized without expanding current scope.
+- [x] Final report validation passes.

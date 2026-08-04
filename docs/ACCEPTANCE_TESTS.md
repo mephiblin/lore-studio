@@ -1,36 +1,31 @@
-# 제품 인수 기준
+# v1.0 인수 결과
 
-## 시나리오 A — 설정 축적
+| # | 조건 | 결과 | 증거 |
+|---:|---|---|---|
+| 1 | Compose build/up | PASS | DB healthy, API 18000, UI 5173 |
+| 2 | 프로젝트 생성 | PASS | 실제 API/UI 프로젝트 |
+| 3 | 자유 본문 저장 | PASS | API integration + Tiptap UI |
+| 4 | 카테고리/태그/역할/관계 검색 | PASS | page filters, related_to/relation_type, backlinks |
+| 5 | 방향성 카드 다중 조합 | PASS | UI multi-select/conflict warning |
+| 6 | 역할 선택/필터 풀 추첨 | PASS | 플레이북 4 소재 슬롯 |
+| 7 | 고정/재추첨/seed 재현 | PASS | 결정론적 PRNG와 seed UI |
+| 8 | 레시피/출력/길이/상세도/범위/자유도 | PASS | 플레이북 3·4단계 |
+| 9 | 사실/질문/금지/참고 구분 | PASS | context preview 3패널 |
+| 10 | editable plan | PASS | 실제 Gemma 5 blocks + 편집 UI |
+| 11 | Gemma Writer 전체 원고 | PASS | 1,039자/5 blocks |
+| 12 | 검증된 Utility | PASS | Gemma pass, Qwen reject |
+| 13 | BGE-M3 검색 | PASS | 실제 Compose Dense hit |
+| 14 | 임베딩 저장소 격리 | PASS | lore_studio_pgdata/lore_vector |
+| 15 | LoreBlock 저장 | PASS | Tiptap custom node + DB rows |
+| 16 | 부분 재작성 Diff 승인/취소 | PASS | real proposal/apply + dismiss API/UI |
+| 17 | 근거와 감사 | PASS | evidence chip + 3 auditors |
+| 18 | 자동 정사 금지 | PASS | invariant/API test |
+| 19 | 후보 추출/승인 | PASS | real extraction/two-step audit |
+| 20 | 참고 구조 분석·사실 격리 | PASS | raw body excluded + leakage tests |
+| 21 | MD/HTML/JSON export | PASS | 실제 byte 결과 |
+| 22 | 외부 모델 없는 Mock E2E | PASS | CI-gated Playwright API loop |
+| 23 | 실제 Writer/Utility/Embedding 결과 | PASS | `VERIFICATION.md`/evaluation JSON |
+| 24 | migration/tests | PASS | PostgreSQL up/down/up, pytest/build/e2e |
+| 25 | 상태 문서 일치 | PASS | README/TASKS/status/audit updated |
 
-1. 사용자는 프로젝트를 만든다.
-2. `장소` 템플릿으로 컨셉 페이지를 만든다.
-3. 본문만 작성하고 구조화 속성을 비워도 저장된다.
-4. 카테고리·태그·사용 역할로 필터링할 수 있다.
-
-## 시나리오 B — 방향성 카드
-
-1. 사용자는 자유 텍스트로 방향성 카드를 만든다.
-2. 카드의 원문은 구조화 제안과 별도로 보존된다.
-3. 플레이북에서 카드 여러 장을 선택할 수 있다.
-
-## 시나리오 C — 로어 생성
-
-1. 주요 대상, 배경, 등장 요소를 선택한다.
-2. 점층적 설정 풀이형 레시피를 선택한다.
-3. 길이·상세도·자료 범위·창작 자유도를 지정한다.
-4. 컨텍스트 미리보기에는 잠긴 사실과 열린 질문이 구분된다.
-5. 구성안이 JSON 블록으로 생성된다.
-6. 원고가 로어 문서로 저장된다.
-7. 생성 실행에 선택 입력과 모델 정보가 기록된다.
-
-## 시나리오 D — 권위 경계
-
-1. 생성 원고에 새로운 설정이 등장한다.
-2. 이 설정은 자동으로 `PROJECT_CANON`이 되지 않는다.
-3. 사용자가 명시적으로 승인해야 컨셉 페이지로 승격된다.
-
-## 시나리오 E — 다른 IP 참고
-
-1. 작문 참고 글을 `DISCOURSE_REFERENCE`로 저장한다.
-2. 다른 프로젝트의 글을 생성할 때 그 참고 글의 사실은 컨텍스트 근거에 포함되지 않는다.
-3. 레시피 분석 결과만 사용할 수 있다.
+대표 실제 프로젝트 slug는 `real-model-acceptance-20260805`이며 로컬 전용 DB에 남겨 UI 재확인이 가능합니다.
