@@ -1,6 +1,13 @@
+import { browser } from '$app/environment';
 import { env } from '$env/dynamic/public';
 
-export const API_BASE = env.PUBLIC_API_BASE_URL || 'http://localhost:18000/api/v1';
+const apiPort = env.PUBLIC_API_PORT || '18000';
+
+export const API_BASE =
+  env.PUBLIC_API_BASE_URL ||
+  (browser
+    ? `${window.location.protocol}//${window.location.hostname}:${apiPort}/api/v1`
+    : `http://localhost:${apiPort}/api/v1`);
 
 async function request(path, options = {}) {
   const response = await fetch(`${API_BASE}${path}`, {

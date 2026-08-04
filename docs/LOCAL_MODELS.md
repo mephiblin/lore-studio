@@ -21,7 +21,7 @@ llama-server -m /models/bge-m3-Q4_K_M.gguf --embedding --pooling cls \
   --alias bge-m3 --host 0.0.0.0 --port 8010 -c 8192
 ```
 
-Compose에서 접근하려면 서버가 `127.0.0.1`이 아니라 `0.0.0.0`에 바인딩돼야 합니다. 앱 포트 자체는 로컬호스트에만 공개됩니다. alias는 `curl http://127.0.0.1:8080/v1/models`의 `id`와 `.env`의 `*_MODEL_NAME`이 정확히 일치해야 합니다. 이미지 입력은 모델과 짝이 맞는 mmproj가 필요합니다.
+Compose에서 접근하려면 서버가 `127.0.0.1`이 아니라 `0.0.0.0`에 바인딩돼야 합니다. Lore Studio UI/API는 신뢰 LAN에 공개되지만 모델 포트 8080/8010은 호스트 방화벽으로 LAN 직접 접근을 제한하는 것을 권장합니다. alias는 `curl http://127.0.0.1:8080/v1/models`의 `id`와 `.env`의 `*_MODEL_NAME`이 정확히 일치해야 합니다. 이미지 입력은 모델과 짝이 맞는 mmproj가 필요합니다.
 
 ```bash
 make test-models

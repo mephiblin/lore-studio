@@ -22,10 +22,12 @@ cp .env.example .env
 docker compose up --build
 ```
 
-- UI: `http://localhost:5173`
-- API 문서: `http://localhost:18000/docs`
-- 모델 상태: `http://localhost:18000/api/v1/models/status`
+- LAN UI: `http://192.168.200.103:5173` (호스트에서는 `http://localhost:5173`)
+- LAN API 문서: `http://192.168.200.103:18000/docs`
+- LAN 모델 상태: `http://192.168.200.103:18000/api/v1/models/status`
 - PostgreSQL: `127.0.0.1:55432` (Lore Studio 전용 volume)
+
+UI/API는 현재 신뢰하는 LAN 접속을 위해 `0.0.0.0`에 바인딩되며, DB는 로컬호스트에만 유지됩니다. 인증이 없으므로 라우터 포트 포워딩으로 인터넷에 공개하지 마십시오.
 
 현재 DGX 실측 설정은 Mock이 아닌 Gemma 4 26B Writer/Utility/Vision과 BGE-M3를 사용합니다. Qwen3.5-4B는 namespace 격리 평가 실패로 기본 Utility에서 제외했습니다. 결과는 [`docs/model-evaluations/utility-models.md`](docs/model-evaluations/utility-models.md)에 있습니다.
 

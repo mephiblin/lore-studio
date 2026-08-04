@@ -34,7 +34,7 @@ Utility 9-case 결과는 Qwen3.5-4B가 namespace 누출로 탈락했고 Gemma4-2
 
 ## 남은 제한
 
-실제 TTS와 ComfyUI job 제출 endpoint는 설정되지 않아 TTS 글자 수 추정과 ComfyUI prompt 초안 fallback만 검증했습니다. 이는 v1.0의 외부 서비스 선택 기능이며 앱 실패 원인이 되지 않습니다. 다중 사용자 인증/원격 노출, 관계 그래프, cross-encoder reranker는 v1.0 이후 항목입니다.
+실제 TTS와 ComfyUI job 제출 endpoint는 설정되지 않아 TTS 글자 수 추정과 ComfyUI prompt 초안 fallback만 검증했습니다. 이는 v1.0의 외부 서비스 선택 기능이며 앱 실패 원인이 되지 않습니다. 신뢰 LAN 접속은 허용했지만 다중 사용자 인증/인터넷 노출, 관계 그래프, cross-encoder reranker는 v1.0 이후 항목입니다.
 
 ## 현재 실행과 다음 확인
 
@@ -45,4 +45,4 @@ curl http://127.0.0.1:18000/api/v1/models/status
 make test && make lint && make e2e
 ```
 
-UI는 `http://localhost:5173`, API 문서는 `http://localhost:18000/docs`입니다. BGE 검증용 호스트 서버는 8010 포트에서 실행 중이며 운영 재부팅 후 `docs/LOCAL_MODELS.md` 명령으로 다시 시작해야 합니다.
+LAN UI는 `http://192.168.200.103:5173`, API 문서는 `http://192.168.200.103:18000/docs`입니다. PostgreSQL은 계속 `127.0.0.1:55432`에만 바인딩됩니다. BGE 검증용 호스트 서버는 8010 포트에서 실행 중이며 운영 재부팅 후 `docs/LOCAL_MODELS.md` 명령으로 다시 시작해야 합니다.
