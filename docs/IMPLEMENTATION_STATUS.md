@@ -15,9 +15,10 @@
 - 프로젝트 중심 전역 메뉴와 모든 주요 화면의 프로젝트 선택·추가
 - 세계관 자료/프로젝트 집필 지침 분리, 이름 기반 관계 생성·삭제와 자연어 관계 표시
 - 주제·배경·주요 요소·갈등·집필 지침·공유 전개 방식·글 형태를 한 질문씩 진행하는 설문형 글 만들기, 시점·시제 생성 기록 저장
-- 프로젝트별 강조 원칙(DirectionCard)과 프로젝트 독립 전개 패턴(WritingRecipe)을 별도 단계와 API 범위로 격리
+- 프로젝트별 집필 지침(DirectionCard)과 프로젝트 독립 전개 방식(WritingRecipe)을 별도 단계와 API 범위로 격리
+- UI 핵심 용어를 `세계관 자료 / 집필 지침 / 전개 방식 / 결과물 형태 / 초안 / 완성본 / 로어북`으로 통일하고 정보 구조 문서에 사용 규칙 고정
 - `사용할 설정 확인 → 글의 흐름 만들기 → 초안 작성`의 쉬운 생성 동선, 문단 방식 툴팁, 압축형 흐름 편집, 생성 초안 자동 열기
-- `초안 편집 → 완성 설정 → 완성본 만들기`의 단계형 원고 작업, 수정 가능한 완성 설정, 별도 로어북 저장, 초안 변경 감지와 로어북 export
+- `초안 편집 → 완성 설정 → 완성본 만들기`의 단계형 원고 작업, 제목·상태·문단 추가/수정/삭제 원자 저장, 단계 이동 자동 저장, 수정 가능한 완성 설정, 별도 로어북 저장, 초안 변경 감지와 로어북 export
 - 반응형 한국어 UI, 가로 잘림 없는 모바일 하단 메뉴·단계 그리드, 자료 선택 후 본문 이동, 모바일 원고 선택·문단 편집, desktop/mobile Playwright, 정보 구조 문서, Makefile/CI/운영 문서
 
 ## 실제 환경 증거
@@ -29,11 +30,11 @@ Utility 9-case 결과는 Qwen3.5-4B가 namespace 누출로 탈락했고 Gemma4-2
 ## 최종 검증
 
 - Ruff PASS
-- pytest `11 passed, 3 skipped` (실제 endpoint opt-in tests는 기본 run에서 skip)
+- pytest `13 passed, 3 skipped` (실제 endpoint opt-in tests는 기본 run에서 skip)
 - 실제 모델 opt-in `3 passed` (Writer/Utility, Embedding, Vision)
 - bundle/schema/YAML PASS
 - Svelte production build PASS
-- 실제 데이터 Playwright `17 passed, 1 skipped` (360/390px 메뉴·단계 폭, 자료 선택 후 본문 이동, 프로젝트 생성·정리, 자료 역할 선택, 생성 단계 gate, 수정 가능한 완성 설정, 로어북 분리 포함)
+- 실제 데이터 Playwright `18 passed, 2 skipped` (360/390px 메뉴·단계 폭, 자료 선택 후 본문 이동, 프로젝트 생성·정리, 자료 역할 선택, 생성 단계 gate, 원고 자동 저장·새로고침 복원, 수정 가능한 완성 설정, 로어북 분리 포함)
 - 모델 서비스 미연결 UI E2E `10 passed`
 - Compose build/up 및 DB health PASS
 - PostgreSQL Alembic upgrade/downgrade/upgrade PASS

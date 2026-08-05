@@ -24,9 +24,9 @@
     { key: 'elements', slot: 'elements', short: '주요 요소', title: '꼭 함께 다룰 것은 무엇인가요?', copy: '글에서 비중 있게 등장할 인물·사건·유물 등을 고르세요. 여러 개를 선택할 수 있습니다.', next: '갈등·변수로 계속' },
     { key: 'conflicts', slot: 'conflicts', short: '갈등·변수', title: '무엇이 긴장과 변화를 만드나요?', copy: '충돌, 위험, 반전의 원인이 될 자료를 고르세요. 없어도 됩니다.', next: '집필 지침으로 계속' },
     { key: 'guidance', short: '집필 지침', title: '이번 글에서 무엇을 강조하거나 피할까요?', copy: '현재 프로젝트에 저장한 강조점과 금지 원칙입니다. 여러 개를 고르거나 건너뛸 수 있습니다.', next: '전개 방식으로 계속' },
-    { key: 'recipe', short: '전개 방식', title: '글을 어떤 패턴으로 풀어갈까요?', copy: '프로젝트 자료와 무관한 공통 프리셋입니다. 정보가 드러나는 순서 하나를 고르세요.', required: true, next: '글 형태로 계속' },
-    { key: 'settings', short: '글 형태', title: '어떤 형태의 글로 만들까요?', copy: '결과물 종류, 시점·시제와 분량을 정하세요.', next: '확인·작성으로 계속' },
-    { key: 'review', short: '확인·작성', title: '선택을 확인하고 원고를 만드세요.', copy: '사용할 세계관을 확인하고, 글의 흐름을 정한 뒤 원고를 작성합니다.' }
+    { key: 'recipe', short: '전개 방식', title: '글을 어떤 방식으로 풀어갈까요?', copy: '세계관 자료와 무관한 공통 전개 방식입니다. 정보가 드러나는 순서 하나를 고르세요.', required: true, next: '결과물 형태로 계속' },
+    { key: 'settings', short: '결과물 형태', title: '어떤 결과물로 만들까요?', copy: '결과물 종류, 시점·시제와 분량을 정하세요.', next: '확인·작성으로 계속' },
+    { key: 'review', short: '확인·작성', title: '선택을 확인하고 초안을 만드세요.', copy: '사용할 세계관을 확인하고, 글의 흐름을 정한 뒤 초안을 작성합니다.' }
   ];
   $: selectedCards = cards.filter((card) => directionCardIds.includes(card.id));
   $: selectedRecipe = recipes.find((recipe) => recipe.id === recipeId);
@@ -174,7 +174,7 @@
 
   async function runAction(kind) {
     error = '';
-    busy = kind === 'context-preview' ? '선택한 세계관을 정리하는 중' : kind === 'plan' ? 'AI가 글의 흐름을 만드는 중' : 'Writer가 원고를 작성하는 중';
+    busy = kind === 'context-preview' ? '선택한 세계관을 정리하는 중' : kind === 'plan' ? 'AI가 글의 흐름을 만드는 중' : 'Writer가 초안을 작성하는 중';
     try {
       const current = await ensureSession();
       if (kind === 'generate' && planDirty) await savePlan();
@@ -207,7 +207,7 @@
 
 <div class="page playbook-page">
   <div class="page-header">
-    <div><p class="eyebrow">글 만들기</p><h1>쓸 대상과 전개 방식을 고르세요.</h1><p>프로젝트 자료와 집필 지침을 고르고, 공통 전개 패턴을 적용해 원고를 작성합니다.</p></div>
+    <div><p class="eyebrow">글 만들기</p><h1>쓸 대상과 전개 방식을 고르세요.</h1><p>세계관 자료와 집필 지침을 고르고, 공통 전개 방식을 적용해 초안을 작성합니다.</p></div>
     <div class="project-tools"><label class="project-select">현재 프로젝트<select bind:value={projectId} on:change={changeProject}>{#each projects as project}<option value={project.id}>{project.name}</option>{/each}</select></label><ProjectCreator onCreated={projectCreated} /></div>
   </div>
 
@@ -231,7 +231,7 @@
     {#if activeSlot}
       <div class="wizard-layout">
         <div class="wizard-picker card">
-          <div class="library-toolbar"><div><strong>프로젝트 자료</strong><small>{wizardPages.length}개 선택 가능</small></div><input aria-label={`${activeStep.short} 자료 검색`} bind:value={conceptSearch} placeholder="제목·태그·요약 검색" /><select aria-label="자료 종류" bind:value={categoryFilter}><option value="all">모든 종류</option><option value="person">인물</option><option value="place">장소</option><option value="event">사건</option><option value="artifact">유물·기술</option><option value="free">기타</option></select></div>
+          <div class="library-toolbar"><div><strong>세계관 자료</strong><small>{wizardPages.length}개 선택 가능</small></div><input aria-label={`${activeStep.short} 자료 검색`} bind:value={conceptSearch} placeholder="제목·태그·요약 검색" /><select aria-label="자료 종류" bind:value={categoryFilter}><option value="all">모든 종류</option><option value="person">인물</option><option value="place">장소</option><option value="event">사건</option><option value="artifact">유물·기술</option><option value="free">자유 자료</option></select></div>
           <div class="wizard-card-grid">
             {#each wizardPages as page}
               <button class:selected={activeIds.includes(page.id)} class="wizard-choice-card" aria-pressed={activeIds.includes(page.id)} on:click={() => toggleConcept(page.id)}>
@@ -279,8 +279,8 @@
     {:else if activeStep.key === 'settings'}
       <div class="settings-grid wizard-settings">
         <div class="card stack">
-          <h3>결과물과 서술</h3>
-          <label>결과물<select bind:value={outputProfile} on:change={resetRun}><option value="lore_article">세계관 설명 글</option><option value="video_narration">영상 내레이션</option><option value="novel_prose">소설 장면</option><option value="in_universe_report">세계 내부 문서</option></select></label>
+          <h3>결과물 형태</h3>
+          <label>결과물 종류<select bind:value={outputProfile} on:change={resetRun}><option value="lore_article">세계관 설명 글</option><option value="video_narration">영상 내레이션</option><option value="novel_prose">소설 장면</option><option value="in_universe_report">세계 내부 문서</option></select></label>
           <div class="grid-2"><label>시점<select bind:value={viewpoint} on:change={resetRun}><option value="omniscient">전지적 설명자</option><option value="first_observer">1인칭 관찰자</option><option value="third_limited">3인칭 제한</option></select></label><label>시제<select bind:value={tense} on:change={resetRun}><option value="present">현재형 중심</option><option value="past">과거형 중심</option></select></label></div>
         </div>
         <div class="card stack">
@@ -299,14 +299,14 @@
         <article><div><span>갈등·변수</span><strong>{selectedPages(conflictIds).map((page) => page.title).join(', ') || '선택 안 함'}</strong></div><button class="ghost" on:click={() => setWizardStep(3)}>수정</button></article>
         <article><div><span>집필 지침</span><strong>{selectedCards.map((card) => card.title).join(', ') || '선택 안 함'}</strong></div><button class="ghost" on:click={() => setWizardStep(4)}>수정</button></article>
         <article><div><span>전개 방식</span><strong>{selectedRecipe?.name || '선택 필요'}</strong></div><button class="ghost" on:click={() => setWizardStep(5)}>수정</button></article>
-        <article><div><span>글 형태</span><strong>{outputProfile === 'lore_article' ? '세계관 설명 글' : outputProfile === 'video_narration' ? '영상 내레이션' : outputProfile === 'novel_prose' ? '소설 장면' : '세계 내부 문서'} · {viewpoint === 'omniscient' ? '전지적 설명자' : viewpoint === 'first_observer' ? '1인칭 관찰자' : '3인칭 제한'}</strong></div><button class="ghost" on:click={() => setWizardStep(6)}>수정</button></article>
+        <article><div><span>결과물 형태</span><strong>{outputProfile === 'lore_article' ? '세계관 설명 글' : outputProfile === 'video_narration' ? '영상 내레이션' : outputProfile === 'novel_prose' ? '소설 장면' : '세계 내부 문서'} · {viewpoint === 'omniscient' ? '전지적 설명자' : viewpoint === 'first_observer' ? '1인칭 관찰자' : '3인칭 제한'}</strong></div><button class="ghost" on:click={() => setWizardStep(6)}>수정</button></article>
       </div>
       <section class="wizard-run-panel">
         <div class="run-summary"><strong>{subject?.title}</strong><span>보조 자료 {totalSupporting}개 · 집필 지침 {directionCardIds.length}개 · {selectedRecipe?.name}</span><small>세 단계를 차례로 진행합니다. 작성된 초안은 원고 작업 화면에서 바로 열립니다.</small></div>
         <div class="run-actions">
           <div class="run-action"><div><span>1</span><HelpTip label="사용할 설정 확인 설명" text="선택한 자료에서 AI가 사실로 쓸 내용과 임의로 바꾸면 안 되는 내용을 먼저 보여 줍니다." /></div><button class="secondary" disabled={!!busy || !subject} on:click={() => runAction('context-preview')}>{preview ? '✓ 사용할 설정 확인됨' : '사용할 설정 확인'}</button></div>
           <div class="run-action"><div><span>2</span><HelpTip label="글의 흐름 만들기 설명" text="원고를 쓰기 전에 각 문단이 어떤 순서로 무엇을 설명할지 목록으로 만듭니다." /></div><button class="secondary" disabled={!!busy || !subject || !preview} on:click={() => runAction('plan')}>{plan ? '✓ 글의 흐름 준비됨' : '글의 흐름 만들기'}</button></div>
-          <div class="run-action"><div><span>3</span><HelpTip label="원고 작성 설명" text="확인한 세계관과 글의 흐름을 바탕으로 초안을 쓰고, 원고 작업 화면으로 이동합니다." /></div><button class="primary" disabled={!!busy || !plan || cardConflicts.length} on:click={() => runAction('generate')}>초안 작성</button></div>
+          <div class="run-action"><div><span>3</span><HelpTip label="초안 작성 설명" text="확인한 세계관과 글의 흐름을 바탕으로 초안을 쓰고, 원고 작업 화면으로 이동합니다." /></div><button class="primary" disabled={!!busy || !plan || cardConflicts.length} on:click={() => runAction('generate')}>초안 작성</button></div>
         </div>
       </section>
     {/if}

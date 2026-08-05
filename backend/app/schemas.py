@@ -446,6 +446,26 @@ class LoreBlockUpdate(BaseModel):
     locked: bool | None = None
 
 
+class DraftBlockSave(BaseModel):
+    id: str | None = None
+    content_markdown: str = Field(min_length=1)
+    rhetorical_move: str = "ANCHOR"
+    evidence_ids: list[str] = Field(default_factory=list)
+    certainty: str = "CANDIDATE"
+    locked: bool = False
+
+
+class DraftSaveRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=400)
+    status: str = "draft"
+    blocks: list[DraftBlockSave] = Field(min_length=1)
+
+
+class DraftSaveRead(BaseModel):
+    document: LoreDocumentRead
+    blocks: list[LoreBlockRead]
+
+
 class RewriteRequest(BaseModel):
     operation: str
     instruction: str = ""

@@ -312,7 +312,7 @@
               <label>자료 이름 <input bind:value={pageForm.title} placeholder="예: 황혼 시장" /></label>
               <div class="grid-2">
                 <label>종류<select bind:value={pageForm.category_key}>{#each templates as template}<option value={template.key}>{template.name}</option>{/each}</select></label>
-                <label>용도<select bind:value={pageForm.purpose}><option value="setting">세계관 설정</option><option value="evidence">정사 근거</option><option value="inspiration">영감 자료</option><option value="style">문체 참고</option></select></label>
+                <label>용도<select bind:value={pageForm.purpose}><option value="setting">세계관 설정</option><option value="evidence">정식 설정 근거</option><option value="inspiration">영감 자료</option><option value="style">문체 참고</option></select></label>
               </div>
               <button class="primary" disabled={!pageForm.title.trim()} on:click={createPage}>자료 만들기</button>
             </div>

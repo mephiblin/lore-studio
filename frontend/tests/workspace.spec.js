@@ -61,7 +61,7 @@ test('a project can be added after projects already exist', async ({ page }, tes
 test('project-first workflow exposes understandable controls', async ({ page }, testInfo) => {
   test.skip(process.env.E2E_EXPECT_DATA !== 'true', 'requires the curated Black Route world project');
   await page.goto('/');
-  await expect(page.getByText('원고 작성')).toBeVisible();
+  await expect(page.getByText('글 작성')).toBeVisible();
   await expect(page.getByText('자료 검색')).toBeVisible();
   await expect(page.getByText('준비됨').first()).toBeVisible();
   await expect(page.getByRole('button', { name: /새 프로젝트/ })).toBeVisible();
@@ -121,23 +121,23 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
   await expect(page.getByText(/현재 프로젝트에 저장한/)).toBeVisible();
   await page.getByRole('button', { name: /선택 없이 전개 방식으로/ }).click();
 
-  await expect(page.getByRole('heading', { name: /어떤 패턴으로 풀어갈까요/ })).toBeVisible();
-  await expect(page.getByText(/프로젝트 자료와 무관한 공통 프리셋/)).toBeVisible();
+  await expect(page.getByRole('heading', { name: /어떤 방식으로 풀어갈까요/ })).toBeVisible();
+  await expect(page.getByText(/세계관 자료와 무관한 공통 전개 방식/)).toBeVisible();
   const causalPattern = page.locator('.recipe-option').filter({ hasText: '원인에서 파급으로' });
   await causalPattern.click();
   await expect(causalPattern).toHaveAttribute('aria-pressed', 'true');
   await expect(causalPattern).toContainText('시작 원인');
   await expect(causalPattern).toContainText('사회의 파급');
-  await page.getByRole('button', { name: /글 형태로 계속/ }).click();
+  await page.getByRole('button', { name: /결과물 형태로 계속/ }).click();
 
-  await expect(page.getByRole('heading', { name: /어떤 형태의 글로/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /어떤 결과물로/ })).toBeVisible();
   await expect(page.getByLabel('시점')).toHaveValue('omniscient');
   await expect(page.getByLabel('시제')).toHaveValue('present');
   await page.getByLabel('시점').selectOption('third_limited');
   await page.getByLabel('시제').selectOption('past');
   await page.getByRole('button', { name: /확인·작성으로 계속/ }).click();
 
-  await expect(page.getByRole('heading', { name: /선택을 확인하고 원고를/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /선택을 확인하고 초안을/ })).toBeVisible();
   await expect(page.locator('.wizard-review-grid')).toContainText('검은 등대');
   await expect(page.locator('.wizard-review-grid')).toContainText('회수실');
   await expect(page.locator('.wizard-review-grid')).toContainText('레아 벨');
@@ -172,12 +172,12 @@ test('document workflow separates draft editing, editable final settings, and lo
   await expect(page.locator('.document-wizard-progress').getByRole('button', { name: /완성 설정/ })).toBeVisible();
   await expect(page.locator('.document-wizard-progress').getByRole('button', { name: /완성본 만들기/ })).toBeVisible();
   await page.getByRole('button', { name: /완성 설정으로 계속/ }).click();
-  await expect(page.getByRole('heading', { name: '완성본의 글 형태를 다시 정하세요.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '완성본의 결과물 형태를 다시 정하세요.' })).toBeVisible();
   await expect(page.getByLabel('전개 방식')).toBeVisible();
-  await expect(page.getByLabel('결과물')).toHaveValue('video_narration');
+  await expect(page.getByLabel('결과물 종류')).toHaveValue('video_narration');
   await page.getByLabel('시점').selectOption('first_observer');
   await page.getByLabel('시제').selectOption('present');
-  await page.getByLabel('이번 완성본의 집필 지시').fill('완성 단계에서 바꾼 지시');
+  await page.getByLabel('완성본의 추가 지시').fill('완성 단계에서 바꾼 지시');
   await page.getByRole('button', { name: /설정 확인으로 계속/ }).click();
   await expect(page.getByText('1인칭 관찰자 · 현재형 중심')).toBeVisible();
   await expect(page.getByText('완성 단계에서 바꾼 지시')).toBeVisible();
@@ -188,4 +188,64 @@ test('document workflow separates draft editing, editable final settings, and lo
   await page.goto('/lorebook');
   await page.getByLabel('현재 프로젝트').selectOption({ label: '검은 항로 연대기' });
   await expect(page.getByRole('heading', { name: '완성된 글만 모아 읽고 보관합니다.' })).toBeVisible();
+});
+
+test('draft edits and a new paragraph are saved before moving to final settings', async ({ page }, testInfo) => {
+  test.skip(process.env.E2E_EXPECT_DATA !== 'true', 'requires the curated Black Route draft');
+  test.skip(testInfo.project.name !== 'desktop', 'mutates and restores one curated draft');
+  test.setTimeout(60_000);
+  const apiBase = 'http://localhost:18000/api/v1';
+  const marker = `자동 저장 검증 ${Date.now()}`;
+
+  await page.goto('/documents');
+  const blackProjectId = await page.getByLabel('현재 프로젝트').locator('option', { hasText: '검은 항로 연대기' }).getAttribute('value');
+  const documentsResponsePromise = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return url.pathname.endsWith('/api/v1/documents') && url.searchParams.get('project_id') === blackProjectId;
+  });
+  await page.getByLabel('현재 프로젝트').selectOption({ label: '검은 항로 연대기' });
+  const projectDocuments = await (await documentsResponsePromise).json();
+  const documentId = projectDocuments[0].id;
+  await expect(page.getByLabel(/작업할 초안/)).toHaveValue(documentId);
+  await expect(page.getByLabel('초안 제목')).toHaveValue(projectDocuments[0].title);
+  const originalDocument = await (await page.request.get(`${apiBase}/documents/${documentId}`)).json();
+  const originalBlocks = await (await page.request.get(`${apiBase}/documents/${documentId}/blocks`)).json();
+
+  try {
+    await page.getByLabel('초안 제목').fill(`${originalDocument.title} · ${marker}`);
+    await page.getByLabel('1번 문단 내용').fill(`${originalBlocks[0].content_markdown}\n\n${marker}`);
+    await page.getByRole('button', { name: '+ 새 문단 추가' }).click();
+    await page.getByLabel(`${originalBlocks.length + 1}번 문단 내용`).fill(`${marker} 새 문단`);
+    await expect(page.getByText('저장 안 됨')).toBeVisible();
+
+    const saveRequestPromise = page.waitForRequest((request) =>
+      request.method() === 'PATCH' && request.url().endsWith(`/documents/${documentId}/draft`)
+    );
+    await page.getByRole('button', { name: /저장하고 완성 설정으로 계속/ }).click();
+    const saveRequest = await saveRequestPromise;
+    expect(saveRequest.postDataJSON().blocks).toHaveLength(originalBlocks.length + 1);
+    expect((await saveRequest.response()).status()).toBe(200);
+    await expect(page.getByRole('heading', { name: '완성본의 결과물 형태를 다시 정하세요.' })).toBeVisible();
+
+    await page.reload();
+    await expect(page.getByLabel('초안 제목')).toHaveValue(`${originalDocument.title} · ${marker}`);
+    await expect(page.getByLabel('1번 문단 내용')).toHaveValue(new RegExp(marker));
+    await expect(page.getByLabel(`${originalBlocks.length + 1}번 문단 내용`)).toHaveValue(`${marker} 새 문단`);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  } finally {
+    await page.request.patch(`${apiBase}/documents/${documentId}/draft`, {
+      data: {
+        title: originalDocument.title,
+        status: originalDocument.status,
+        blocks: originalBlocks.map((block) => ({
+          id: block.id,
+          content_markdown: block.content_markdown,
+          rhetorical_move: block.rhetorical_move,
+          evidence_ids: block.evidence_ids,
+          certainty: block.certainty,
+          locked: block.locked,
+        })),
+      },
+    });
+  }
 });

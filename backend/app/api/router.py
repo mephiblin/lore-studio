@@ -49,6 +49,8 @@ from app.schemas import (
     DirectionCardCreate,
     DirectionCardRead,
     DirectionCardUpdate,
+    DraftSaveRead,
+    DraftSaveRequest,
     FinalizationRead,
     FinalizationRequest,
     GenerationResult,
@@ -103,6 +105,40 @@ def _draft_document_or_404(db: Session, document_id: str) -> LoreDocument:
     if document.document_kind != "draft":
         raise _error(404, "DRAFT_NOT_FOUND", "편집 중인 초안을 찾을 수 없습니다.")
     return document
+
+
+def _block_content_json(block: LoreBlock) -> dict[str, Any]:
+    return {
+        "type": "loreBlock",
+        "attrs": {
+            "id": block.id,
+            "rhetoricalMove": block.rhetorical_move,
+            "playbookStep": block.playbook_step,
+            "evidenceIds": block.evidence_ids,
+            "certainty": block.certainty,
+            "sourceRole": block.source_role,
+            "generationRun": block.generation_run_id,
+            "locked": block.locked,
+            "candidateClaims": block.candidate_claims,
+            "auditWarnings": block.audit_warnings,
+        },
+        "content": [
+            {
+                "type": "paragraph",
+                "content": [{"type": "text", "text": block.content_markdown}],
+            }
+        ],
+    }
+
+
+def _sync_draft_document(document: LoreDocument, blocks: list[LoreBlock]) -> None:
+    for block in blocks:
+        block.content_json = _block_content_json(block)
+    document.body_markdown = "\n\n".join(block.content_markdown for block in blocks)
+    document.body_json = {
+        "type": "doc",
+        "content": [block.content_json for block in blocks],
+    }
 
 
 def _require_project(entity: Any, project_id: str, label: str) -> None:
@@ -710,6 +746,91 @@ def update_document(
     return document
 
 
+@router.patch("/documents/{document_id}/draft", response_model=DraftSaveRead)
+def save_draft(
+    document_id: str,
+    payload: DraftSaveRequest,
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Save the editable title and the complete ordered block list as one revision."""
+    document = _draft_document_or_404(db, document_id)
+    existing = list(
+        db.scalars(
+            select(LoreBlock)
+            .where(LoreBlock.document_id == document_id)
+            .order_by(LoreBlock.position)
+        ).all()
+    )
+    by_id = {block.id: block for block in existing}
+    incoming_ids = [item.id for item in payload.blocks if item.id]
+    if len(incoming_ids) != len(set(incoming_ids)):
+        raise _error(422, "DUPLICATE_BLOCK", "같은 문단이 두 번 포함되어 있습니다.")
+    unknown_ids = [block_id for block_id in incoming_ids if block_id not in by_id]
+    if unknown_ids:
+        raise _error(422, "BLOCK_SCOPE_MISMATCH", "이 초안에 속하지 않은 문단이 포함되어 있습니다.")
+
+    omitted = [block for block in existing if block.id not in incoming_ids]
+    if any(block.locked for block in omitted):
+        raise _error(409, "LOCKED_BLOCK_DELETE", "잠긴 문단은 잠금을 푼 뒤 삭제할 수 있습니다.")
+
+    if not payload.title.strip():
+        raise _error(422, "EMPTY_TITLE", "초안 제목을 입력해 주세요.")
+    document.title = payload.title.strip()
+    document.status = payload.status
+    temporary_base = max((block.position for block in existing), default=0) + len(existing) + 1000
+    saved_blocks: list[LoreBlock] = []
+    for index, item in enumerate(payload.blocks):
+        content = item.content_markdown
+        if not content.strip():
+            raise _error(422, "EMPTY_BLOCK", f"{index + 1}번 문단이 비어 있습니다.")
+        block = by_id.get(item.id) if item.id else None
+        if block is None:
+            block = LoreBlock(
+                document_id=document_id,
+                position=temporary_base + index,
+                content_markdown=content,
+                rhetorical_move=item.rhetorical_move,
+                evidence_ids=item.evidence_ids,
+                certainty=item.certainty,
+                source_role="CANDIDATE",
+                locked=item.locked,
+            )
+            db.add(block)
+        else:
+            protected_change = any(
+                (
+                    block.content_markdown != content,
+                    block.rhetorical_move != item.rhetorical_move,
+                    block.evidence_ids != item.evidence_ids,
+                    block.certainty != item.certainty,
+                )
+            )
+            if block.locked and protected_change and item.locked:
+                raise _error(409, "BLOCK_LOCKED", "잠긴 문단은 잠금을 푼 뒤 수정할 수 있습니다.")
+            block.position = temporary_base + index
+            block.content_markdown = content
+            block.rhetorical_move = item.rhetorical_move
+            block.evidence_ids = item.evidence_ids
+            block.certainty = item.certainty
+            block.locked = item.locked
+            db.add(block)
+        saved_blocks.append(block)
+
+    for block in omitted:
+        db.delete(block)
+    db.flush()
+    for index, block in enumerate(saved_blocks):
+        block.position = index
+    _sync_draft_document(document, saved_blocks)
+    db.add(document)
+    add_lore_revision(db, document, reason="user_draft_save", author_type="user")
+    db.commit()
+    db.refresh(document)
+    for block in saved_blocks:
+        db.refresh(block)
+    return {"document": document, "blocks": saved_blocks}
+
+
 @router.get("/documents/{document_id}/blocks", response_model=list[LoreBlockRead])
 def list_document_blocks(document_id: str, db: Session = Depends(get_db)) -> list[LoreBlock]:
     _draft_document_or_404(db, document_id)
@@ -726,11 +847,24 @@ def list_document_blocks(document_id: str, db: Session = Depends(get_db)) -> lis
 def update_block(block_id: str, payload: LoreBlockUpdate, db: Session = Depends(get_db)) -> LoreBlock:
     block = _get_or_404(db, LoreBlock, block_id, "LoreBlock")
     changes = payload.model_dump(exclude_unset=True)
-    if block.locked and any(key != "locked" for key in changes):
+    protected_changes = {
+        key: value for key, value in changes.items() if key != "locked" and getattr(block, key) != value
+    }
+    if block.locked and protected_changes and changes.get("locked") is not False:
         raise _error(409, "BLOCK_LOCKED", "잠긴 문단은 내용을 변경할 수 없습니다.")
     for key, value in changes.items():
         setattr(block, key, value)
-    db.add(block)
+    document = _draft_document_or_404(db, block.document_id)
+    blocks = list(
+        db.scalars(
+            select(LoreBlock)
+            .where(LoreBlock.document_id == document.id)
+            .order_by(LoreBlock.position)
+        ).all()
+    )
+    _sync_draft_document(document, blocks)
+    db.add_all([block, document])
+    add_lore_revision(db, document, reason="user_block_save", author_type="user")
     db.commit()
     db.refresh(block)
     return block
@@ -930,7 +1064,7 @@ def apply_finding(finding_id: str, db: Session = Depends(get_db)) -> AuditFindin
             .order_by(LoreBlock.position)
         ).all()
     )
-    document.body_markdown = f"# {document.title}\n\n" + "\n\n".join(item.content_markdown for item in blocks)
+    _sync_draft_document(document, blocks)
     db.add_all([block, finding, document])
     add_lore_revision(db, document, reason="approved_block_rewrite")
     db.commit()

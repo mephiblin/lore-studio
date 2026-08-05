@@ -1,11 +1,11 @@
 export const roleLabels = {
   PROJECT_CANON: '정식 설정',
   DRAFT_SETTING: '설정 초안',
-  CANON_EVIDENCE: '정사 근거',
+  CANON_EVIDENCE: '정식 설정 근거',
   SECONDARY_INTERPRETATION: '해석 자료',
   INSPIRATION: '영감 자료',
   DISCOURSE_REFERENCE: '문체 참고',
-  CANDIDATE: '검토 후보',
+  CANDIDATE: '설정 후보',
   REJECTED: '제외됨'
 };
 
@@ -31,7 +31,7 @@ export const relationLabels = {
 };
 
 export const modelRoleLabels = {
-  writer: '원고 작성',
+  writer: '글 작성',
   utility: '구성·분석',
   vision: '이미지 이해',
   embedding: '자료 검색'

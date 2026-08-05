@@ -414,6 +414,9 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
 .document-lock { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 .document-lock input { width: auto; }
 .document-block-editor { min-height: 190px; border: 0; background: var(--paper-deep); font: 16px/1.8 Georgia, "Noto Serif KR", serif; }
+.draft-dirty { margin-left: 6px; color: var(--signal); font-size: 10px; font-weight: 760; }
+.add-document-block { width: 100%; min-height: 54px; border: 1px dashed #8ca098; color: var(--ink-soft); background: #f7faf8; }
+.add-document-block:hover { border-color: var(--signal); color: var(--signal); background: #fff; }
 .document-inspector { min-width: 0; }
 .final-generate-button { min-height: 44px; }
 

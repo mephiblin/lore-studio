@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DraftSaveRequest",
+  "description": "제목, 상태, 순서가 있는 전체 원고 문단을 하나의 사용자 리비전으로 저장한다.",
+  "type": "object",
+  "required": ["title", "status", "blocks"],
+  "properties": {
+    "title": { "type": "string", "minLength": 1, "maxLength": 400 },
+    "status": { "enum": ["draft", "review", "approved", "archived"] },
+    "blocks": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/block" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "block": {
+      "type": "object",
+      "required": ["content_markdown", "rhetorical_move", "evidence_ids", "certainty", "locked"],
+      "properties": {
+        "id": { "type": ["string", "null"] },
+        "content_markdown": { "type": "string", "minLength": 1 },
+        "rhetorical_move": { "type": "string" },
+        "evidence_ids": { "type": "array", "items": { "type": "string" } },
+        "certainty": { "type": "string" },
+        "locked": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

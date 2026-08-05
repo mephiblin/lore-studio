@@ -16,7 +16,7 @@
 | 12 | 검증된 Utility | PASS | Gemma pass, Qwen reject |
 | 13 | BGE-M3 검색 | PASS | 실제 Compose Dense hit |
 | 14 | 임베딩 저장소 격리 | PASS | lore_studio_pgdata/lore_vector |
-| 15 | LoreBlock 저장 | PASS | Tiptap custom node + DB rows, 생성 완료 후 해당 원고 작업으로 이동, 모바일 편집 UI |
+| 15 | LoreBlock 저장 | PASS | 제목·상태·전체 문단 원자 저장, 문단 추가/수정/삭제, 단계 이동 자동 저장과 새로고침 복원, 모바일 편집 UI |
 | 16 | 부분 재작성 Diff 승인/취소 | PASS | real proposal/apply + dismiss API/UI |
 | 17 | 근거와 감사 | PASS | UUID 대신 자료명 근거 chip + 3 auditors |
 | 18 | 자동 정사 금지 | PASS | invariant/API test |

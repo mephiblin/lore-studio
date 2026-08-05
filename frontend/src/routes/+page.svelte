@@ -77,7 +77,7 @@
 
   <section class="flow-strip" aria-label="작업 흐름">
     <div><span>1</span><strong>세계관 자료</strong><small>인물·장소·사건을 기록합니다.</small></div>
-    <div><span>2</span><strong>글 만들기</strong><small>쓸 대상과 방향을 선택합니다.</small></div>
+    <div><span>2</span><strong>글 만들기</strong><small>쓸 대상과 전개 방식을 선택합니다.</small></div>
     <div><span>3</span><strong>원고 작업</strong><small>초안을 편집하고 완성 설정을 정합니다.</small></div>
     <div><span>4</span><strong>로어북</strong><small>완성된 글을 읽고 보관합니다.</small></div>
   </section>
