@@ -15,8 +15,8 @@
 - 프로젝트 중심 전역 메뉴와 모든 주요 화면의 프로젝트 선택·추가
 - 세계관 자료/글의 방향 규칙 분리, 이름 기반 관계 생성·삭제와 자연어 관계 표시
 - 주제·배경·주요 요소·갈등·전개 방향·글 형태를 한 질문씩 진행하는 설문형 글 만들기, 시점·시제 생성 기록 저장
-- `사용할 설정 확인 → 글의 흐름 만들기 → 원고 작성`의 쉬운 생성 동선, 문단 방식 툴팁, 압축형 흐름 편집, 생성 원고 자동 열기
-- `초안 편집 → 완성본`의 2단계 원고 수명 주기, 플레이북 입력 재사용 전체 글 다듬기, 초안 변경 감지, 버전별 export
+- `사용할 설정 확인 → 글의 흐름 만들기 → 초안 작성`의 쉬운 생성 동선, 문단 방식 툴팁, 압축형 흐름 편집, 생성 초안 자동 열기
+- `초안 편집 → 완성 설정 → 완성본 만들기`의 단계형 원고 작업, 수정 가능한 완성 설정, 별도 로어북 저장, 초안 변경 감지와 로어북 export
 - 반응형 한국어 UI와 모바일 원고 선택·문단 편집, desktop/mobile Playwright, 정보 구조 문서, Makefile/CI/운영 문서
 
 ## 실제 환경 증거
@@ -32,7 +32,7 @@ Utility 9-case 결과는 Qwen3.5-4B가 namespace 누출로 탈락했고 Gemma4-2
 - 실제 모델 opt-in `3 passed` (Writer/Utility, Embedding, Vision)
 - bundle/schema/YAML PASS
 - Svelte production build PASS
-- 실제 데이터 Playwright `14 passed` (프로젝트 생성·정리, 자료 역할 선택, 생성 단계 gate, 시점·시제 요청 기록, 초안→완성본 반응형 동선 포함)
+- 실제 데이터 Playwright `16 passed` (프로젝트 생성·정리, 자료 역할 선택, 생성 단계 gate, 수정 가능한 완성 설정, 로어북 분리와 반응형 동선 포함)
 - 모델 서비스 미연결 UI E2E `10 passed`
 - Compose build/up 및 DB health PASS
 - PostgreSQL Alembic upgrade/downgrade/upgrade PASS

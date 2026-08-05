@@ -285,9 +285,11 @@ class LoreDocumentRead(ORMModel):
     title: str
     body_markdown: str
     body_json: dict[str, Any]
-    final_body_markdown: str
-    finalized_from_hash: str
-    finalized_at: datetime | None
+    document_kind: str
+    source_document_id: str | None
+    source_draft_hash: str
+    generation_inputs_json: dict[str, Any]
+    published_at: datetime | None
     status: str
     created_at: datetime
     updated_at: datetime
@@ -295,14 +297,21 @@ class LoreDocumentRead(ORMModel):
 
 class FinalizationRequest(BaseModel):
     instruction: str = Field(default="", max_length=2000)
+    user_direction: str | None = Field(default=None, max_length=4000)
+    writing_recipe_id: str | None = None
+    output_profile: str | None = None
+    settings_json: dict[str, Any] | None = None
 
 
-class FinalBodyUpdate(BaseModel):
+class LoreBookUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=400)
     body_markdown: str = Field(min_length=1)
+    status: str | None = None
 
 
 class FinalizationRead(BaseModel):
-    document: LoreDocumentRead
+    source_document: LoreDocumentRead
+    lorebook_entry: LoreDocumentRead | None
     status: str
     draft_changed: bool
     current_draft_hash: str

@@ -6,7 +6,8 @@
     { href: '/', label: '프로젝트', mark: '⌂' },
     { href: '/editor', label: '세계관 자료', mark: '◇' },
     { href: '/playbook', label: '글 만들기', mark: '▶' },
-    { href: '/documents', label: '원고 편집', mark: '▤' }
+    { href: '/documents', label: '원고 작업', mark: '▤' },
+    { href: '/lorebook', label: '로어북', mark: '▥' }
   ];
 </script>
 

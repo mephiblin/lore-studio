@@ -107,12 +107,25 @@ def test_generation_persists_required_stages_and_lore_blocks(monkeypatch) -> Non
     assert db.query(GenerationRun).filter_by(session_id=session.id).count() == 2
 
     result = asyncio.run(
-        harness.finalize_document(db, document, instruction="문단 사이의 시간 흐름을 연결한다.")
+        harness.finalize_document(
+            db,
+            document,
+            instruction="문단 사이의 시간 흐름을 연결한다.",
+            user_direction="완성본에서는 시민의 시선을 중심에 둔다.",
+            output_profile="novel_prose",
+            settings_json={"viewpoint": "first_observer", "tense": "present"},
+        )
     )
     assert result["status"] == "ready"
     assert result["draft_changed"] is False
-    assert document.final_body_markdown
-    assert document.finalized_from_hash == result["current_draft_hash"]
+    lorebook_entry = result["lorebook_entry"]
+    assert lorebook_entry is not None
+    assert lorebook_entry.document_kind == "lorebook"
+    assert lorebook_entry.source_document_id == document.id
+    assert lorebook_entry.body_markdown
+    assert lorebook_entry.source_draft_hash == result["current_draft_hash"]
+    assert document.document_kind == "draft"
+    assert document.body_markdown
 
     final_run = db.scalar(
         select(GenerationRun).where(
@@ -123,10 +136,11 @@ def test_generation_persists_required_stages_and_lore_blocks(monkeypatch) -> Non
     assert final_run is not None
     assert final_run.input_json["editable_draft"]
     reused = final_run.input_json["original_writing_request"]
-    assert reused["user_direction"] == session.user_direction
-    assert reused["output_profile"]["key"] == "lore_article"
-    assert reused["generation_settings"]["viewpoint"] == "third_limited"
-    assert reused["generation_settings"]["tense"] == "past"
+    assert reused["user_direction"] == "완성본에서는 시민의 시선을 중심에 둔다."
+    assert reused["output_profile"]["key"] == "novel_prose"
+    assert reused["generation_settings"]["viewpoint"] == "first_observer"
+    assert reused["generation_settings"]["tense"] == "present"
+    assert session.user_direction == "도시의 대가를 마지막까지 숨기지 않는다."
     assert db.scalar(
         select(GenerationStage).where(GenerationStage.step == "FINAL_COHERENCE_PASS")
     ) is not None

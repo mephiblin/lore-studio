@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import difflib
 import json
-from datetime import UTC, datetime
 from typing import Any
 
 import markdown
@@ -50,7 +49,6 @@ from app.schemas import (
     DirectionCardCreate,
     DirectionCardRead,
     DirectionCardUpdate,
-    FinalBodyUpdate,
     FinalizationRead,
     FinalizationRequest,
     GenerationResult,
@@ -58,6 +56,7 @@ from app.schemas import (
     IndexJobRead,
     LoreBlockRead,
     LoreBlockUpdate,
+    LoreBookUpdate,
     LoreDocumentRead,
     LoreDocumentUpdate,
     PlanUpdate,
@@ -97,6 +96,13 @@ def _get_or_404(db: Session, model: type[Any], object_id: str, label: str) -> An
 
 def _error(status_code: int, code: str, message: str) -> HTTPException:
     return HTTPException(status_code=status_code, detail={"code": code, "message": message})
+
+
+def _draft_document_or_404(db: Session, document_id: str) -> LoreDocument:
+    document = _get_or_404(db, LoreDocument, document_id, "초안")
+    if document.document_kind != "draft":
+        raise _error(404, "DRAFT_NOT_FOUND", "편집 중인 초안을 찾을 수 없습니다.")
+    return document
 
 
 def _require_project(entity: Any, project_id: str, label: str) -> None:
@@ -658,7 +664,10 @@ def list_documents(project_id: str = Query(...), db: Session = Depends(get_db)) 
     return list(
         db.scalars(
             select(LoreDocument)
-            .where(LoreDocument.project_id == project_id)
+            .where(
+                LoreDocument.project_id == project_id,
+                LoreDocument.document_kind == "draft",
+            )
             .order_by(LoreDocument.updated_at.desc())
         ).all()
     )
@@ -666,7 +675,7 @@ def list_documents(project_id: str = Query(...), db: Session = Depends(get_db)) 
 
 @router.get("/documents/{document_id}", response_model=LoreDocumentRead)
 def get_document(document_id: str, db: Session = Depends(get_db)) -> LoreDocument:
-    return _get_or_404(db, LoreDocument, document_id, "로어 문서")
+    return _draft_document_or_404(db, document_id)
 
 
 @router.patch("/documents/{document_id}", response_model=LoreDocumentRead)
@@ -675,7 +684,7 @@ def update_document(
     payload: LoreDocumentUpdate,
     db: Session = Depends(get_db),
 ) -> LoreDocument:
-    document = _get_or_404(db, LoreDocument, document_id, "로어 문서")
+    document = _draft_document_or_404(db, document_id)
     for key, value in payload.model_dump(exclude_unset=True).items():
         setattr(document, key, value)
     db.add(document)
@@ -687,7 +696,7 @@ def update_document(
 
 @router.get("/documents/{document_id}/blocks", response_model=list[LoreBlockRead])
 def list_document_blocks(document_id: str, db: Session = Depends(get_db)) -> list[LoreBlock]:
-    _get_or_404(db, LoreDocument, document_id, "로어 문서")
+    _draft_document_or_404(db, document_id)
     return list(
         db.scalars(
             select(LoreBlock)
@@ -715,7 +724,7 @@ def update_block(block_id: str, payload: LoreBlockUpdate, db: Session = Depends(
 def get_document_finalization(
     document_id: str, db: Session = Depends(get_db)
 ) -> dict[str, Any]:
-    document = _get_or_404(db, LoreDocument, document_id, "로어 문서")
+    document = _draft_document_or_404(db, document_id)
     try:
         return harness.finalization_summary(db, document)
     except ValueError as exc:
@@ -728,48 +737,72 @@ async def finalize_document(
     payload: FinalizationRequest,
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
-    document = _get_or_404(db, LoreDocument, document_id, "로어 문서")
+    document = _draft_document_or_404(db, document_id)
     try:
-        return await harness.finalize_document(db, document, instruction=payload.instruction)
+        return await harness.finalize_document(
+            db,
+            document,
+            instruction=payload.instruction,
+            user_direction=payload.user_direction,
+            writing_recipe_id=payload.writing_recipe_id,
+            output_profile=payload.output_profile,
+            settings_json=payload.settings_json,
+        )
     except ModelGatewayError as exc:
         raise _error(502, exc.code, str(exc)) from exc
     except ValueError as exc:
         raise _error(409, "FINALIZATION_FAILED", str(exc)) from exc
 
 
-@router.patch("/documents/{document_id}/final", response_model=FinalizationRead)
-def update_final_body(
-    document_id: str,
-    payload: FinalBodyUpdate,
+@router.get("/lorebook", response_model=list[LoreDocumentRead])
+def list_lorebook(project_id: str = Query(...), db: Session = Depends(get_db)) -> list[LoreDocument]:
+    return list(
+        db.scalars(
+            select(LoreDocument)
+            .where(
+                LoreDocument.project_id == project_id,
+                LoreDocument.document_kind == "lorebook",
+            )
+            .order_by(LoreDocument.published_at.desc(), LoreDocument.updated_at.desc())
+        ).all()
+    )
+
+
+@router.get("/lorebook/{entry_id}", response_model=LoreDocumentRead)
+def get_lorebook_entry(entry_id: str, db: Session = Depends(get_db)) -> LoreDocument:
+    entry = _get_or_404(db, LoreDocument, entry_id, "로어북 글")
+    if entry.document_kind != "lorebook":
+        raise _error(404, "LOREBOOK_ENTRY_NOT_FOUND", "로어북 글을 찾을 수 없습니다.")
+    return entry
+
+
+@router.patch("/lorebook/{entry_id}", response_model=LoreDocumentRead)
+def update_lorebook_entry(
+    entry_id: str,
+    payload: LoreBookUpdate,
     db: Session = Depends(get_db),
-) -> dict[str, Any]:
-    document = _get_or_404(db, LoreDocument, document_id, "로어 문서")
-    if not document.final_body_markdown:
-        raise _error(409, "FINAL_NOT_CREATED", "먼저 전체 글 다듬기로 완성본을 만드십시오.")
-    document.final_body_markdown = payload.body_markdown.strip()
-    document.finalized_at = datetime.now(UTC)
-    db.add(document)
-    add_lore_revision(
-        db,
-        document,
-        reason="final_user_edit",
-        author_type="user",
-        body_markdown=document.final_body_markdown,
-        body_json={
+) -> LoreDocument:
+    entry = get_lorebook_entry(entry_id, db)
+    changes = payload.model_dump(exclude_unset=True)
+    for key, value in changes.items():
+        setattr(entry, key, value.strip() if isinstance(value, str) else value)
+    if "body_markdown" in changes:
+        entry.body_json = {
             "type": "doc",
             "content": [
                 {
                     "type": "paragraph",
                     "content": [{"type": "text", "text": paragraph}],
                 }
-                for paragraph in document.final_body_markdown.split("\n\n")
+                for paragraph in entry.body_markdown.split("\n\n")
                 if paragraph.strip()
             ],
-        },
-    )
+        }
+    db.add(entry)
+    add_lore_revision(db, entry, reason="lorebook_user_edit", author_type="user")
     db.commit()
-    db.refresh(document)
-    return harness.finalization_summary(db, document)
+    db.refresh(entry)
+    return entry
 
 
 @router.post("/blocks/{block_id}/rewrite", response_model=AuditFindingRead)
@@ -779,7 +812,7 @@ async def propose_block_rewrite(
     block = _get_or_404(db, LoreBlock, block_id, "LoreBlock")
     if block.locked:
         raise _error(409, "BLOCK_LOCKED", "잠긴 문단은 재작성할 수 없습니다.")
-    document = _get_or_404(db, LoreDocument, block.document_id, "로어 문서")
+    document = _draft_document_or_404(db, block.document_id)
     session = _get_or_404(db, PlaybookSession, document.session_id, "플레이북 세션")
     operation_labels = {
         "shorter": "사실을 유지하며 더 짧게",
@@ -853,7 +886,7 @@ async def propose_block_rewrite(
 
 @router.get("/documents/{document_id}/audits", response_model=list[AuditFindingRead])
 def list_audits(document_id: str, db: Session = Depends(get_db)) -> list[AuditFinding]:
-    _get_or_404(db, LoreDocument, document_id, "로어 문서")
+    _draft_document_or_404(db, document_id)
     return list(
         db.scalars(
             select(AuditFinding)
@@ -873,7 +906,7 @@ def apply_finding(finding_id: str, db: Session = Depends(get_db)) -> AuditFindin
         raise _error(409, "BLOCK_LOCKED", "잠긴 문단에는 제안을 적용할 수 없습니다.")
     block.content_markdown = str(finding.evidence_json.get("proposed", ""))
     finding.status = "APPLIED"
-    document = _get_or_404(db, LoreDocument, block.document_id, "로어 문서")
+    document = _draft_document_or_404(db, block.document_id)
     blocks = list(
         db.scalars(
             select(LoreBlock)
@@ -903,11 +936,10 @@ def dismiss_finding(finding_id: str, db: Session = Depends(get_db)) -> AuditFind
 def export_document(
     document_id: str,
     format: str = Query(default="markdown", pattern="^(markdown|html|json)$"),
-    version: str = Query(default="preferred", pattern="^(preferred|draft|final)$"),
     include_metadata: bool = False,
     db: Session = Depends(get_db),
 ) -> Response:
-    document = _get_or_404(db, LoreDocument, document_id, "로어 문서")
+    document = _draft_document_or_404(db, document_id)
     blocks = list(
         db.scalars(
             select(LoreBlock)
@@ -916,12 +948,8 @@ def export_document(
         ).all()
     )
     draft_body = "\n\n".join(item.content_markdown for item in blocks) or document.body_markdown
-    if version == "final" and not document.final_body_markdown:
-        raise _error(409, "FINAL_NOT_CREATED", "아직 완성본이 없습니다.")
-    use_final = version == "final" or (version == "preferred" and bool(document.final_body_markdown))
-    value_body = document.final_body_markdown if use_final else draft_body
     if format == "markdown":
-        value = value_body
+        value = draft_body
         if include_metadata:
             value += "\n\n<!-- lore-studio: " + json.dumps(
                 [{"id": item.id, "move": item.rhetorical_move, "evidence": item.evidence_ids} for item in blocks],
@@ -929,20 +957,42 @@ def export_document(
             ) + " -->"
         return Response(value, media_type="text/markdown; charset=utf-8")
     if format == "html":
-        value = markdown.markdown(value_body, extensions=["extra"])
+        value = markdown.markdown(draft_body, extensions=["extra"])
         return Response(value, media_type="text/html; charset=utf-8")
     value = {
         "document": LoreDocumentRead.model_validate(document).model_dump(mode="json"),
         "blocks": [LoreBlockRead.model_validate(item).model_dump(mode="json") for item in blocks],
-        "exported_version": "final" if use_final else "draft",
-        "exported_body_markdown": value_body,
+        "exported_version": "draft",
+        "exported_body_markdown": draft_body,
+    }
+    return Response(json.dumps(value, ensure_ascii=False), media_type="application/json")
+
+
+@router.get("/lorebook/{entry_id}/export")
+def export_lorebook_entry(
+    entry_id: str,
+    format: str = Query(default="markdown", pattern="^(markdown|html|json)$"),
+    db: Session = Depends(get_db),
+) -> Response:
+    entry = get_lorebook_entry(entry_id, db)
+    if format == "markdown":
+        return Response(entry.body_markdown, media_type="text/markdown; charset=utf-8")
+    if format == "html":
+        return Response(
+            markdown.markdown(entry.body_markdown, extensions=["extra"]),
+            media_type="text/html; charset=utf-8",
+        )
+    value = {
+        "lorebook_entry": LoreDocumentRead.model_validate(entry).model_dump(mode="json"),
+        "source_document_id": entry.source_document_id,
+        "generation_inputs": entry.generation_inputs_json,
     }
     return Response(json.dumps(value, ensure_ascii=False), media_type="application/json")
 
 
 @router.get("/documents/{document_id}/video-beats")
 def export_video_beats(document_id: str, db: Session = Depends(get_db)) -> dict[str, Any]:
-    document = _get_or_404(db, LoreDocument, document_id, "로어 문서")
+    document = _draft_document_or_404(db, document_id)
     blocks = list(
         db.scalars(
             select(LoreBlock)
@@ -980,7 +1030,7 @@ def export_video_beats(document_id: str, db: Session = Depends(get_db)) -> dict[
 
 @router.post("/candidates", response_model=CandidateRead, status_code=status.HTTP_201_CREATED)
 def create_candidate(payload: CandidateCreate, db: Session = Depends(get_db)) -> ProposedConceptUpdate:
-    document = _get_or_404(db, LoreDocument, payload.document_id, "로어 문서")
+    document = _draft_document_or_404(db, payload.document_id)
     _require_project(document, payload.project_id, "로어 문서")
     if payload.target_page_id:
         target = _get_or_404(db, ConceptPage, payload.target_page_id, "기존 컨셉 페이지")
@@ -996,7 +1046,7 @@ def create_candidate(payload: CandidateCreate, db: Session = Depends(get_db)) ->
 async def extract_document_candidates(
     document_id: str, db: Session = Depends(get_db)
 ) -> list[ProposedConceptUpdate]:
-    document = _get_or_404(db, LoreDocument, document_id, "로어 문서")
+    document = _draft_document_or_404(db, document_id)
     session = db.get(PlaybookSession, document.session_id) if document.session_id else None
     if session:
         pack = compile_context(db, session)
@@ -1012,7 +1062,7 @@ async def extract_document_candidates(
     try:
         data, result = await extract_candidates(
             harness.gateway,
-            body=document.final_body_markdown or harness.draft_body(db, document),
+            body=harness.draft_body(db, document),
             known_pages=known_pages,
         )
     except ModelGatewayError as exc:

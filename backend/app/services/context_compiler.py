@@ -41,9 +41,17 @@ def _body_limit(context_depth: str) -> int:
     }.get(context_depth, 3000)
 
 
-def compile_context(db: Session, session: PlaybookSession) -> dict[str, Any]:
+def compile_context(
+    db: Session,
+    session: PlaybookSession,
+    *,
+    writing_recipe_id: str | None = None,
+    output_profile: str | None = None,
+    user_direction: str | None = None,
+    settings_json: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     project = db.get(Project, session.project_id)
-    recipe = db.get(WritingRecipe, session.writing_recipe_id)
+    recipe = db.get(WritingRecipe, writing_recipe_id or session.writing_recipe_id)
     if not project or not recipe:
         raise ValueError("프로젝트 또는 집필 레시피를 찾을 수 없습니다.")
 
@@ -74,7 +82,8 @@ def compile_context(db: Session, session: PlaybookSession) -> dict[str, Any]:
         by_id = {card.id: card for card in rows}
         cards = [by_id[card_id] for card_id in session.direction_card_ids if card_id in by_id]
 
-    context_depth = str((session.settings_json or {}).get("context_depth", "balanced"))
+    effective_settings = session.settings_json if settings_json is None else settings_json
+    context_depth = str((effective_settings or {}).get("context_depth", "balanced"))
     body_limit = _body_limit(context_depth)
 
     facts: list[dict[str, Any]] = []
@@ -175,10 +184,10 @@ def compile_context(db: Session, session: PlaybookSession) -> dict[str, Any]:
             }
             for card in cards
         ],
-        "user_direction": session.user_direction,
+        "user_direction": session.user_direction if user_direction is None else user_direction,
         "writing_recipe": recipe.recipe_json,
-        "output_profile": session.output_profile,
-        "generation_settings": session.settings_json,
+        "output_profile": output_profile or session.output_profile,
+        "generation_settings": effective_settings,
         "seed": session.seed,
         "warnings": warnings,
         "policy": {

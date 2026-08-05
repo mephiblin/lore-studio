@@ -277,11 +277,11 @@
         <article><div><span>글 형태</span><strong>{outputProfile === 'lore_article' ? '세계관 설명 글' : outputProfile === 'video_narration' ? '영상 내레이션' : outputProfile === 'novel_prose' ? '소설 장면' : '세계 내부 문서'} · {viewpoint === 'omniscient' ? '전지적 설명자' : viewpoint === 'first_observer' ? '1인칭 관찰자' : '3인칭 제한'}</strong></div><button class="ghost" on:click={() => setWizardStep(5)}>수정</button></article>
       </div>
       <section class="wizard-run-panel">
-        <div class="run-summary"><strong>{subject?.title}</strong><span>보조 자료 {totalSupporting}개 · 방향 규칙 {directionCardIds.length}개</span><small>세 단계를 차례로 진행합니다. 완성된 원고는 원고 편집 화면에서 바로 열립니다.</small></div>
+        <div class="run-summary"><strong>{subject?.title}</strong><span>보조 자료 {totalSupporting}개 · 방향 규칙 {directionCardIds.length}개</span><small>세 단계를 차례로 진행합니다. 작성된 초안은 원고 작업 화면에서 바로 열립니다.</small></div>
         <div class="run-actions">
           <div class="run-action"><div><span>1</span><HelpTip label="사용할 설정 확인 설명" text="선택한 자료에서 AI가 사실로 쓸 내용과 임의로 바꾸면 안 되는 내용을 먼저 보여 줍니다." /></div><button class="secondary" disabled={!!busy || !subject} on:click={() => runAction('context-preview')}>{preview ? '✓ 사용할 설정 확인됨' : '사용할 설정 확인'}</button></div>
           <div class="run-action"><div><span>2</span><HelpTip label="글의 흐름 만들기 설명" text="원고를 쓰기 전에 각 문단이 어떤 순서로 무엇을 설명할지 목록으로 만듭니다." /></div><button class="secondary" disabled={!!busy || !subject || !preview} on:click={() => runAction('plan')}>{plan ? '✓ 글의 흐름 준비됨' : '글의 흐름 만들기'}</button></div>
-          <div class="run-action"><div><span>3</span><HelpTip label="원고 작성 설명" text="확인한 세계관과 글의 흐름을 바탕으로 원고를 쓰고, 완성되면 원고 편집 화면으로 이동합니다." /></div><button class="primary" disabled={!!busy || !plan || cardConflicts.length} on:click={() => runAction('generate')}>원고 작성</button></div>
+          <div class="run-action"><div><span>3</span><HelpTip label="원고 작성 설명" text="확인한 세계관과 글의 흐름을 바탕으로 초안을 쓰고, 원고 작업 화면으로 이동합니다." /></div><button class="primary" disabled={!!busy || !plan || cardConflicts.length} on:click={() => runAction('generate')}>초안 작성</button></div>
         </div>
       </section>
     {/if}
@@ -324,5 +324,5 @@
     </section>
   {/if}
 
-  {#if wizardStep === wizardSteps.length - 1 && document}<div class="completion-banner"><div><strong>{document.title}</strong><span>{document.body_markdown.length.toLocaleString()}자 원고를 저장했습니다.</span></div><a class="primary" href={`/documents?document=${document.id}`}>이 원고 편집하기 →</a></div>{/if}
+  {#if wizardStep === wizardSteps.length - 1 && document}<div class="completion-banner"><div><strong>{document.title}</strong><span>{document.body_markdown.length.toLocaleString()}자 초안을 저장했습니다.</span></div><a class="primary" href={`/documents?document=${document.id}`}>이 초안 작업하기 →</a></div>{/if}
 </div>

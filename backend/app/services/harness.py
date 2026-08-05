@@ -238,35 +238,66 @@ class LoreHarness:
         return document.body_markdown.strip()
 
     def finalization_inputs(
-        self, db: Session, document: LoreDocument
+        self,
+        db: Session,
+        document: LoreDocument,
+        *,
+        user_direction: str | None = None,
+        writing_recipe_id: str | None = None,
+        output_profile: str | None = None,
+        settings_json: dict[str, Any] | None = None,
     ) -> tuple[PlaybookSession, dict[str, Any], dict[str, Any], str]:
+        if document.document_kind != "draft":
+            raise ValueError("로어북 글이 아니라 편집 중인 초안을 선택하십시오.")
         if not document.session_id:
             raise ValueError("글 만들기 기록이 없는 문서는 전체 글 다듬기를 실행할 수 없습니다.")
         session = db.get(PlaybookSession, document.session_id)
         if not session:
             raise ValueError("이 원고를 만든 글 만들기 기록을 찾을 수 없습니다.")
-        pack = compile_context(db, session)
+        effective_recipe_id = writing_recipe_id or session.writing_recipe_id
+        effective_profile = output_profile or session.output_profile
+        effective_direction = session.user_direction if user_direction is None else user_direction
+        effective_settings = {
+            **(session.settings_json or {}),
+            **(settings_json or {}),
+        }
+        writing_recipe = db.get(WritingRecipe, effective_recipe_id)
+        if not writing_recipe or writing_recipe.project_id not in {None, document.project_id}:
+            raise ValueError("선택한 집필 방식을 이 프로젝트에서 사용할 수 없습니다.")
+        available_profiles = load_output_profiles()
         profile = next(
             (
                 item
-                for item in load_output_profiles()
-                if str(item.get("key")) == session.output_profile
+                for item in available_profiles
+                if str(item.get("key")) == effective_profile
             ),
-            {"key": session.output_profile, "name": session.output_profile, "rules": {}},
+            None,
         )
-        writing_recipe = db.get(WritingRecipe, session.writing_recipe_id)
+        if not profile and available_profiles:
+            raise ValueError("선택한 결과물 종류를 찾을 수 없습니다.")
+        profile = profile or {"key": effective_profile, "name": effective_profile, "rules": {}}
+        pack = compile_context(
+            db,
+            session,
+            writing_recipe_id=effective_recipe_id,
+            output_profile=effective_profile,
+            user_direction=effective_direction,
+            settings_json=effective_settings,
+        )
         inputs = {
-            "user_direction": session.user_direction,
+            "user_direction": effective_direction,
             "output_profile": {
-                "key": session.output_profile,
-                "name": profile.get("name", session.output_profile),
+                "key": effective_profile,
+                "name": profile.get("name", effective_profile),
                 "rules": profile.get("rules", {}),
             },
-            "generation_settings": session.settings_json,
+            "generation_settings": effective_settings,
             "writing_recipe": {
-                "name": writing_recipe.name if writing_recipe else "",
-                "version": writing_recipe.version if writing_recipe else "",
-                "recipe": writing_recipe.recipe_json if writing_recipe else {},
+                "id": writing_recipe.id,
+                "key": writing_recipe.key,
+                "name": writing_recipe.name,
+                "version": writing_recipe.version,
+                "recipe": writing_recipe.recipe_json,
             },
         }
         draft = self.draft_body(db, document)
@@ -274,11 +305,22 @@ class LoreHarness:
 
     def finalization_summary(self, db: Session, document: LoreDocument) -> dict[str, Any]:
         _, _, inputs, draft = self.finalization_inputs(db, document)
+        lorebook_entry = db.scalar(
+            select(LoreDocument).where(
+                LoreDocument.document_kind == "lorebook",
+                LoreDocument.source_document_id == document.id,
+            )
+        )
+        if lorebook_entry and lorebook_entry.generation_inputs_json:
+            inputs = lorebook_entry.generation_inputs_json
         current_hash = _stable_hash(draft)
-        has_final = bool(document.final_body_markdown.strip())
-        draft_changed = has_final and document.finalized_from_hash != current_hash
+        has_final = bool(lorebook_entry and lorebook_entry.body_markdown.strip())
+        draft_changed = bool(
+            has_final and lorebook_entry and lorebook_entry.source_draft_hash != current_hash
+        )
         return {
-            "document": document,
+            "source_document": document,
+            "lorebook_entry": lorebook_entry,
             "status": "stale" if draft_changed else "ready" if has_final else "not_started",
             "draft_changed": draft_changed,
             "current_draft_hash": current_hash,
@@ -291,8 +333,19 @@ class LoreHarness:
         document: LoreDocument,
         *,
         instruction: str = "",
+        user_direction: str | None = None,
+        writing_recipe_id: str | None = None,
+        output_profile: str | None = None,
+        settings_json: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        session, pack, inputs, draft = self.finalization_inputs(db, document)
+        session, pack, inputs, draft = self.finalization_inputs(
+            db,
+            document,
+            user_direction=user_direction,
+            writing_recipe_id=writing_recipe_id,
+            output_profile=output_profile,
+            settings_json=settings_json,
+        )
         if not draft:
             raise ValueError("다듬을 초안 내용이 없습니다.")
         draft_hash = _stable_hash(draft)
@@ -334,14 +387,35 @@ class LoreHarness:
         if not body:
             raise ValueError("Writer가 비어 있는 완성본을 반환했습니다.")
 
-        document.final_body_markdown = body
-        document.finalized_from_hash = draft_hash
-        document.finalized_at = datetime.now(UTC)
-        db.add(document)
+        lorebook_entry = db.scalar(
+            select(LoreDocument).where(
+                LoreDocument.document_kind == "lorebook",
+                LoreDocument.source_document_id == document.id,
+            )
+        )
+        if not lorebook_entry:
+            lorebook_entry = LoreDocument(
+                project_id=document.project_id,
+                session_id=session.id,
+                writing_recipe_id=inputs["writing_recipe"]["id"],
+                title=document.title,
+                document_kind="lorebook",
+                source_document_id=document.id,
+            )
+        lorebook_entry.title = document.title
+        lorebook_entry.body_markdown = body
+        lorebook_entry.body_json = _plain_document_json(body)
+        lorebook_entry.writing_recipe_id = inputs["writing_recipe"]["id"]
+        lorebook_entry.source_draft_hash = draft_hash
+        lorebook_entry.generation_inputs_json = inputs
+        lorebook_entry.published_at = datetime.now(UTC)
+        lorebook_entry.status = "approved"
+        db.add(lorebook_entry)
+        db.flush()
         run = GenerationRun(
             project_id=document.project_id,
             session_id=session.id,
-            document_id=document.id,
+            document_id=lorebook_entry.id,
             task="finalize",
             model_role="writer",
             model=str(call_result.model),
@@ -350,13 +424,13 @@ class LoreHarness:
             prompt_components={
                 "recipe": inputs["writing_recipe"].get("name"),
                 "recipe_version": inputs["writing_recipe"].get("version"),
-                "output_profile": session.output_profile,
-                "user_direction": session.user_direction,
+                "output_profile": inputs["output_profile"]["key"],
+                "user_direction": inputs["user_direction"],
             },
             selected_concept_ids=_selected_ids(session),
             direction_card_ids=session.direction_card_ids,
             params_json={
-                **session.settings_json,
+                **inputs["generation_settings"],
                 "final_pass_instruction": instruction,
                 "model_call": call_result.audit_metadata(),
             },
@@ -369,18 +443,17 @@ class LoreHarness:
         db.flush()
         add_lore_revision(
             db,
-            document,
+            lorebook_entry,
             reason="final_coherence_pass",
             author_type="llm",
-            body_markdown=body,
-            body_json=_plain_document_json(body),
         )
         _record_stage(
             db,
             session,
             "FINAL_COHERENCE_PASS",
             input_json={
-                "document_id": document.id,
+                "source_document_id": document.id,
+                "lorebook_entry_id": lorebook_entry.id,
                 "draft_hash": draft_hash,
                 "reused_inputs": inputs,
                 "final_pass_instruction": instruction,
@@ -391,9 +464,10 @@ class LoreHarness:
         session.state = "finalized"
         db.add(session)
         db.commit()
-        db.refresh(document)
+        db.refresh(lorebook_entry)
         return {
-            "document": document,
+            "source_document": document,
+            "lorebook_entry": lorebook_entry,
             "status": "ready",
             "draft_changed": False,
             "current_draft_hash": draft_hash,

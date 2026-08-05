@@ -4,7 +4,8 @@ const routes = [
   ['/', /세계를 선택하고/],
   ['/editor', /설정을 기록하고 연결합니다/],
   ['/playbook', /쓸 대상과 방향을 고르세요/],
-  ['/documents', /초안을 고치고, 한 편의 글로 완성합니다/],
+  ['/documents', /초안을 검토한 뒤 완성 설정을 따로 정합니다/],
+  ['/lorebook', /완성된 글만 모아 읽고 보관합니다/],
 ];
 
 for (const [route, heading] of routes) {
@@ -100,7 +101,7 @@ test('project-first workflow exposes understandable controls', async ({ page }) 
   await expect(page.locator('.wizard-review-grid')).toContainText('검은 등대');
   await expect(page.locator('.wizard-review-grid')).toContainText('회수실');
   await expect(page.locator('.wizard-review-grid')).toContainText('레아 벨');
-  await expect(page.getByRole('button', { name: '원고 작성', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: '초안 작성', exact: true })).toBeDisabled();
   await page.getByRole('button', { name: '사용할 설정 확인 설명' }).click();
   await expect(page.getByRole('tooltip').first()).toBeVisible();
   await expect(page.getByRole('tooltip').first()).toContainText('AI가 사실로 쓸 내용');
@@ -120,17 +121,27 @@ test('project-first workflow exposes understandable controls', async ({ page }) 
   await page.request.delete(`${new URL(sessionRequest.url()).origin}/api/v1/playbook-sessions/${session.id}`);
 });
 
-test('document workflow separates editable draft from the final pass', async ({ page }) => {
+test('document workflow separates draft editing, editable final settings, and lorebook', async ({ page }) => {
   test.skip(process.env.E2E_EXPECT_DATA !== 'true', 'requires the curated Black Route draft');
   await page.goto('/documents');
   await page.getByLabel('현재 프로젝트').selectOption({ label: '검은 항로 연대기' });
-  await expect(page.locator('.document-stage-switch').getByRole('button', { name: /초안 편집/ })).toBeVisible();
-  await expect(page.locator('.document-stage-switch').getByRole('button', { name: /완성본/ })).toBeVisible();
-  await page.locator('.document-stage-switch').getByRole('button', { name: /완성본/ }).click();
-  await expect(page.getByRole('heading', { name: '문단 초안을 한 편의 글로 연결합니다.' })).toBeVisible();
-  await expect(page.locator('.final-input-overview')).toContainText('영상 내레이션');
-  await expect(page.locator('.final-input-overview')).toContainText('전지적 설명자');
-  await expect(page.locator('.final-input-overview')).toContainText('과거형 중심');
-  await expect(page.getByRole('button', { name: '완성본 만들기' })).toBeVisible();
+  await expect(page.locator('.document-wizard-progress').getByRole('button', { name: /초안 편집/ })).toBeVisible();
+  await expect(page.locator('.document-wizard-progress').getByRole('button', { name: /완성 설정/ })).toBeVisible();
+  await expect(page.locator('.document-wizard-progress').getByRole('button', { name: /완성본 만들기/ })).toBeVisible();
+  await page.getByRole('button', { name: /완성 설정으로 계속/ }).click();
+  await expect(page.getByRole('heading', { name: '완성본의 글 형태를 다시 정하세요.' })).toBeVisible();
+  await expect(page.getByLabel('결과물')).toHaveValue('video_narration');
+  await page.getByLabel('시점').selectOption('first_observer');
+  await page.getByLabel('시제').selectOption('present');
+  await page.getByLabel('이번 완성본의 집필 지시').fill('완성 단계에서 바꾼 지시');
+  await page.getByRole('button', { name: /설정 확인으로 계속/ }).click();
+  await expect(page.getByText('1인칭 관찰자 · 현재형 중심')).toBeVisible();
+  await expect(page.getByText('완성 단계에서 바꾼 지시')).toBeVisible();
+  await expect(page.getByText('완성본은 로어북에 별도 저장됩니다.')).toBeVisible();
+  await expect(page.getByRole('button', { name: /로어북에 저장/ })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+
+  await page.goto('/lorebook');
+  await page.getByLabel('현재 프로젝트').selectOption({ label: '검은 항로 연대기' });
+  await expect(page.getByRole('heading', { name: '완성된 글만 모아 읽고 보관합니다.' })).toBeVisible();
 });

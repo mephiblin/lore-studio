@@ -16,7 +16,7 @@
 | 12 | 검증된 Utility | PASS | Gemma pass, Qwen reject |
 | 13 | BGE-M3 검색 | PASS | 실제 Compose Dense hit |
 | 14 | 임베딩 저장소 격리 | PASS | lore_studio_pgdata/lore_vector |
-| 15 | LoreBlock 저장 | PASS | Tiptap custom node + DB rows, 생성 완료 후 해당 원고 편집으로 이동, 모바일 편집 UI |
+| 15 | LoreBlock 저장 | PASS | Tiptap custom node + DB rows, 생성 완료 후 해당 원고 작업으로 이동, 모바일 편집 UI |
 | 16 | 부분 재작성 Diff 승인/취소 | PASS | real proposal/apply + dismiss API/UI |
 | 17 | 근거와 감사 | PASS | UUID 대신 자료명 근거 chip + 3 auditors |
 | 18 | 자동 정사 금지 | PASS | invariant/API test |
@@ -27,6 +27,7 @@
 | 23 | 실제 Writer/Utility/Embedding 결과 | PASS | `VERIFICATION.md`/evaluation JSON |
 | 24 | migration/tests | PASS | PostgreSQL up/down/up, pytest/build/e2e |
 | 25 | 상태 문서 일치 | PASS | README/TASKS/status/audit updated |
-| 26 | 초안 전체를 완성본으로 통합 | PASS | 사용자 지시·글 형태·시점·시제·분량 재사용, `FINAL_COHERENCE_PASS`, 초안/완성본 분리와 변경 감지 |
+| 26 | 초안 전체를 완성본으로 통합 | PASS | 완성 설정 전체 수정, `FINAL_COHERENCE_PASS`, 초안과 로어북 문서 분리, 출처 해시 변경 감지 |
+| 27 | 로어북 독립 탐색 | PASS | 상단 로어북 메뉴, 완성본 전용 목록·편집·내보내기, 출처 초안 이동 |
 
 대표 실제 프로젝트 slug는 `black-route-chronicle`이며 로컬 전용 DB에 정식 컨셉 페이지 9개와 관계·방향성 카드를 보관합니다.

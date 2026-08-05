@@ -6,19 +6,34 @@
     "project_id",
     "title",
     "body_markdown",
-    "final_body_markdown",
-    "finalized_from_hash",
+    "document_kind",
+    "source_draft_hash",
+    "generation_inputs_json",
     "status"
   ],
   "properties": {
     "project_id": { "type": "string" },
     "session_id": { "type": ["string", "null"] },
     "title": { "type": "string" },
-    "body_markdown": { "type": "string", "description": "초기 생성 시점의 초안 본문" },
+    "body_markdown": { "type": "string" },
     "body_json": { "type": "object" },
-    "final_body_markdown": { "type": "string", "description": "초안 전체를 다시 다듬은 별도 완성본" },
-    "finalized_from_hash": { "type": "string", "description": "완성본 생성에 사용한 현재 LoreBlock 조합의 SHA-256" },
-    "finalized_at": { "type": ["string", "null"], "format": "date-time" },
+    "document_kind": {
+      "enum": ["draft", "lorebook"],
+      "description": "편집 중인 초안과 로어북 완성본을 별도 문서로 구분"
+    },
+    "source_document_id": {
+      "type": ["string", "null"],
+      "description": "로어북 글을 만든 초안 문서 ID"
+    },
+    "source_draft_hash": {
+      "type": "string",
+      "description": "로어북 글 생성에 사용한 LoreBlock 조합의 SHA-256"
+    },
+    "generation_inputs_json": {
+      "type": "object",
+      "description": "완성본 만들기에서 사용자가 최종 확정한 설정"
+    },
+    "published_at": { "type": ["string", "null"], "format": "date-time" },
     "status": { "enum": ["draft", "review", "approved", "archived"] }
   }
 }

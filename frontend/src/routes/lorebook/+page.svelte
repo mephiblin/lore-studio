@@ -1,0 +1,105 @@
+<script>
+  import { onMount } from 'svelte';
+  import { page } from '$app/stores';
+  import ProjectCreator from '$lib/components/ProjectCreator.svelte';
+  import { api, API_BASE } from '$lib/api';
+  import { initialProjectId, rememberProject } from '$lib/project';
+
+  let projects = [], entries = [];
+  let projectId = '', selected = null, sourceState = null;
+  let busy = '', error = '', message = '';
+
+  onMount(loadInitial);
+
+  async function loadInitial() {
+    try {
+      projects = await api.get('/projects');
+      if (projects.length) {
+        projectId = initialProjectId(projects);
+        await loadEntries();
+      }
+    } catch (e) { error = e.message; }
+  }
+
+  async function loadEntries() {
+    if (!projectId) return;
+    rememberProject(projectId); error = '';
+    try {
+      entries = await api.get(`/lorebook?project_id=${projectId}`);
+      const requestedId = $page.url.searchParams.get('entry');
+      await selectEntry(entries.find((entry) => entry.id === requestedId) || entries[0] || null);
+    } catch (e) { error = e.message; }
+  }
+
+  async function projectCreated(project) {
+    projects = [project, ...projects]; projectId = project.id; await loadEntries();
+  }
+
+  async function selectEntry(entry) {
+    selected = entry ? { ...entry } : null; sourceState = null; message = '';
+    if (!selected?.source_document_id) return;
+    try { sourceState = await api.get(`/documents/${selected.source_document_id}/finalization`); }
+    catch { sourceState = null; }
+  }
+
+  async function saveEntry() {
+    if (!selected?.body_markdown?.trim()) return;
+    busy = '로어북 글 저장 중'; error = ''; message = '';
+    try {
+      selected = await api.patch(`/lorebook/${selected.id}`, {
+        title: selected.title,
+        body_markdown: selected.body_markdown,
+        status: selected.status
+      });
+      entries = entries.map((item) => item.id === selected.id ? selected : item);
+      message = '로어북 글을 저장했습니다.';
+    } catch (e) { error = e.message; }
+    finally { busy = ''; }
+  }
+
+  function settingLabel(value) {
+    return ({
+      omniscient: '전지적 설명자', first_observer: '1인칭 관찰자', third_limited: '3인칭 제한',
+      present: '현재형 중심', past: '과거형 중심', short: '짧게', normal: '보통', long: '길게', very_long: '매우 길게'
+    })[value] || value || '지정 안 함';
+  }
+</script>
+
+<div class="page lorebook-page">
+  <div class="page-header">
+    <div><p class="eyebrow">로어북</p><h1>완성된 글만 모아 읽고 보관합니다.</h1><p>초안과 분리된 최종 글입니다. 여기서 수정하고 원하는 형식으로 내보낼 수 있습니다.</p></div>
+    <div class="project-tools"><label style="min-width:260px">현재 프로젝트<select bind:value={projectId} on:change={loadEntries}>{#each projects as project}<option value={project.id}>{project.name}</option>{/each}</select></label><ProjectCreator onCreated={projectCreated} /></div>
+  </div>
+
+  {#if error}<p class="notice-error">{error}</p>{/if}
+  {#if busy}<div class="notice" role="status">{busy}…</div>{/if}
+
+  <div class="lorebook-layout">
+    <aside class="card stack lorebook-shelf">
+      <div class="row spread"><div><p class="eyebrow">완성된 글</p><h3 style="margin:0">책장</h3></div><span class="badge">{entries.length}</span></div>
+      <label class="mobile-document-picker">읽을 글<select value={selected?.id || ''} on:change={(event) => selectEntry(entries.find((entry) => entry.id === event.currentTarget.value) || null)}>{#each entries as entry}<option value={entry.id}>{entry.title}</option>{/each}</select></label>
+      <div class="list lorebook-list">
+        {#each entries as entry}
+          <button class:active={selected?.id === entry.id} on:click={() => selectEntry(entry)}><strong>{entry.title}</strong><small>{entry.body_markdown.length.toLocaleString()}자 · {new Date(entry.published_at || entry.updated_at).toLocaleDateString('ko-KR')}</small></button>
+        {/each}
+      </div>
+      {#if !entries.length}<div class="empty-mini">원고 작업에서 완성본을 만들면 이 책장에 저장됩니다.</div>{/if}
+    </aside>
+
+    <main class="stack lorebook-reader">
+      {#if selected}
+        {#if sourceState?.status === 'stale'}<div class="notice-error"><strong>연결된 초안이 바뀌었습니다.</strong> 이 글은 이전 초안을 바탕으로 만든 버전입니다. <a href={`/documents?document=${selected.source_document_id}`}>원고 작업에서 다시 만들기 →</a></div>{/if}
+        <article class="card lorebook-sheet">
+          <header class="lorebook-sheet-heading"><div><p class="eyebrow">로어북 글</p><input aria-label="로어북 글 제목" bind:value={selected.title} /><span>{selected.body_markdown.length.toLocaleString()}자 · {new Date(selected.published_at || selected.updated_at).toLocaleString('ko-KR')}</span></div><span class="lorebook-mark">LORE<br />BOOK</span></header>
+          <textarea class="lorebook-body" aria-label="로어북 글 내용" bind:value={selected.body_markdown}></textarea>
+          <footer class="lorebook-actions"><label>보관 상태<select bind:value={selected.status}><option value="approved">완성</option><option value="review">검토 중</option><option value="archived">보관</option></select></label><div><a class="ghost" href={`${API_BASE}/lorebook/${selected.id}/export?format=markdown`} target="_blank">Markdown</a><a class="ghost" href={`${API_BASE}/lorebook/${selected.id}/export?format=html`} target="_blank">HTML</a><a class="ghost" href={`${API_BASE}/lorebook/${selected.id}/export?format=json`} target="_blank">JSON</a><button class="primary" on:click={saveEntry}>로어북 글 저장</button></div></footer>
+        </article>
+        <details class="card lorebook-provenance"><summary>이 글을 만든 설정</summary><div class="details-body"><div><small>결과물</small><strong>{selected.generation_inputs_json?.output_profile?.name || '기록 없음'}</strong></div><div><small>집필 방식</small><strong>{selected.generation_inputs_json?.writing_recipe?.name || '기록 없음'}</strong></div><div><small>시점·시제·분량</small><strong>{settingLabel(selected.generation_inputs_json?.generation_settings?.viewpoint)} · {settingLabel(selected.generation_inputs_json?.generation_settings?.tense)} · {settingLabel(selected.generation_inputs_json?.generation_settings?.length)}</strong></div><div><small>집필 지시</small><p>{selected.generation_inputs_json?.user_direction || '추가 지시 없음'}</p></div></div></details>
+        <div class="row spread lorebook-source-link"><span>출처 초안은 로어북 글과 별도로 보존됩니다.</span><a class="secondary" href={`/documents?document=${selected.source_document_id}`}>출처 초안 열기</a></div>
+        {#if message}<p class="success">{message}</p>{/if}
+      {:else}
+        <section class="empty-state lorebook-empty"><strong>아직 로어북에 완성된 글이 없습니다.</strong><p>원고 작업에서 초안을 편집하고 완성 설정을 정한 뒤 로어북에 저장하세요.</p><a class="primary" href="/documents">원고 작업으로 이동</a></section>
+      {/if}
+    </main>
+  </div>
+</div>

@@ -243,6 +243,14 @@ class PlaybookSession(Base, TimestampMixin):
 
 class LoreDocument(Base, TimestampMixin):
     __tablename__ = "lore_documents"
+    __table_args__ = (
+        Index("ix_lore_documents_kind_project", "document_kind", "project_id"),
+        Index(
+            "ix_lore_documents_source_document_unique",
+            "source_document_id",
+            unique=True,
+        ),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     project_id: Mapped[str] = mapped_column(
@@ -257,9 +265,13 @@ class LoreDocument(Base, TimestampMixin):
     title: Mapped[str] = mapped_column(String(400), nullable=False)
     body_markdown: Mapped[str] = mapped_column(Text, default="", nullable=False)
     body_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
-    final_body_markdown: Mapped[str] = mapped_column(Text, default="", nullable=False)
-    finalized_from_hash: Mapped[str] = mapped_column(String(128), default="", nullable=False)
-    finalized_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    document_kind: Mapped[str] = mapped_column(String(32), default="draft", nullable=False)
+    source_document_id: Mapped[str | None] = mapped_column(
+        ForeignKey("lore_documents.id", ondelete="CASCADE"), nullable=True
+    )
+    source_draft_hash: Mapped[str] = mapped_column(String(128), default="", nullable=False)
+    generation_inputs_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     status: Mapped[str] = mapped_column(String(32), default="draft", nullable=False)
 
 
