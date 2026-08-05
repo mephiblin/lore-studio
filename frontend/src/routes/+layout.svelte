@@ -3,10 +3,10 @@
   import '../styles.css';
 
   const navigation = [
-    { href: '/', label: '작업대', mark: '⌂' },
-    { href: '/editor', label: '컨셉 아카이브', mark: '◇' },
-    { href: '/playbook', label: '플레이북', mark: '▶' },
-    { href: '/documents', label: '로어 문서', mark: '▤' }
+    { href: '/', label: '프로젝트', mark: '⌂' },
+    { href: '/editor', label: '세계관 자료', mark: '◇' },
+    { href: '/playbook', label: '글 만들기', mark: '▶' },
+    { href: '/documents', label: '원고 편집', mark: '▤' }
   ];
 </script>
 
@@ -17,7 +17,7 @@
 
 <div class="app-shell">
   <aside class="app-nav" aria-label="주요 메뉴">
-    <a class="brand" href="/" aria-label="Lore Studio 작업대">
+    <a class="brand" href="/" aria-label="Lore Studio 프로젝트">
       <span class="brand-seal">LS</span>
       <span><strong>Lore Studio</strong><small>LOCAL WRITING ROOM</small></span>
     </a>

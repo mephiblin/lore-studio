@@ -5,11 +5,11 @@
 | 1 | Compose build/up | PASS | DB healthy, API 18000, UI 5173 |
 | 2 | 프로젝트 생성 | PASS | 실제 API/UI 프로젝트 |
 | 3 | 자유 본문 저장 | PASS | API integration + Tiptap UI |
-| 4 | 카테고리/태그/역할/관계 검색 | PASS | page filters, related_to/relation_type, backlinks |
-| 5 | 방향성 카드 다중 조합 | PASS | UI multi-select/conflict warning |
-| 6 | 역할 선택/필터 풀 추첨 | PASS | 플레이북 4 소재 슬롯 |
-| 7 | 고정/재추첨/seed 재현 | PASS | 결정론적 PRNG와 seed UI |
-| 8 | 레시피/출력/길이/상세도/범위/자유도 | PASS | 플레이북 3·4단계 |
+| 4 | 카테고리/태그/역할/관계 검색 | PASS | 자료 필터, 이름 기반 연결/역연결, 관계 생성·삭제 |
+| 5 | 글의 방향 규칙 다중 조합 | PASS | 카드형 선택, 목적 설명, 충돌 경고 |
+| 6 | 자료 역할 선택 | PASS | 한 자료 목록에서 주제·배경·요소·갈등 지정 |
+| 7 | 선택/설정/seed 재현 | PASS | 생성 세션에 모든 선택과 seed 저장 |
+| 8 | 집필 방식/결과물/시점·시제/분량/범위/자유도 | PASS | 단계형 글 만들기와 요청 본문 E2E |
 | 9 | 사실/질문/금지/참고 구분 | PASS | context preview 3패널 |
 | 10 | editable plan | PASS | 실제 Gemma 5 blocks + 편집 UI |
 | 11 | Gemma Writer 전체 원고 | PASS | 1,039자/5 blocks |
@@ -18,7 +18,7 @@
 | 14 | 임베딩 저장소 격리 | PASS | lore_studio_pgdata/lore_vector |
 | 15 | LoreBlock 저장 | PASS | Tiptap custom node + DB rows |
 | 16 | 부분 재작성 Diff 승인/취소 | PASS | real proposal/apply + dismiss API/UI |
-| 17 | 근거와 감사 | PASS | evidence chip + 3 auditors |
+| 17 | 근거와 감사 | PASS | UUID 대신 자료명 근거 chip + 3 auditors |
 | 18 | 자동 정사 금지 | PASS | invariant/API test |
 | 19 | 후보 추출/승인 | PASS | real extraction/two-step audit |
 | 20 | 참고 구조 분석·사실 격리 | PASS | raw body excluded + leakage tests |

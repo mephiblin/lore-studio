@@ -1,6 +1,6 @@
 # Lore Studio v1.0
 
-Lore Studio는 컨셉 페이지, 방향성 카드, 집필 레시피, 출력 프로필을 분리해 조합하고 로컬 LLM으로 근거가 추적되는 로어 문서를 만드는 단일 사용자용 로컬 작업실입니다. 생성 원고에서 발견한 새 설정은 `CANDIDATE → DRAFT_SETTING → PROJECT_CANON` 승인 단계를 거치며 자동으로 정사가 되지 않습니다.
+Lore Studio는 세계관 자료, 글의 방향 규칙, 집필 방식, 결과물 형식을 분리해 조합하고 로컬 LLM으로 근거가 추적되는 원고를 만드는 단일 사용자용 로컬 작업실입니다. 생성 원고에서 발견한 새 설정은 `CANDIDATE → DRAFT_SETTING → PROJECT_CANON` 승인 단계를 거치며 자동으로 정사가 되지 않습니다.
 
 ## 현재 구현
 
@@ -48,6 +48,7 @@ make test-models
 - 첫 설치: [`docs/LOCAL_SETUP.md`](docs/LOCAL_SETUP.md)
 - 모델: [`docs/LOCAL_MODELS.md`](docs/LOCAL_MODELS.md)
 - 사용 순서: [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md)
+- 화면 구조와 용어: [`docs/INFORMATION_ARCHITECTURE.md`](docs/INFORMATION_ARCHITECTURE.md)
 - 운영/백업: [`docs/OPERATIONS.md`](docs/OPERATIONS.md), [`docs/BACKUP_RESTORE.md`](docs/BACKUP_RESTORE.md)
 - 데이터 경계: [`docs/EMBEDDING_ISOLATION.md`](docs/EMBEDDING_ISOLATION.md), [`docs/SECURITY_AND_DATA.md`](docs/SECURITY_AND_DATA.md)
 - 개발/상태: [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md), [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md)

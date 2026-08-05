@@ -12,7 +12,10 @@
 - 권위 전이, 컨셉/관계/카테고리/카드/레시피/플레이북 API
 - editable Plan, 10 generation stages, LoreBlock, 세 감사, 잠금/부분 Diff
 - 후보 추출/명시 승인, 참고 구조 분석/승인, 이미지 Vision, export/video fallback
-- 반응형 한국어 UI, desktop/mobile Playwright, Makefile/CI/운영 문서
+- 프로젝트 중심 전역 메뉴와 모든 주요 화면의 프로젝트 선택·추가
+- 세계관 자료/글의 방향 규칙 분리, 이름 기반 관계 생성·삭제와 자연어 관계 표시
+- 한 자료 목록에서 주제·배경·요소·갈등을 지정하는 단계형 글 만들기, 시점·시제 생성 기록 저장
+- 반응형 한국어 UI, desktop/mobile Playwright, 정보 구조 문서, Makefile/CI/운영 문서
 
 ## 실제 환경 증거
 
@@ -27,7 +30,7 @@ Utility 9-case 결과는 Qwen3.5-4B가 namespace 누출로 탈락했고 Gemma4-2
 - 실제 모델 opt-in `3 passed` (Writer/Utility, Embedding, Vision)
 - bundle/schema/YAML PASS
 - Svelte production build PASS
-- 실제 데이터 Playwright `10 passed`
+- 실제 데이터 Playwright `12 passed` (프로젝트 생성·정리, 자료 역할 선택, 생성 단계 gate, 시점·시제 요청 기록 포함)
 - 모델 서비스 미연결 UI E2E `10 passed`
 - Compose build/up 및 DB health PASS
 - PostgreSQL Alembic upgrade/downgrade/upgrade PASS

@@ -1,13 +1,18 @@
 <script>
   import { onMount } from 'svelte';
+  import ProjectCreator from '$lib/components/ProjectCreator.svelte';
   import { api } from '$lib/api';
+  import { modelRoleLabels } from '$lib/labels';
+  import { rememberProject } from '$lib/project';
 
   let projects = [];
   let profiles = [];
   let loading = true;
   let error = '';
 
-  onMount(async () => {
+  onMount(load);
+
+  async function load() {
     try {
       [projects, { profiles }] = await Promise.all([api.get('/projects'), api.get('/models/status')]);
     } catch (e) {
@@ -15,54 +20,64 @@
     } finally {
       loading = false;
     }
-  });
+  }
+
+  async function projectCreated(project) {
+    projects = [project, ...projects];
+  }
 </script>
 
 <div class="page stack" style="gap:18px">
-  <section class="hero-workbench">
-    <div class="hero-copy">
-      <p class="eyebrow" style="color:#e3b867">DGX SPARK · LOCAL FIRST</p>
-      <h1>설정은 쌓고,<br />정사는 직접 결정합니다.</h1>
-      <p>자료, 방향, 작문 방식을 분리해 조합하고 실제 로컬 모델로 근거가 남는 로어 문서를 만듭니다.</p>
+  <section class="home-briefing">
+    <div class="home-thesis">
+      <p class="eyebrow">오늘의 작업</p>
+      <h1>세계를 선택하고,<br />필요한 글을 만드세요.</h1>
+      <p>프로젝트별로 세계관 자료와 원고가 분리됩니다. 원고에서 나온 새 설정은 승인하기 전까지 세계관을 바꾸지 않습니다.</p>
     </div>
-    <div class="hero-gauge" aria-label="로컬 모델 상태">
-      <p class="eyebrow" style="color:#9fb4ae">MODEL ROUTING</p>
-      {#if loading}<span class="small">프로필 확인 중…</span>{/if}
+    <div class="model-board" aria-label="로컬 모델 상태">
+      <div class="row spread"><strong>로컬 모델</strong><span class="badge canon">실제 연결</span></div>
+      {#if loading}<span class="small">연결 상태 확인 중…</span>{/if}
       {#each profiles as profile}
-        <div class="gauge-row">
-          <strong>{profile.role}</strong>
-          <div class="gauge-track"><span style={`width:${profile.available ? 100 : 8}%`}></span></div>
-          <span>{profile.available ? 'READY' : 'OFFLINE'}</span>
+        <div class="model-row">
+          <span>{modelRoleLabels[profile.role] || profile.role}</span>
+          <span class:online={profile.available} class="model-state">{profile.available ? '준비됨' : '연결 필요'}</span>
         </div>
       {/each}
       {#if error}<p class="notice-error">{error}</p>{/if}
     </div>
   </section>
 
-  <div class="grid-2">
-    <section class="card stack">
-      <p class="eyebrow">01 · ARCHIVE</p>
-      <h2 style="margin:0">컨셉 아카이브</h2>
-      <p class="small">자유 본문을 중심으로 세계관 자료, 외부 근거, 작문 참고를 서로 다른 권위로 보관합니다.</p>
-      <div class="row spread"><span class="badge">프로젝트 {projects.length}</span><a class="secondary" href="/editor">자료 정리하기 →</a></div>
-    </section>
-    <section class="card stack">
-      <p class="eyebrow">02 · COMPOSE</p>
-      <h2 style="margin:0">플레이북 조립</h2>
-      <p class="small">소재·방향성 카드·집필 레시피·출력 프로필을 조합하고 구성안을 검토한 뒤 원고를 씁니다.</p>
-      <div class="row spread"><span class="badge candidate">승인 경계 유지</span><a class="primary" href="/playbook">새 로어 만들기 →</a></div>
-    </section>
-  </div>
+  <section class="section-heading row spread wrap">
+    <div><p class="eyebrow">프로젝트</p><h2>어느 세계에서 작업할까요?</h2></div>
+    <ProjectCreator onCreated={projectCreated} />
+  </section>
 
-  <section class="card">
-    <div class="page-header" style="margin:0 0 16px">
-      <div><p class="eyebrow">AUTHORITY CURRENT</p><h2 style="margin:0">세계관으로 들어가는 흐름</h2></div>
-      <span class="small">모델 출력은 정사가 아닙니다.</span>
+  {#if projects.length}
+    <div class="project-grid">
+      {#each projects as project}
+        <article class="project-card">
+          <div>
+            <span class="project-mark" aria-hidden="true"></span>
+            <h3>{project.name}</h3>
+            <p>{project.description || '아직 프로젝트 설명이 없습니다.'}</p>
+          </div>
+          <div class="project-actions">
+            <a class="secondary" href="/editor" on:click={() => rememberProject(project.id)}>자료 정리</a>
+            <a class="primary" href="/playbook" on:click={() => rememberProject(project.id)}>글 만들기</a>
+          </div>
+        </article>
+      {/each}
     </div>
-    <div class="evidence-flow">
-      <div class="evidence-item"><strong>CANDIDATE</strong><small>원고에서 발견된 새 설정. 생성 근거와 충돌 가능성을 함께 보관합니다.</small></div>
-      <div class="evidence-item"><strong>DRAFT_SETTING</strong><small>사용자가 초안 설정으로 승인했습니다. 다음 작업에서 선택적으로 사용할 수 있습니다.</small></div>
-      <div class="evidence-item"><strong>PROJECT_CANON</strong><small>사용자가 프로젝트 정사로 다시 승인했습니다. 잠긴 사실과 함께 우선 근거가 됩니다.</small></div>
-    </div>
+  {:else if !loading}
+    <section class="empty-state">
+      <strong>첫 프로젝트를 만들어 보세요.</strong>
+      <p>이름과 한 줄 설명만 있으면 시작할 수 있습니다.</p>
+    </section>
+  {/if}
+
+  <section class="flow-strip" aria-label="작업 흐름">
+    <div><span>1</span><strong>세계관 자료</strong><small>인물·장소·사건을 기록합니다.</small></div>
+    <div><span>2</span><strong>글 만들기</strong><small>쓸 대상과 방향을 선택합니다.</small></div>
+    <div><span>3</span><strong>원고 편집</strong><small>문단별로 검토하고 완성합니다.</small></div>
   </section>
 </div>

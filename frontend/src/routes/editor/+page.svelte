@@ -1,7 +1,10 @@
 <script>
   import { onMount } from 'svelte';
   import TiptapEditor from '$lib/components/TiptapEditor.svelte';
+  import ProjectCreator from '$lib/components/ProjectCreator.svelte';
   import { api } from '$lib/api';
+  import { categoryLabel, relationLabel, roleLabel, relationLabels } from '$lib/labels';
+  import { initialProjectId, rememberProject } from '$lib/project';
 
   let projects = [];
   let projectId = '';
@@ -9,21 +12,36 @@
   let cards = [];
   let templates = [];
   let selectedPage = null;
+  let activeTab = 'pages';
   let error = '';
   let message = '';
   let pageFilter = '';
+  let categoryFilter = 'all';
   let relations = [];
   let indexStats = null;
   let cardSuggestion = null;
   let referenceAnalysis = null;
   let busy = '';
+  let newPageOpen = false;
+  let editingCardId = '';
+  let cardDraft = { title: '', body: '', tags: '' };
 
-  $: visiblePages = pages.filter((page) => !pageFilter || `${page.title} ${(page.tags || []).join(' ')}`.toLowerCase().includes(pageFilter.toLowerCase()));
+  $: visiblePages = pages.filter((page) => {
+    const matchesText = !pageFilter || `${page.title} ${page.summary} ${(page.tags || []).join(' ')}`.toLowerCase().includes(pageFilter.toLowerCase());
+    return matchesText && (categoryFilter === 'all' || page.category_key === categoryFilter);
+  });
   $: allTags = [...new Set(pages.flatMap((page) => page.tags || []))].sort();
 
-  let projectForm = { name: '', slug: '', universe_namespace: 'my-world' };
-  let pageForm = { title: '', category_key: 'free', usage_role: 'DRAFT_SETTING' };
+  let pageForm = { title: '', category_key: 'free', purpose: 'setting' };
   let cardForm = { title: '', body: '', tags: '' };
+  let relationForm = { target_page_id: '', relation_type: 'RELATED_TO', notes: '' };
+
+  const purposeRoles = {
+    setting: 'DRAFT_SETTING',
+    evidence: 'CANON_EVIDENCE',
+    inspiration: 'INSPIRATION',
+    style: 'DISCOURSE_REFERENCE'
+  };
 
   onMount(loadInitial);
 
@@ -31,45 +49,36 @@
     try {
       templates = await api.get('/presets/page-templates');
       projects = await api.get('/projects');
-      if (projects.length) {
-        projectId = projects[0].id;
-        await loadProjectData();
-      }
-    } catch (e) {
-      error = e.message;
-    }
+      projectId = initialProjectId(projects);
+      if (projectId) await loadProjectData();
+    } catch (e) { error = e.message; }
   }
 
-  async function createProject() {
-    error = '';
-    try {
-      const created = await api.post('/projects', {
-        ...projectForm,
-        description: '',
-        settings_json: {}
-      });
-      projects = [created, ...projects];
-      projectId = created.id;
-      projectForm = { name: '', slug: '', universe_namespace: 'my-world' };
-      await loadProjectData();
-    } catch (e) {
-      error = e.message;
-    }
+  async function projectCreated(project) {
+    projects = [project, ...projects];
+    projectId = project.id;
+    rememberProject(projectId);
+    await loadProjectData();
+  }
+
+  async function changeProject() {
+    rememberProject(projectId);
+    await loadProjectData();
   }
 
   async function loadProjectData() {
     if (!projectId) return;
     error = '';
+    message = '';
     try {
       [pages, cards, indexStats] = await Promise.all([
         api.get(`/concept-pages?project_id=${projectId}`),
         api.get(`/direction-cards?project_id=${projectId}`),
         api.get(`/index/stats?project_id=${projectId}`)
       ]);
-      if (pages[0]) await selectPage(pages[0]); else selectedPage = null;
-    } catch (e) {
-      error = e.message;
-    }
+      if (pages[0]) await selectPage(pages[0]);
+      else { selectedPage = null; relations = []; }
+    } catch (e) { error = e.message; }
   }
 
   async function createPage() {
@@ -79,100 +88,148 @@
       const project = projects.find((item) => item.id === projectId);
       const page = await api.post('/concept-pages', {
         project_id: projectId,
-        title: pageForm.title,
+        title: pageForm.title.trim(),
         category_key: pageForm.category_key,
         tags: [],
-        usage_role: pageForm.usage_role,
+        usage_role: purposeRoles[pageForm.purpose],
         status: 'active',
         namespace: project?.universe_namespace || 'default',
         summary: '',
         body_json: { type: 'doc', content: [] },
         properties_json: {},
         locked_facts: [],
-        open_questions: []
+        open_questions: [],
+        forbidden_changes: []
       });
       pages = [page, ...pages];
-      selectedPage = page;
-      pageForm.title = '';
-    } catch (e) {
-      error = e.message;
-    }
+      pageForm = { title: '', category_key: 'free', purpose: 'setting' };
+      newPageOpen = false;
+      await selectPage(page);
+      message = '새 자료를 만들었습니다. 본문과 핵심 사실을 채워 보세요.';
+    } catch (e) { error = e.message; }
   }
 
   async function savePage() {
     if (!selectedPage) return;
-    error = '';
-    message = '';
+    error = ''; message = ''; busy = '변경 저장 중';
     try {
       const updated = await api.patch(`/concept-pages/${selectedPage.id}`, {
         title: selectedPage.title,
         category_key: selectedPage.category_key,
         custom_category: selectedPage.custom_category,
-        tags: typeof selectedPage.tagsText === 'string'
-          ? selectedPage.tagsText.split(',').map((item) => item.trim()).filter(Boolean)
-          : selectedPage.tags,
-        usage_role: selectedPage.usage_role,
+        tags: typeof selectedPage.tagsText === 'string' ? selectedPage.tagsText.split(',').map((item) => item.trim()).filter(Boolean) : selectedPage.tags,
         namespace: selectedPage.namespace,
         era: selectedPage.era,
         continuity: selectedPage.continuity,
         summary: selectedPage.summary,
         body_json: selectedPage.body_json,
-        locked_facts: typeof selectedPage.lockedFactsText === 'string'
-          ? selectedPage.lockedFactsText.split('\n').map((item) => item.trim()).filter(Boolean)
-          : selectedPage.locked_facts,
-        open_questions: typeof selectedPage.openQuestionsText === 'string'
-          ? selectedPage.openQuestionsText.split('\n').map((item) => item.trim()).filter(Boolean)
-          : selectedPage.open_questions,
-        forbidden_changes: typeof selectedPage.forbiddenChangesText === 'string'
-          ? selectedPage.forbiddenChangesText.split('\n').map((item) => item.trim()).filter(Boolean)
-          : selectedPage.forbidden_changes,
+        locked_facts: lines(selectedPage.lockedFactsText, selectedPage.locked_facts),
+        open_questions: lines(selectedPage.openQuestionsText, selectedPage.open_questions),
+        forbidden_changes: lines(selectedPage.forbiddenChangesText, selectedPage.forbidden_changes),
         properties_json: selectedPage.properties_json || {},
         attachment_refs: selectedPage.attachment_refs || []
       });
-      selectedPage = updated;
+      selectedPage = decoratePage(updated);
       pages = pages.map((item) => item.id === updated.id ? updated : item);
-      message = '저장했습니다.';
-    } catch (e) {
-      error = e.message;
-    }
+      message = '변경 내용을 저장했습니다.';
+    } catch (e) { error = e.message; }
+    finally { busy = ''; }
   }
 
-  async function selectPage(page) {
-    selectedPage = {
+  function lines(text, fallback) {
+    return typeof text === 'string' ? text.split('\n').map((item) => item.trim()).filter(Boolean) : fallback;
+  }
+
+  function decoratePage(page) {
+    return {
       ...page,
       tagsText: (page.tags || []).join(', '),
       lockedFactsText: (page.locked_facts || []).join('\n'),
       openQuestionsText: (page.open_questions || []).join('\n'),
       forbiddenChangesText: (page.forbidden_changes || []).join('\n')
     };
+  }
+
+  async function selectPage(page) {
+    selectedPage = decoratePage(page);
+    relationForm = { target_page_id: '', relation_type: 'RELATED_TO', notes: '' };
     try { relations = await api.get(`/concept-pages/${page.id}/relations`); }
     catch (e) { error = e.message; }
     referenceAnalysis = null;
     message = '';
   }
 
+  function pageName(pageId) {
+    return pages.find((page) => page.id === pageId)?.title || '삭제된 자료';
+  }
+
+  function otherPage(relation) {
+    return relation.source_page_id === selectedPage?.id ? relation.target_page_id : relation.source_page_id;
+  }
+
+  async function createRelation() {
+    if (!selectedPage || !relationForm.target_page_id) return;
+    try {
+      const relation = await api.post('/concept-relations', {
+        project_id: projectId,
+        source_page_id: selectedPage.id,
+        ...relationForm
+      });
+      relations = [...relations, relation];
+      relationForm = { target_page_id: '', relation_type: 'RELATED_TO', notes: '' };
+      message = '자료 연결을 추가했습니다.';
+    } catch (e) { error = e.message; }
+  }
+
+  async function removeRelation(relation) {
+    if (!confirm(`'${pageName(otherPage(relation))}'과의 연결을 삭제할까요?`)) return;
+    try {
+      await api.delete(`/concept-relations/${relation.id}`);
+      relations = relations.filter((item) => item.id !== relation.id);
+    } catch (e) { error = e.message; }
+  }
+
   async function createCard() {
     if (!projectId || !cardForm.title.trim() || !cardForm.body.trim()) return;
-    error = '';
     try {
       const card = await api.post('/direction-cards', {
         project_id: projectId,
-        title: cardForm.title,
-        body: cardForm.body,
+        title: cardForm.title.trim(),
+        body: cardForm.body.trim(),
         tags: cardForm.tags.split(',').map((item) => item.trim()).filter(Boolean),
-        parsed_rules: {},
-        weight: 1,
-        enabled: true
+        parsed_rules: {}, weight: 1, enabled: true
       });
       cards = [card, ...cards];
       cardForm = { title: '', body: '', tags: '' };
-    } catch (e) {
-      error = e.message;
-    }
+      message = '글의 방향 규칙을 추가했습니다.';
+    } catch (e) { error = e.message; }
+  }
+
+  function editCard(card) {
+    editingCardId = card.id;
+    cardDraft = { title: card.title, body: card.body, tags: (card.tags || []).join(', ') };
+  }
+
+  async function saveCard(card) {
+    try {
+      const updated = await api.patch(`/direction-cards/${card.id}`, {
+        title: cardDraft.title.trim(), body: cardDraft.body.trim(),
+        tags: cardDraft.tags.split(',').map((item) => item.trim()).filter(Boolean)
+      });
+      cards = cards.map((item) => item.id === updated.id ? updated : item);
+      editingCardId = '';
+      message = '방향 규칙을 저장했습니다.';
+    } catch (e) { error = e.message; }
+  }
+
+  async function deleteCard(card) {
+    if (!confirm(`'${card.title}' 규칙을 삭제할까요?`)) return;
+    try { await api.delete(`/direction-cards/${card.id}`); cards = cards.filter((item) => item.id !== card.id); }
+    catch (e) { error = e.message; }
   }
 
   async function suggestCard(card) {
-    busy = 'Utility 모델이 카드 원문을 구조화하는 중'; error = '';
+    busy = 'AI가 원문에서 세부 규칙을 정리하는 중'; error = '';
     try { cardSuggestion = await api.post(`/direction-cards/${card.id}/suggest-structure`, {}); }
     catch (e) { error = e.message; }
     finally { busy = ''; }
@@ -188,12 +245,12 @@
     });
     cards = cards.map((item) => item.id === updated.id ? updated : item);
     cardSuggestion = null;
-    message = '구조화 제안을 카드에 적용했습니다. 원문은 그대로 보존됐습니다.';
+    message = '세부 규칙을 저장했습니다. 원문은 바뀌지 않았습니다.';
   }
 
   async function analyzeReference() {
     if (!selectedPage) return;
-    busy = 'Utility 모델이 수사 이동과 문체 구조를 분석하는 중'; error = '';
+    busy = 'AI가 문단 구조와 문체를 분석하는 중'; error = '';
     try { referenceAnalysis = await api.post(`/reference-analyzer/${selectedPage.id}`, {}); }
     catch (e) { error = e.message; }
     finally { busy = ''; }
@@ -202,168 +259,193 @@
   async function approveReference() {
     const result = await api.post(`/reference-analyses/${referenceAnalysis.id}/approve`, {});
     referenceAnalysis = { ...referenceAnalysis, status: result.status };
-    message = '분석에서 집필 레시피와 Voice Profile을 승인했습니다.';
+    message = '분석한 집필 방식을 승인했습니다.';
   }
 
   async function reindexPage() {
     if (!selectedPage) return;
-    busy = 'BGE-M3 재색인 중'; error = '';
+    busy = '검색 인덱스에 반영하는 중'; error = '';
     try {
       const job = await api.post('/index/jobs', { project_id: projectId, concept_page_id: selectedPage.id });
       await api.post(`/index/jobs/${job.id}/run`, {});
       indexStats = await api.get(`/index/stats?project_id=${projectId}`);
-      message = '페이지를 전용 벡터 인덱스에 반영했습니다.';
+      message = '최신 내용을 자료 검색에 반영했습니다.';
     } catch (e) { error = e.message; }
     finally { busy = ''; }
   }
 </script>
 
 <div class="page">
-  <div class="page-header">
-    <div>
-      <p class="eyebrow">CONCEPT ARCHIVE</p>
-      <h1>컨셉 아카이브</h1>
-      <p>자유 본문을 중심으로 권위, 관계, 근거와 작문 참고를 분리해 축적합니다.</p>
+  <div class="page-header archive-header">
+    <div><p class="eyebrow">세계관 자료</p><h1>설정을 기록하고 연결합니다.</h1><p>원고에 사용할 인물·장소·사건과 글의 방향 규칙을 관리합니다.</p></div>
+    <div class="project-tools">
+      <label>현재 프로젝트<select bind:value={projectId} on:change={changeProject}><option value="">프로젝트 선택</option>{#each projects as project}<option value={project.id}>{project.name}</option>{/each}</select></label>
+      <ProjectCreator onCreated={projectCreated} />
     </div>
-    <label style="min-width:260px">
-      프로젝트
-      <select bind:value={projectId} on:change={loadProjectData}>
-        <option value="">프로젝트 선택</option>
-        {#each projects as project}
-          <option value={project.id}>{project.name}</option>
-        {/each}
-      </select>
-    </label>
   </div>
 
-  {#if error}<p class="error">{error}</p>{/if}
-  {#if busy}<div class="notice" role="status">{busy}… 원문은 변경하지 않습니다.</div>{/if}
+  {#if error}<p class="notice-error">{error}</p>{/if}
+  {#if busy}<div class="notice" role="status">{busy}…</div>{/if}
+  {#if message}<div class="success-banner">{message}</div>{/if}
 
   {#if !projects.length}
-    <section class="card stack" style="max-width:560px">
-      <h2>첫 프로젝트 만들기</h2>
-      <label>이름 <input bind:value={projectForm.name} /></label>
-      <label>slug <input bind:value={projectForm.slug} placeholder="my-world" /></label>
-      <label>네임스페이스 <input bind:value={projectForm.universe_namespace} /></label>
-      <button class="primary" on:click={createProject}>프로젝트 생성</button>
-    </section>
+    <section class="empty-state"><strong>먼저 프로젝트를 만들어 주세요.</strong><p>프로젝트는 하나의 세계관과 그 원고를 서로 섞이지 않게 보관합니다.</p></section>
   {:else}
-    <div class="grid-3">
-      <aside class="card stack">
-        <div class="row" style="justify-content:space-between">
-          <h3>컨셉 페이지</h3>
-          <span class="badge">{visiblePages.length}/{pages.length}</span>
-        </div>
-        <input aria-label="페이지 검색" bind:value={pageFilter} placeholder="제목·태그 검색" />
-        <label>새 페이지 제목 <input bind:value={pageForm.title} /></label>
-        <label>
-          카테고리
-          <select bind:value={pageForm.category_key}>
-            {#each templates as template}<option value={template.key}>{template.name}</option>{/each}
-          </select>
-        </label>
-        <label>
-          사용 역할
-          <select bind:value={pageForm.usage_role}>
-            <option>PROJECT_CANON</option>
-            <option>DRAFT_SETTING</option>
-            <option>CANON_EVIDENCE</option>
-            <option>SECONDARY_INTERPRETATION</option>
-            <option>INSPIRATION</option>
-            <option>DISCOURSE_REFERENCE</option>
-            <option>CANDIDATE</option>
-          </select>
-        </label>
-        <button class="secondary" on:click={createPage}>페이지 추가</button>
-        <div class="list">
-          {#each visiblePages as page}
-            <button class:active={selectedPage?.id === page.id} on:click={() => selectPage(page)}>
-              <strong>{page.title}</strong>
-              <div class="small">{page.category_key} · {page.usage_role}</div>
-            </button>
-          {/each}
-        </div>
+    <nav class="section-tabs" aria-label="세계관 자료 관리">
+      <button class:active={activeTab === 'pages'} on:click={() => activeTab = 'pages'}>세계관 자료 <span>{pages.length}</span></button>
+      <button class:active={activeTab === 'directions'} on:click={() => activeTab = 'directions'}>글의 방향 규칙 <span>{cards.length}</span></button>
+    </nav>
 
-        <hr />
-        <h3>방향성 카드</h3>
-        <label>제목 <input bind:value={cardForm.title} /></label>
-        <label>내용 <textarea bind:value={cardForm.body}></textarea></label>
-        <label>태그 <input bind:value={cardForm.tags} placeholder="비극, 기관, 미스터리" /></label>
-        <button class="secondary" on:click={createCard}>카드 추가</button>
-        <div class="list">
-          {#each cards as card}
-            <div class="card stack" style="padding:10px">
-              <strong>{card.title}</strong>
-              <div class="small">{card.body.slice(0, 90)}</div>
-              <button class="ghost" on:click={() => suggestCard(card)}>Utility 구조화 제안</button>
+    {#if activeTab === 'pages'}
+      <div class="archive-layout">
+        <aside class="card archive-list stack">
+          <div class="row spread"><div><h2>자료</h2><p class="small">원고가 참고할 세계의 사실과 아이디어</p></div><button class="primary compact" on:click={() => newPageOpen = !newPageOpen}>+ 새 자료</button></div>
+          {#if newPageOpen}
+            <div class="inline-create stack">
+              <label>자료 이름 <input bind:value={pageForm.title} placeholder="예: 황혼 시장" /></label>
+              <div class="grid-2">
+                <label>종류<select bind:value={pageForm.category_key}>{#each templates as template}<option value={template.key}>{template.name}</option>{/each}</select></label>
+                <label>용도<select bind:value={pageForm.purpose}><option value="setting">세계관 설정</option><option value="evidence">정사 근거</option><option value="inspiration">영감 자료</option><option value="style">문체 참고</option></select></label>
+              </div>
+              <button class="primary" disabled={!pageForm.title.trim()} on:click={createPage}>자료 만들기</button>
             </div>
-          {/each}
-        </div>
-        {#if cardSuggestion}<div class="notice"><strong>원문 보존됨</strong><pre>{JSON.stringify(cardSuggestion.suggestion, null, 2)}</pre><button class="primary" on:click={applyCardSuggestion}>제안 적용</button></div>{/if}
-      </aside>
-
-      <section class="stack">
-        {#if selectedPage}
-          <div class="card row" style="justify-content:space-between">
-            <div>
-              <strong>{selectedPage.title}</strong>
-              <div class="small">자유 본문이 원본이며 구조화 필드는 선택 사항입니다.</div>
-            </div>
-            <div class="row"><button class="ghost" on:click={reindexPage}>BGE-M3 재색인</button><button class="primary" on:click={savePage}>변경 저장</button></div>
+          {/if}
+          <div class="filter-row"><input aria-label="자료 검색" bind:value={pageFilter} placeholder="제목·태그·요약 검색" /><select aria-label="종류 필터" bind:value={categoryFilter}><option value="all">모든 종류</option>{#each templates as template}<option value={template.key}>{template.name}</option>{/each}</select></div>
+          <div class="archive-page-list">
+            {#each visiblePages as page}
+              <button class:active={selectedPage?.id === page.id} on:click={() => selectPage(page)}>
+                <span class="row spread"><strong>{page.title}</strong><span class:canon={page.usage_role === 'PROJECT_CANON'} class="badge">{roleLabel(page.usage_role)}</span></span>
+                <small>{categoryLabel(page.category_key)}{page.summary ? ` · ${page.summary.slice(0, 48)}` : ''}</small>
+              </button>
+            {/each}
+            {#if !visiblePages.length}<div class="empty-mini">조건에 맞는 자료가 없습니다.</div>{/if}
           </div>
-          <TiptapEditor
-            value={selectedPage.body_json}
-            onChange={(body) => selectedPage = { ...selectedPage, body_json: body }}
-          />
-        {:else}
-          <div class="card">왼쪽에서 컨셉 페이지를 만들거나 선택하십시오.</div>
+        </aside>
+
+        <section class="stack manuscript-panel">
+          {#if selectedPage}
+            <div class="card manuscript-toolbar">
+              <div><span class="badge">{categoryLabel(selectedPage.category_key)}</span><h2>{selectedPage.title}</h2><p>{selectedPage.summary || '이 자료를 한 문장으로 설명해 보세요.'}</p></div>
+              <button class="primary" on:click={savePage}>변경 저장</button>
+            </div>
+            <TiptapEditor value={selectedPage.body_json} onChange={(body) => selectedPage = { ...selectedPage, body_json: body }} />
+          {:else}<div class="empty-state">왼쪽에서 자료를 만들거나 선택하세요.</div>{/if}
+        </section>
+
+        <aside class="card archive-inspector stack">
+          {#if selectedPage}
+            <div class="row spread"><h2>핵심 정보</h2><span class:canon={selectedPage.usage_role === 'PROJECT_CANON'} class="badge">{roleLabel(selectedPage.usage_role)}</span></div>
+            <label>제목 <input bind:value={selectedPage.title} /></label>
+            <label>종류<select bind:value={selectedPage.category_key}>{#each templates as template}<option value={template.key}>{template.name}</option>{/each}</select></label>
+            <label>태그 <input bind:value={selectedPage.tagsText} list="known-tags" placeholder="쉼표로 구분" /></label>
+            <datalist id="known-tags">{#each allTags as tag}<option value={tag}></option>{/each}</datalist>
+            <label>한 줄 요약 <textarea bind:value={selectedPage.summary} placeholder="이 자료가 무엇인지 짧게 설명하세요."></textarea></label>
+            <div class="grid-2"><label>시대 <input bind:value={selectedPage.era} /></label><label>연속성 <input bind:value={selectedPage.continuity} /></label></div>
+
+            <details open>
+              <summary>원고에서 지킬 것</summary>
+              <div class="stack details-body">
+                <label>확정된 사실 <textarea bind:value={selectedPage.lockedFactsText} placeholder="한 줄에 하나씩"></textarea></label>
+                <label>아직 답하지 않을 질문 <textarea bind:value={selectedPage.openQuestionsText} placeholder="한 줄에 하나씩"></textarea></label>
+                <label>바꾸면 안 되는 것 <textarea bind:value={selectedPage.forbiddenChangesText} placeholder="한 줄에 하나씩"></textarea></label>
+              </div>
+            </details>
+
+            <section class="relation-section stack">
+              <div class="row spread"><div><h3>연결된 자료</h3><p class="small">이 자료가 세계의 다른 요소와 어떻게 연결되는지 표시합니다.</p></div><span class="badge">{relations.length}</span></div>
+              {#each relations as relation}
+                <div class="relation-card">
+                  <button class="relation-link" on:click={() => selectPage(pages.find((page) => page.id === otherPage(relation)))}>
+                    <small>{relation.source_page_id === selectedPage.id ? '나가는 연결' : '들어오는 연결'}</small>
+                    <strong>{relation.source_page_id === selectedPage.id ? `이 자료 — ${relationLabel(relation.relation_type)} → ${pageName(otherPage(relation))}` : `${pageName(otherPage(relation))} — ${relationLabel(relation.relation_type)} → 이 자료`}</strong>
+                    {#if relation.notes}<span>{relation.notes}</span>{/if}
+                  </button>
+                  <button class="icon-button" aria-label="연결 삭제" on:click={() => removeRelation(relation)}>×</button>
+                </div>
+              {/each}
+              {#if !relations.length}<p class="empty-mini">아직 연결된 자료가 없습니다.</p>{/if}
+              <div class="inline-create stack">
+                <strong>연결 추가</strong>
+                <label>대상 자료<select bind:value={relationForm.target_page_id}><option value="">선택하세요</option>{#each pages.filter((page) => page.id !== selectedPage.id) as page}<option value={page.id}>{page.title}</option>{/each}</select></label>
+                <label>관계<select bind:value={relationForm.relation_type}>{#each Object.entries(relationLabels) as [value, label]}<option {value}>{label}</option>{/each}</select></label>
+                <label>메모 <input bind:value={relationForm.notes} placeholder="연결 이유" /></label>
+                <button class="secondary" disabled={!relationForm.target_page_id} on:click={createRelation}>연결하기</button>
+              </div>
+            </section>
+
+            <details>
+              <summary>고급 정보</summary>
+              <div class="stack details-body">
+                <label>사용자 정의 종류 <input bind:value={selectedPage.custom_category} /></label>
+                <label>자료 범위 <input bind:value={selectedPage.namespace} /></label>
+                <div class="notice"><strong>검색 상태</strong><div class="small">{indexStats?.indexed_pages || 0}개 자료 · {indexStats?.chunks || 0}개 조각</div></div>
+                <button class="secondary" on:click={reindexPage}>최신 내용을 검색에 반영</button>
+              </div>
+            </details>
+            {#if selectedPage.usage_role === 'DISCOURSE_REFERENCE'}
+              <button class="secondary" on:click={analyzeReference}>이 글의 구성·문체 분석</button>
+              {#if referenceAnalysis}
+                <div class="rule-preview stack">
+                  <strong>문단 구성 분석</strong>
+                  {#each referenceAnalysis.analysis_json?.paragraphs || [] as paragraph}
+                    <div class="evidence-item"><strong>{paragraph.index + 1}번째 문단 · {paragraph.primary_move}</strong><small>보조 역할 {paragraph.secondary_move} · 범위 {paragraph.scale} · 맺음 {paragraph.ending}</small></div>
+                  {/each}
+                  {#if !referenceAnalysis.analysis_json?.paragraphs?.length}<p class="empty-mini">분석된 문단이 없습니다.</p>{/if}
+                  <button class="primary" disabled={referenceAnalysis.status !== 'CANDIDATE'} on:click={approveReference}>{referenceAnalysis.status === 'CANDIDATE' ? '집필 방식으로 승인' : '승인됨'}</button>
+                </div>
+              {/if}
+            {/if}
+          {/if}
+        </aside>
+      </div>
+    {:else}
+      <section class="directions-layout">
+        <div class="direction-intro">
+          <p class="eyebrow">글의 방향 규칙</p>
+          <h2>무엇을 쓸지가 아니라,<br />어떻게 다룰지 정합니다.</h2>
+          <p>세계관 사실을 추가하거나 바꾸지 않습니다. 글 만들기에서 선택하면 전개 순서와 피해야 할 반전을 Writer에게 전달합니다.</p>
+        </div>
+        <div class="card stack direction-create">
+          <h3>새 방향 규칙</h3>
+          <label>규칙 이름 <input bind:value={cardForm.title} placeholder="예: 선의의 결과가 새 문제를 만든다" /></label>
+          <label>원고에 어떤 방향을 적용할까요? <textarea bind:value={cardForm.body} placeholder="반드시 보여 줄 과정과 피할 전개를 자연스럽게 적어 주세요."></textarea></label>
+          <label>찾기용 태그 <input bind:value={cardForm.tags} placeholder="제도, 의존, 대가" /></label>
+          <button class="primary" disabled={!cardForm.title.trim() || !cardForm.body.trim()} on:click={createCard}>규칙 추가</button>
+        </div>
+        <div class="direction-list">
+          {#each cards as card}
+            <article class="direction-card">
+              {#if editingCardId === card.id}
+                <div class="stack"><label>규칙 이름 <input bind:value={cardDraft.title} /></label><label>방향 설명 <textarea bind:value={cardDraft.body}></textarea></label><label>태그 <input bind:value={cardDraft.tags} /></label><div class="row"><button class="primary" on:click={() => saveCard(card)}>저장</button><button class="ghost" on:click={() => editingCardId = ''}>취소</button></div></div>
+              {:else}
+                <div class="row spread"><div><div class="tag-row">{#each card.tags || [] as tag}<span class="badge">{tag}</span>{/each}</div><h3>{card.title}</h3></div><span class="badge canon">선택 가능</span></div>
+                <p>{card.body}</p>
+                {#if Object.keys(card.parsed_rules || {}).length}
+                  <div class="rule-grid">
+                    <div><strong>반드시 포함</strong><span>{(card.parsed_rules.must_include || []).join(' · ') || '없음'}</span></div>
+                    <div><strong>피할 전개</strong><span>{(card.parsed_rules.avoid || []).join(' · ') || '없음'}</span></div>
+                    <div><strong>선호 결말</strong><span>{card.parsed_rules.ending_preference || '지정 안 함'}</span></div>
+                  </div>
+                {/if}
+                <div class="row wrap"><button class="secondary" on:click={() => editCard(card)}>내용 수정</button><button class="ghost" on:click={() => suggestCard(card)}>AI로 세부 규칙 정리</button><button class="danger-button" on:click={() => deleteCard(card)}>삭제</button></div>
+              {/if}
+            </article>
+          {/each}
+        </div>
+        {#if cardSuggestion}
+          <section class="card suggestion-review stack">
+            <div><p class="eyebrow">AI 정리 결과</p><h3>원문은 그대로 두고, 생성에 쓸 세부 규칙만 추가합니다.</h3></div>
+            <div class="rule-grid">
+              <div><strong>목표</strong><span>{(cardSuggestion.suggestion.goals || []).join(' · ')}</span></div>
+              <div><strong>전개 순서</strong><span>{(cardSuggestion.suggestion.sequence || []).join(' → ')}</span></div>
+              <div><strong>반드시 포함</strong><span>{(cardSuggestion.suggestion.must_include || []).join(' · ')}</span></div>
+              <div><strong>피할 전개</strong><span>{(cardSuggestion.suggestion.avoid || []).join(' · ')}</span></div>
+              <div><strong>선호 결말</strong><span>{cardSuggestion.suggestion.ending_preference}</span></div>
+            </div>
+            <div class="row"><button class="primary" on:click={applyCardSuggestion}>세부 규칙 저장</button><button class="ghost" on:click={() => cardSuggestion = null}>취소</button></div>
+          </section>
         {/if}
       </section>
-
-      <aside class="card stack">
-        {#if selectedPage}
-          <h3>페이지 속성</h3>
-          <label>제목 <input bind:value={selectedPage.title} /></label>
-          <label>
-            카테고리
-            <select bind:value={selectedPage.category_key}>
-              {#each templates as template}<option value={template.key}>{template.name}</option>{/each}
-            </select>
-          </label>
-          <label>사용자 정의 카테고리 <input bind:value={selectedPage.custom_category} placeholder="프리셋에 없을 때만" /></label>
-          <label>태그 <input bind:value={selectedPage.tagsText} list="known-tags" placeholder="쉼표로 구분" /></label>
-          <datalist id="known-tags">{#each allTags as tag}<option value={tag}></option>{/each}</datalist>
-          <label>
-            사용 역할
-            <select bind:value={selectedPage.usage_role}>
-              <option>PROJECT_CANON</option>
-              <option>DRAFT_SETTING</option>
-              <option>CANON_EVIDENCE</option>
-              <option>SECONDARY_INTERPRETATION</option>
-              <option>INSPIRATION</option>
-              <option>DISCOURSE_REFERENCE</option>
-              <option>CANDIDATE</option>
-              <option>REJECTED</option>
-            </select>
-          </label>
-          <label>네임스페이스 <input bind:value={selectedPage.namespace} /></label>
-          <div class="grid-2"><label>시대 <input bind:value={selectedPage.era} /></label><label>연속성 <input bind:value={selectedPage.continuity} /></label></div>
-          <label>짧은 요약 <textarea bind:value={selectedPage.summary}></textarea></label>
-          <label>잠긴 사실 · 한 줄에 하나 <textarea bind:value={selectedPage.lockedFactsText}></textarea></label>
-          <label>열린 질문 · 한 줄에 하나 <textarea bind:value={selectedPage.openQuestionsText}></textarea></label>
-          <label>금지된 변경 · 한 줄에 하나 <textarea bind:value={selectedPage.forbiddenChangesText}></textarea></label>
-          <hr />
-          <div class="row spread"><strong>관계·백링크</strong><span class="badge">{relations.length}</span></div>
-          {#each relations as relation}<div class="evidence-item"><strong>{relation.relation_type}</strong><small>{relation.source_page_id.slice(0,8)} → {relation.target_page_id.slice(0,8)}</small></div>{/each}
-          {#if !relations.length}<p class="small">연결된 관계가 없습니다.</p>{/if}
-          <div class="notice"><strong>전용 인덱스</strong><div class="small">{indexStats?.indexed_pages || 0}개 페이지 · {indexStats?.chunks || 0}개 청크 · {indexStats?.model || '비활성'}</div></div>
-          {#if selectedPage.usage_role === 'DISCOURSE_REFERENCE'}
-            <button class="secondary" on:click={analyzeReference}>Reference Analyzer 실행</button>
-            {#if referenceAnalysis}<pre>{JSON.stringify(referenceAnalysis.analysis_json, null, 2)}</pre><button class="primary" disabled={referenceAnalysis.status !== 'CANDIDATE'} on:click={approveReference}>{referenceAnalysis.status === 'CANDIDATE' ? '레시피·Voice 승인' : '승인됨'}</button>{/if}
-          {/if}
-          {#if message}<p class="success">{message}</p>{/if}
-        {/if}
-      </aside>
-    </div>
+    {/if}
   {/if}
 </div>
