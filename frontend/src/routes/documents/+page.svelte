@@ -1,5 +1,6 @@
 <script>
   import { onMount } from 'svelte';
+  import { page } from '$app/stores';
   import ProjectCreator from '$lib/components/ProjectCreator.svelte';
   import { api, API_BASE } from '$lib/api';
   import { auditTypeLabels, certaintyLabels, documentStatusLabels, moveLabels } from '$lib/labels';
@@ -42,7 +43,8 @@
         api.get(`/candidates?project_id=${projectId}`),
         api.get(`/concept-pages?project_id=${projectId}`)
       ]);
-      await selectDocument(documents[0] || null);
+      const requestedId = $page.url.searchParams.get('document');
+      await selectDocument(documents.find((document) => document.id === requestedId) || documents[0] || null);
     } catch (e) { error = e.message; }
   }
 
@@ -152,10 +154,15 @@
   {#if error}<p class="notice-error">{error}</p>{/if}
   {#if busy}<div class="notice" role="status">{busy}… 입력과 현재 문서는 안전하게 보존됩니다.</div>{/if}
 
-  <div class="grid-3" style="grid-template-columns:250px minmax(520px,1fr) 330px">
-    <aside class="card stack">
+  <div class="document-layout">
+    <aside class="card stack document-sidebar">
       <div class="row spread"><h3 style="margin:0">문서</h3><span class="badge">{documents.length}</span></div>
-      <div class="list">
+      <label class="mobile-document-picker">편집할 원고
+        <select value={selected?.id || ''} on:change={(event) => selectDocument(documents.find((document) => document.id === event.currentTarget.value) || null)}>
+          {#each documents as document}<option value={document.id}>{document.title}</option>{/each}
+        </select>
+      </label>
+      <div class="list document-list">
         {#each documents as document}
           <button class:active={selected?.id === document.id} on:click={() => selectDocument(document)}>
             <strong>{document.title}</strong><div class="small">{documentStatusLabels[document.status] || document.status} · {new Date(document.updated_at).toLocaleDateString('ko-KR')}</div>
@@ -170,11 +177,11 @@
       {/if}
     </aside>
 
-    <section class="stack">
+    <section class="stack document-main">
       {#if selected}
-        <div class="card row spread">
-          <input aria-label="문서 제목" bind:value={selected.title} style="font:600 22px Georgia,serif;border:0;padding:4px" />
-          <div class="row wrap">
+        <div class="card document-toolbar">
+          <input class="document-title-input" aria-label="문서 제목" bind:value={selected.title} />
+          <div class="document-export-actions">
             <a class="ghost" href={`${API_BASE}/documents/${selected.id}/export?format=markdown`} target="_blank">Markdown</a>
             <a class="ghost" href={`${API_BASE}/documents/${selected.id}/export?format=html`} target="_blank">HTML</a>
             <a class="ghost" href={`${API_BASE}/documents/${selected.id}/export?format=json`} target="_blank">JSON</a>
@@ -182,22 +189,22 @@
         </div>
 
         {#each blocks as block, index}
-          <article class="card stack" style={`border-left:3px solid ${block.locked ? 'var(--lichen)' : 'var(--signal)'}`}>
-            <div class="row spread">
-              <div class="row"><span class="badge">{String(index + 1).padStart(2, '0')}</span><strong>{moveLabels[block.rhetorical_move] || block.rhetorical_move}</strong><span class:canon={block.certainty === 'EVIDENCED'} class:candidate={block.certainty !== 'EVIDENCED'} class="badge">{certaintyLabels[block.certainty] || block.certainty}</span></div>
-              <label style="display:flex;align-items:center"><input type="checkbox" bind:checked={block.locked} style="width:auto" /> 문단 잠금</label>
+          <article class="card stack document-block" class:locked={block.locked}>
+            <div class="document-block-header">
+              <div class="document-block-meta"><span class="badge">{String(index + 1).padStart(2, '0')}</span><strong>{moveLabels[block.rhetorical_move] || block.rhetorical_move}</strong><span class:canon={block.certainty === 'EVIDENCED'} class:candidate={block.certainty !== 'EVIDENCED'} class="badge">{certaintyLabels[block.certainty] || block.certainty}</span></div>
+              <label class="document-lock"><input type="checkbox" bind:checked={block.locked} /> 문단 잠금</label>
             </div>
-            <textarea bind:value={block.content_markdown} disabled={block.locked} style="min-height:150px;border:0;background:var(--paper-deep);font:16px/1.8 Georgia,'Noto Serif KR',serif"></textarea>
-            <div class="row spread wrap">
-              <div class="row wrap">{#each block.evidence_ids as id}<span class="badge canon">근거 · {evidenceName(id)}</span>{/each}{#if !block.evidence_ids.length}<span class="badge candidate">연결된 근거 없음</span>{/if}</div>
-              <div class="row"><button class="ghost" on:click={() => saveBlock(block)}>문단 저장</button><button class="secondary" disabled={block.locked} on:click={() => proposeRewrite(block)}>부분 재작성</button></div>
+            <textarea class="document-block-editor" aria-label={`${index + 1}번 문단 내용`} bind:value={block.content_markdown} disabled={block.locked}></textarea>
+            <div class="document-block-footer">
+              <div class="document-evidence">{#each block.evidence_ids as id}<span class="badge canon">근거 · {evidenceName(id)}</span>{/each}{#if !block.evidence_ids.length}<span class="badge candidate">연결된 근거 없음</span>{/if}</div>
+              <div class="document-block-actions"><button class="ghost" on:click={() => saveBlock(block)}>문단 저장</button><button class="secondary" disabled={block.locked} on:click={() => proposeRewrite(block)}>부분 재작성</button></div>
             </div>
           </article>
         {/each}
       {:else}<div class="card"><p class="small">왼쪽에서 문서를 선택하십시오.</p></div>{/if}
     </section>
 
-    <aside class="stack">
+    <aside class="stack document-inspector">
       <section class="card stack">
         <p class="eyebrow">변경안 비교</p><h3 style="margin:0">부분 재작성</h3>
         <label>작업<select bind:value={rewriteOperation}><option value="shorter">더 짧게</option><option value="longer">더 자세히</option><option value="add_example">사례 추가</option><option value="expository">설명형으로</option><option value="scene">장면형으로</option><option value="style_only">사실 유지·문체만</option><option value="transition">앞뒤 연결만</option></select></label>

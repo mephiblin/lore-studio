@@ -10,13 +10,13 @@
 | 6 | 자료 역할 선택 | PASS | 한 단계에 한 역할만 노출하는 설문형 흐름, 중복 역할 방지, 선택 단계 건너뛰기 |
 | 7 | 선택/설정/seed 재현 | PASS | 생성 세션에 모든 선택과 seed 저장 |
 | 8 | 집필 방식/결과물/시점·시제/분량/범위/자유도 | PASS | 단계형 글 만들기와 요청 본문 E2E |
-| 9 | 사실/질문/금지/참고 구분 | PASS | context preview 3패널 |
-| 10 | editable plan | PASS | 실제 Gemma 5 blocks + 편집 UI |
+| 9 | 사실/질문/금지/참고 구분 | PASS | 쉬운 설명·툴팁을 포함한 ‘이 글이 참고할 세계관’ 3패널 |
+| 10 | editable plan | PASS | 실제 Gemma 5 blocks + 압축형 ‘글의 흐름’ 편집 UI |
 | 11 | Gemma Writer 전체 원고 | PASS | 1,039자/5 blocks |
 | 12 | 검증된 Utility | PASS | Gemma pass, Qwen reject |
 | 13 | BGE-M3 검색 | PASS | 실제 Compose Dense hit |
 | 14 | 임베딩 저장소 격리 | PASS | lore_studio_pgdata/lore_vector |
-| 15 | LoreBlock 저장 | PASS | Tiptap custom node + DB rows |
+| 15 | LoreBlock 저장 | PASS | Tiptap custom node + DB rows, 생성 완료 후 해당 원고 편집으로 이동, 모바일 편집 UI |
 | 16 | 부분 재작성 Diff 승인/취소 | PASS | real proposal/apply + dismiss API/UI |
 | 17 | 근거와 감사 | PASS | UUID 대신 자료명 근거 chip + 3 auditors |
 | 18 | 자동 정사 금지 | PASS | invariant/API test |

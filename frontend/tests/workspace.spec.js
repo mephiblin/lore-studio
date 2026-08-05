@@ -99,11 +99,14 @@ test('project-first workflow exposes understandable controls', async ({ page }) 
   await expect(page.locator('.wizard-review-grid')).toContainText('검은 등대');
   await expect(page.locator('.wizard-review-grid')).toContainText('회수실');
   await expect(page.locator('.wizard-review-grid')).toContainText('레아 벨');
-  await expect(page.getByRole('button', { name: '3. 원고 작성' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: '원고 작성', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: '사용할 설정 확인 설명' }).click();
+  await expect(page.getByRole('tooltip').first()).toBeVisible();
+  await expect(page.getByRole('tooltip').first()).toContainText('AI가 사실로 쓸 내용');
   const sessionRequestPromise = page.waitForRequest((request) =>
     request.method() === 'POST' && request.url().endsWith('/api/v1/playbook-sessions')
   );
-  await page.getByRole('button', { name: '1. 선택 근거 확인' }).click();
+  await page.getByRole('button', { name: '사용할 설정 확인', exact: true }).click();
   const sessionRequest = await sessionRequestPromise;
   expect(sessionRequest.postDataJSON().settings_json).toMatchObject({
     viewpoint: 'third_limited',
@@ -111,6 +114,7 @@ test('project-first workflow exposes understandable controls', async ({ page }) 
   });
   const sessionResponse = await sessionRequest.response();
   const session = await sessionResponse.json();
-  await expect(page.getByRole('button', { name: '✓ 근거 확인됨' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: '✓ 사용할 설정 확인됨' })).toBeEnabled();
+  await expect(page.getByRole('heading', { name: '이 글이 참고할 세계관' })).toBeVisible();
   await page.request.delete(`${new URL(sessionRequest.url()).origin}/api/v1/playbook-sessions/${session.id}`);
 });

@@ -1,8 +1,10 @@
 <script>
   import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
+  import HelpTip from '$lib/components/HelpTip.svelte';
   import ProjectCreator from '$lib/components/ProjectCreator.svelte';
   import { api } from '$lib/api';
-  import { categoryLabel, moveLabels, roleLabel } from '$lib/labels';
+  import { categoryLabel, moveDescriptions, moveLabels, roleLabel } from '$lib/labels';
   import { initialProjectId, rememberProject } from '$lib/project';
 
   let projects = [], pages = [], cards = [], recipes = [];
@@ -23,7 +25,7 @@
     { key: 'conflicts', slot: 'conflicts', short: '갈등·변수', title: '무엇이 긴장과 변화를 만드나요?', copy: '충돌, 위험, 반전의 원인이 될 자료를 고르세요. 없어도 됩니다.', next: '전개 방향으로 계속' },
     { key: 'direction', short: '전개 방향', title: '어떤 방식으로 전개할까요?', copy: '세계관 사실이 아니라 이 원고가 사실을 다루는 원칙을 고릅니다.', next: '글 형태로 계속' },
     { key: 'settings', short: '글 형태', title: '어떤 형태의 글로 만들까요?', copy: '집필 방식, 결과물, 시점·시제와 분량을 정하세요.', next: '확인·작성으로 계속' },
-    { key: 'review', short: '확인·작성', title: '선택을 확인하고 원고를 만드세요.', copy: '선택한 자료와 설정을 확인한 뒤 근거 검토부터 시작합니다.' }
+    { key: 'review', short: '확인·작성', title: '선택을 확인하고 원고를 만드세요.', copy: '사용할 세계관을 확인하고, 글의 흐름을 정한 뒤 원고를 작성합니다.' }
   ];
   $: selectedCards = cards.filter((card) => directionCardIds.includes(card.id));
   $: cardConflicts = selectedCards.flatMap((card) => selectedCards.filter((other) => other.id !== card.id && (card.incompatible_tags || []).some((tag) => (other.tags || []).includes(tag))).map((other) => `${card.title} ↔ ${other.title}`));
@@ -47,7 +49,7 @@
     selectionSummary(conflictIds),
     selectedCards.length ? selectedCards.length === 1 ? selectedCards[0].title : `${selectedCards[0].title} 외 ${selectedCards.length - 1}개` : '선택 안 함',
     outputProfile === 'lore_article' ? '세계관 설명 글' : outputProfile === 'video_narration' ? '영상 내레이션' : outputProfile === 'novel_prose' ? '소설 장면' : '세계 내부 문서',
-    document ? '원고 완성' : plan ? '구성안 완료' : preview ? '근거 확인됨' : '작성 전'
+    document ? '원고 완성' : plan ? '글의 흐름 준비됨' : preview ? '사용할 설정 확인됨' : '작성 전'
   ];
 
   onMount(loadInitial);
@@ -164,16 +166,21 @@
 
   async function runAction(kind) {
     error = '';
-    busy = kind === 'context-preview' ? '선택한 자료를 검토하는 중' : kind === 'plan' ? 'AI가 문단 구성을 만드는 중' : 'Writer가 원고를 작성하는 중';
+    busy = kind === 'context-preview' ? '선택한 세계관을 정리하는 중' : kind === 'plan' ? 'AI가 글의 흐름을 만드는 중' : 'Writer가 원고를 작성하는 중';
     try {
       const current = await ensureSession();
       if (kind === 'generate' && planDirty) await savePlan();
       if (kind === 'generate') {
+        let completedDocument = null;
         await api.postEvents(`/playbook-sessions/${current.id}/generate/stream`, {}, (event, data) => {
           if (event === 'progress') busy = data.message;
           if (event === 'error') throw new Error(`${data.message} (${data.code})`);
-          if (event === 'complete') { session = data.session; plan = data.plan; document = data.document; }
+          if (event === 'complete') { session = data.session; plan = data.plan; document = data.document; completedDocument = data.document; }
         });
+        if (completedDocument) {
+          busy = '완성된 원고를 여는 중';
+          await goto(`/documents?document=${completedDocument.id}`);
+        }
         return;
       }
       const result = await api.post(`/playbook-sessions/${current.id}/${kind}`, {});
@@ -192,7 +199,7 @@
 
 <div class="page playbook-page">
   <div class="page-header">
-    <div><p class="eyebrow">글 만들기</p><h1>쓸 대상과 방향을 고르세요.</h1><p>자료를 섞는 이유를 확인하고, 문단 구성을 검토한 뒤 원고를 작성합니다.</p></div>
+    <div><p class="eyebrow">글 만들기</p><h1>쓸 대상과 방향을 고르세요.</h1><p>사용할 세계관을 확인하고, 글의 흐름을 정한 뒤 원고를 작성합니다.</p></div>
     <div class="project-tools"><label class="project-select">현재 프로젝트<select bind:value={projectId} on:change={changeProject}>{#each projects as project}<option value={project.id}>{project.name}</option>{/each}</select></label><ProjectCreator onCreated={projectCreated} /></div>
   </div>
 
@@ -270,8 +277,12 @@
         <article><div><span>글 형태</span><strong>{outputProfile === 'lore_article' ? '세계관 설명 글' : outputProfile === 'video_narration' ? '영상 내레이션' : outputProfile === 'novel_prose' ? '소설 장면' : '세계 내부 문서'} · {viewpoint === 'omniscient' ? '전지적 설명자' : viewpoint === 'first_observer' ? '1인칭 관찰자' : '3인칭 제한'}</strong></div><button class="ghost" on:click={() => setWizardStep(5)}>수정</button></article>
       </div>
       <section class="wizard-run-panel">
-        <div><strong>{subject?.title}</strong><span>보조 자료 {totalSupporting}개 · 방향 규칙 {directionCardIds.length}개</span></div>
-        <div class="run-actions"><button class="secondary" disabled={!!busy || !subject} on:click={() => runAction('context-preview')}>{preview ? '✓ 근거 확인됨' : '1. 선택 근거 확인'}</button><button class="secondary" disabled={!!busy || !subject || !preview} on:click={() => runAction('plan')}>{plan ? '✓ 구성안 완료' : '2. 문단 구성 만들기'}</button><button class="primary" disabled={!!busy || !plan || cardConflicts.length} on:click={() => runAction('generate')}>3. 원고 작성</button></div>
+        <div class="run-summary"><strong>{subject?.title}</strong><span>보조 자료 {totalSupporting}개 · 방향 규칙 {directionCardIds.length}개</span><small>세 단계를 차례로 진행합니다. 완성된 원고는 원고 편집 화면에서 바로 열립니다.</small></div>
+        <div class="run-actions">
+          <div class="run-action"><div><span>1</span><HelpTip label="사용할 설정 확인 설명" text="선택한 자료에서 AI가 사실로 쓸 내용과 임의로 바꾸면 안 되는 내용을 먼저 보여 줍니다." /></div><button class="secondary" disabled={!!busy || !subject} on:click={() => runAction('context-preview')}>{preview ? '✓ 사용할 설정 확인됨' : '사용할 설정 확인'}</button></div>
+          <div class="run-action"><div><span>2</span><HelpTip label="글의 흐름 만들기 설명" text="원고를 쓰기 전에 각 문단이 어떤 순서로 무엇을 설명할지 목록으로 만듭니다." /></div><button class="secondary" disabled={!!busy || !subject || !preview} on:click={() => runAction('plan')}>{plan ? '✓ 글의 흐름 준비됨' : '글의 흐름 만들기'}</button></div>
+          <div class="run-action"><div><span>3</span><HelpTip label="원고 작성 설명" text="확인한 세계관과 글의 흐름을 바탕으로 원고를 쓰고, 완성되면 원고 편집 화면으로 이동합니다." /></div><button class="primary" disabled={!!busy || !plan || cardConflicts.length} on:click={() => runAction('generate')}>원고 작성</button></div>
+        </div>
       </section>
     {/if}
 
@@ -285,11 +296,11 @@
 
   {#if wizardStep === wizardSteps.length - 1 && preview}
     <section class="playbook-section evidence-review">
-      <div class="section-copy"><span class="step-number">✓</span><div><h2>원고에 들어갈 근거</h2><p>확정된 사실과 아직 답하지 않을 질문을 섞지 않고 확인하세요.</p></div></div>
+      <div class="section-copy"><span class="step-number">✓</span><div><div class="heading-with-help"><h2>이 글이 참고할 세계관</h2><HelpTip label="참고할 세계관 설명" text="AI가 원고를 쓸 때 사실로 사용할 내용과 지켜야 할 경계를 모아 보여 주는 단계입니다." /></div><p>AI가 사실로 사용할 내용, 답을 정하지 않을 내용, 변경하면 안 되는 설정을 확인하세요.</p></div></div>
       <div class="evidence-columns">
-        <div><h3>확정된 사실</h3>{#each preview.locked_facts as item}<div class="evidence-item"><strong>{item.page_title}</strong><small>{item.fact}</small></div>{/each}{#if !preview.locked_facts.length}<p class="empty-mini">확정된 사실이 없습니다.</p>{/if}</div>
-        <div><h3>열린 질문</h3>{#each preview.open_questions as item}<div class="evidence-item"><strong>{item.page_title}</strong><small>{item.question}</small></div>{/each}{#if !preview.open_questions.length}<p class="empty-mini">열린 질문이 없습니다.</p>{/if}</div>
-        <div><h3>바꾸면 안 되는 것</h3>{#each preview.forbidden_material as item}<div class="evidence-item"><strong>금지 변경</strong><small>{item.rule}</small></div>{/each}{#if !preview.forbidden_material.length}<p class="empty-mini">지정된 금지 변경이 없습니다.</p>{/if}</div>
+        <div><div class="heading-with-help"><h3>사실로 사용할 내용</h3><HelpTip label="사실로 사용할 내용 설명" text="원고가 이미 확정된 세계관 사실로 다루는 내용입니다." /></div>{#each preview.locked_facts as item}<div class="evidence-item"><strong>{item.page_title}</strong><small>{item.fact}</small></div>{/each}{#if !preview.locked_facts.length}<p class="empty-mini">사실로 확인된 내용이 없습니다.</p>{/if}</div>
+        <div><div class="heading-with-help"><h3>답을 정하지 않을 내용</h3><HelpTip label="답을 정하지 않을 내용 설명" text="세계관에서 아직 정하지 않은 질문입니다. AI가 임의로 결론 내리지 않습니다." /></div>{#each preview.open_questions as item}<div class="evidence-item"><strong>{item.page_title}</strong><small>{item.question}</small></div>{/each}{#if !preview.open_questions.length}<p class="empty-mini">열어 둘 질문이 없습니다.</p>{/if}</div>
+        <div><div class="heading-with-help"><h3>변경 금지 설정</h3><HelpTip label="변경 금지 설정 설명" text="원고를 흥미롭게 만들기 위해서도 바꾸면 안 되는 설정입니다." /></div>{#each preview.forbidden_material as item}<div class="evidence-item"><strong>지켜야 할 설정</strong><small>{item.rule}</small></div>{/each}{#if !preview.forbidden_material.length}<p class="empty-mini">지정된 변경 금지 설정이 없습니다.</p>{/if}</div>
       </div>
       {#each preview.warnings || [] as warning}<p class="notice-error">{warning}</p>{/each}
     </section>
@@ -297,18 +308,21 @@
 
   {#if wizardStep === wizardSteps.length - 1 && plan}
     <section class="playbook-section plan-editor">
-      <div class="row spread wrap"><div><p class="eyebrow">문단 구성</p><h2>{plan.title}</h2><p>{plan.angle}</p></div><button class="secondary" disabled={!planDirty} on:click={savePlan}>{planDirty ? '변경한 구성 저장' : '저장됨'}</button></div>
-      <div class="plan-blocks">
+      <header class="plan-heading"><div><p class="eyebrow">글의 흐름</p><div class="heading-with-help"><h2>{plan.title}</h2><HelpTip label="글의 흐름 설명" text="완성 원고가 아니라 AI에게 줄 문단별 작업 순서입니다. 설명할 내용과 순서를 바꿀 수 있습니다." /></div><p>{plan.angle}</p><small>각 줄은 원고의 한 문단입니다. 위에서 아래 순서로 작성됩니다.</small></div><button class="secondary" disabled={!planDirty} on:click={savePlan}>{planDirty ? '바꾼 흐름 저장' : '저장됨'}</button></header>
+      <div class="flow-list">
         {#each plan.blocks as block, index}
-          <article class="plan-block">
-            <div class="plan-index">{String(index + 1).padStart(2, '0')}</div>
-            <div class="stack"><label>문단 역할<select value={block.move} on:change={(e) => updateBlock(index, 'move', e.currentTarget.value)}>{#each Object.entries(moveLabels) as [value, label]}<option {value}>{label}</option>{/each}</select></label><label>이 문단이 할 일<input value={block.purpose} on:input={(e) => updateBlock(index, 'purpose', e.currentTarget.value)} /></label><div class="row wrap"><span class="badge">근거 {block.evidence_ids.length}개</span><label class="inline-label"><input type="number" min="50" value={block.word_budget} on:input={(e) => updateBlock(index, 'word_budget', Number(e.currentTarget.value))} /> 자</label><label class="inline-label"><input type="checkbox" checked={block.locked} on:change={(e) => updateBlock(index, 'locked', e.currentTarget.checked)} /> 구성 잠금</label></div></div>
-            <div class="block-actions"><button class="icon-button" aria-label="위로 이동" on:click={() => moveBlock(index, -1)}>↑</button><button class="icon-button" aria-label="아래로 이동" on:click={() => moveBlock(index, 1)}>↓</button><button class="ghost" on:click={() => duplicateBlock(index)}>복제</button><button class="danger-button" on:click={() => removeBlock(index)}>삭제</button></div>
+          <article class="flow-row">
+            <div class="flow-index">{String(index + 1).padStart(2, '0')}</div>
+            <label class="flow-move"><span class="compact-label">문단 방식 <HelpTip label={`${index + 1}번 문단 방식 설명`} text={moveDescriptions[block.move] || '이 문단이 글에서 맡을 설명 방식입니다.'} /></span><select aria-label={`${index + 1}번 문단 방식`} value={block.move} on:change={(e) => updateBlock(index, 'move', e.currentTarget.value)}>{#each Object.entries(moveLabels) as [value, label]}<option {value}>{label}</option>{/each}</select></label>
+            <label class="flow-purpose"><span class="compact-label">이 문단에서 설명할 내용</span><input aria-label={`${index + 1}번 문단에서 설명할 내용`} value={block.purpose} on:input={(e) => updateBlock(index, 'purpose', e.currentTarget.value)} /></label>
+            <label class="flow-budget"><span class="compact-label">분량</span><span class="input-suffix"><input aria-label={`${index + 1}번 문단 분량`} type="number" min="50" value={block.word_budget} on:input={(e) => updateBlock(index, 'word_budget', Number(e.currentTarget.value))} /><small>자</small></span></label>
+            <div class="flow-meta"><span class="badge">설정 {block.evidence_ids.length}개</span><label><input type="checkbox" checked={block.locked} on:change={(e) => updateBlock(index, 'locked', e.currentTarget.checked)} /> 이 문단 고정</label></div>
+            <div class="flow-actions"><button class="icon-button" aria-label={`${index + 1}번 문단 위로 이동`} on:click={() => moveBlock(index, -1)}>↑</button><button class="icon-button" aria-label={`${index + 1}번 문단 아래로 이동`} on:click={() => moveBlock(index, 1)}>↓</button><button class="ghost" on:click={() => duplicateBlock(index)}>복제</button><button class="danger-button" on:click={() => removeBlock(index)}>삭제</button></div>
           </article>
         {/each}
       </div>
     </section>
   {/if}
 
-  {#if wizardStep === wizardSteps.length - 1 && document}<div class="completion-banner"><div><strong>{document.title}</strong><span>{document.body_markdown.length.toLocaleString()}자 원고를 저장했습니다.</span></div><a class="primary" href="/documents">원고 편집으로 이동 →</a></div>{/if}
+  {#if wizardStep === wizardSteps.length - 1 && document}<div class="completion-banner"><div><strong>{document.title}</strong><span>{document.body_markdown.length.toLocaleString()}자 원고를 저장했습니다.</span></div><a class="primary" href={`/documents?document=${document.id}`}>이 원고 편집하기 →</a></div>{/if}
 </div>
