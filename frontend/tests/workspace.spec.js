@@ -53,6 +53,16 @@ test('project-first workflow exposes understandable controls', async ({ page }) 
   await page.getByLabel('현재 프로젝트').selectOption({ label: '검은 항로 연대기' });
   await expect(page.locator('.archive-page-list strong').filter({ hasText: /^검은 등대$/ })).toBeVisible();
   await expect(page.locator('.archive-page-list strong').filter({ hasText: /^기억세$/ })).toBeVisible();
+  const lighthousePage = page.locator('.archive-page-list button').filter({ has: page.getByText('검은 등대', { exact: true }) });
+  const memoryTaxPage = page.locator('.archive-page-list button').filter({ has: page.getByText('기억세', { exact: true }) });
+  await lighthousePage.click();
+  await expect(page.locator('.editor-content')).toContainText('통과에는 대가가 필요하다');
+  await memoryTaxPage.click();
+  await expect(memoryTaxPage).toHaveClass(/active/);
+  await expect(page.locator('.manuscript-toolbar').getByRole('heading', { name: '기억세' })).toBeVisible();
+  await expect(page.locator('.archive-inspector').getByLabel('제목')).toHaveValue('기억세');
+  await expect(page.locator('.editor-content')).toContainText('기억세는 돈이 아니라 손실 가능성을 시민에게 배분하는 제도다');
+  await expect(page.locator('.editor-content')).not.toContainText('통과에는 대가가 필요하다');
   await expect(page.getByText('연결된 자료')).toBeVisible();
   await expect(page.locator('text=/[0-9a-f]{8}-[0-9a-f]{4}-/')).toHaveCount(0);
   await page.getByRole('button', { name: /집필 지침/ }).click();

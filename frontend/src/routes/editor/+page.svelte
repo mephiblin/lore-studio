@@ -152,8 +152,12 @@
 
   async function selectPage(page) {
     selectedPage = decoratePage(page);
+    relations = [];
     relationForm = { target_page_id: '', relation_type: 'RELATED_TO', notes: '' };
-    try { relations = await api.get(`/concept-pages/${page.id}/relations`); }
+    try {
+      const loadedRelations = await api.get(`/concept-pages/${page.id}/relations`);
+      if (selectedPage?.id === page.id) relations = loadedRelations;
+    }
     catch (e) { error = e.message; }
     referenceAnalysis = null;
     message = '';
@@ -328,7 +332,9 @@
               <div><span class="badge">{categoryLabel(selectedPage.category_key)}</span><h2>{selectedPage.title}</h2><p>{selectedPage.summary || '이 자료를 한 문장으로 설명해 보세요.'}</p></div>
               <button class="primary" on:click={savePage}>변경 저장</button>
             </div>
-            <TiptapEditor value={selectedPage.body_json} onChange={(body) => selectedPage = { ...selectedPage, body_json: body }} />
+            {#key selectedPage.id}
+              <TiptapEditor value={selectedPage.body_json} onChange={(body) => selectedPage = { ...selectedPage, body_json: body }} />
+            {/key}
           {:else}<div class="empty-state">왼쪽에서 자료를 만들거나 선택하세요.</div>{/if}
         </section>
 
