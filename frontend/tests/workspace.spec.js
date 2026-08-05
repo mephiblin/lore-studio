@@ -19,8 +19,25 @@ for (const [route, heading] of routes) {
     await expect(page.getByRole('heading', { level: 1 })).toContainText(heading);
     await expect.poll(() => errors).toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    expect(await page.locator('.app-nav').evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    if (await page.locator('.wizard-progress').count()) {
+      expect(await page.locator('.wizard-progress').evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    }
   });
 }
+
+test('small mobile navigation and workflow steps stay inside the viewport', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile', 'small-viewport check only');
+  await page.setViewportSize({ width: 360, height: 844 });
+  for (const route of ['/editor', '/playbook', '/documents']) {
+    await page.goto(route);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    expect(await page.locator('.app-nav').evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    if (await page.locator('.wizard-progress').count()) {
+      expect(await page.locator('.wizard-progress').evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    }
+  }
+});
 
 test('a project can be added after projects already exist', async ({ page }, testInfo) => {
   const projectName = `UX 검증 ${testInfo.project.name} ${Date.now()}`;
@@ -41,7 +58,7 @@ test('a project can be added after projects already exist', async ({ page }, tes
   await page.request.delete(`${new URL(createdRequest.url()).origin}/api/v1/projects/${project.id}`);
 });
 
-test('project-first workflow exposes understandable controls', async ({ page }) => {
+test('project-first workflow exposes understandable controls', async ({ page }, testInfo) => {
   test.skip(process.env.E2E_EXPECT_DATA !== 'true', 'requires the curated Black Route world project');
   await page.goto('/');
   await expect(page.getByText('원고 작성')).toBeVisible();
@@ -63,6 +80,9 @@ test('project-first workflow exposes understandable controls', async ({ page }) 
   await expect(page.locator('.archive-inspector').getByLabel('제목')).toHaveValue('기억세');
   await expect(page.locator('.editor-content')).toContainText('기억세는 돈이 아니라 손실 가능성을 시민에게 배분하는 제도다');
   await expect(page.locator('.editor-content')).not.toContainText('통과에는 대가가 필요하다');
+  if (testInfo.project.name === 'mobile') {
+    await expect.poll(() => page.locator('.manuscript-panel').evaluate((element) => Math.round(element.getBoundingClientRect().top))).toBeLessThan(120);
+  }
   await expect(page.getByText('연결된 자료')).toBeVisible();
   await expect(page.locator('text=/[0-9a-f]{8}-[0-9a-f]{4}-/')).toHaveCount(0);
   await page.getByRole('button', { name: /집필 지침/ }).click();

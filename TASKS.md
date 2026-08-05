@@ -5,7 +5,7 @@
 ## v1.0 완료
 
 - [x] 전용 PostgreSQL/pgvector volume·network·schema와 Alembic up/down/up
-- [x] 프로젝트, 카테고리, 컨셉, 관계/백링크, 방향성, 버전 레시피, 플레이북 CRUD
+- [x] 프로젝트, 카테고리, 컨셉, 관계/백링크, 프로젝트 집필 지침, 공유 전개 방식, 플레이북 CRUD
 - [x] 권위 상태와 감사 로그, revision, 후보 승인 경계
 - [x] Writer/Utility/Vision/Embedding 역할별 실제 모델 routing·health·retry·JSON Schema·streaming
 - [x] Utility 모델 합성 평가와 Qwen 탈락/Gemma 제한 fallback 기록
@@ -26,5 +26,17 @@
 - [ ] 대형 관계 그래프·타임라인 전용 시각화
 - [ ] 다중 사용자 인증과 원격 배포 hardening
 - [ ] 다국어 cross-encoder reranker A/B(현재는 lexical + BGE-M3 RRF)
+
+## 구조 정리 후보
+
+2026-08-05 책임 수와 변경 충돌 가능성을 기준으로 점검했습니다. 동작 변경과 한꺼번에 섞지 않고 아래 순서로 별도 진행합니다.
+
+- [ ] P1 `backend/app/api/router.py`(1,306줄, 함수 75개): 프로젝트·자료·집필 지침·플레이북·문서·분석 라우터로 분리
+- [ ] P1 `frontend/src/routes/editor/+page.svelte`(460줄, 함수 22개): 세계관 자료 작업공간과 집필 지침 작업공간을 컴포넌트·상태 모듈로 분리
+- [ ] P2 `backend/app/services/harness.py`(694줄): 계획, 초안 생성, 완성본 생성, 실행 기록 책임을 서비스로 분리
+- [ ] P2 `frontend/src/routes/playbook/+page.svelte`(353줄, 함수 23개): 자료 선택 단계, 집필 지침, 전개 방식, 글 형태, 검토 단계를 컴포넌트로 분리
+- [ ] P3 `frontend/src/styles.css`(572줄): 공통 토큰·앱 셸과 화면별 스타일시트로 분리하되 위 컴포넌트 분리 뒤 진행
+
+`documents/+page.svelte`는 268줄이지만 초안 편집→완성 설정→완성본 생성이라는 한 흐름에 응집되어 있어 현재 우선 분리 대상에서 제외합니다.
 
 이 항목들은 현재 단일 사용자 로컬 문서 중심 v1.0의 완료 조건을 막지 않습니다.

@@ -18,7 +18,7 @@
 - 프로젝트별 강조 원칙(DirectionCard)과 프로젝트 독립 전개 패턴(WritingRecipe)을 별도 단계와 API 범위로 격리
 - `사용할 설정 확인 → 글의 흐름 만들기 → 초안 작성`의 쉬운 생성 동선, 문단 방식 툴팁, 압축형 흐름 편집, 생성 초안 자동 열기
 - `초안 편집 → 완성 설정 → 완성본 만들기`의 단계형 원고 작업, 수정 가능한 완성 설정, 별도 로어북 저장, 초안 변경 감지와 로어북 export
-- 반응형 한국어 UI와 모바일 원고 선택·문단 편집, desktop/mobile Playwright, 정보 구조 문서, Makefile/CI/운영 문서
+- 반응형 한국어 UI, 가로 잘림 없는 모바일 하단 메뉴·단계 그리드, 자료 선택 후 본문 이동, 모바일 원고 선택·문단 편집, desktop/mobile Playwright, 정보 구조 문서, Makefile/CI/운영 문서
 
 ## 실제 환경 증거
 
@@ -33,7 +33,7 @@ Utility 9-case 결과는 Qwen3.5-4B가 namespace 누출로 탈락했고 Gemma4-2
 - 실제 모델 opt-in `3 passed` (Writer/Utility, Embedding, Vision)
 - bundle/schema/YAML PASS
 - Svelte production build PASS
-- 실제 데이터 Playwright `16 passed` (프로젝트 생성·정리, 자료 역할 선택, 생성 단계 gate, 수정 가능한 완성 설정, 로어북 분리와 반응형 동선 포함)
+- 실제 데이터 Playwright `17 passed, 1 skipped` (360/390px 메뉴·단계 폭, 자료 선택 후 본문 이동, 프로젝트 생성·정리, 자료 역할 선택, 생성 단계 gate, 수정 가능한 완성 설정, 로어북 분리 포함)
 - 모델 서비스 미연결 UI E2E `10 passed`
 - Compose build/up 및 DB health PASS
 - PostgreSQL Alembic upgrade/downgrade/upgrade PASS

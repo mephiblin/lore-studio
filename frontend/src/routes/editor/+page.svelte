@@ -104,7 +104,7 @@
       pages = [page, ...pages];
       pageForm = { title: '', category_key: 'free', purpose: 'setting' };
       newPageOpen = false;
-      await selectPage(page);
+      await selectPage(page, { reveal: true });
       message = '새 자료를 만들었습니다. 본문과 핵심 사실을 채워 보세요.';
     } catch (e) { error = e.message; }
   }
@@ -150,10 +150,13 @@
     };
   }
 
-  async function selectPage(page) {
+  async function selectPage(page, { reveal = false } = {}) {
     selectedPage = decoratePage(page);
     relations = [];
     relationForm = { target_page_id: '', relation_type: 'RELATED_TO', notes: '' };
+    if (reveal && typeof window !== 'undefined' && window.matchMedia('(max-width: 820px)').matches) {
+      setTimeout(() => document.querySelector('.manuscript-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+    }
     try {
       const loadedRelations = await api.get(`/concept-pages/${page.id}/relations`);
       if (selectedPage?.id === page.id) relations = loadedRelations;
@@ -317,7 +320,7 @@
           <div class="filter-row"><input aria-label="자료 검색" bind:value={pageFilter} placeholder="제목·태그·요약 검색" /><select aria-label="종류 필터" bind:value={categoryFilter}><option value="all">모든 종류</option>{#each templates as template}<option value={template.key}>{template.name}</option>{/each}</select></div>
           <div class="archive-page-list">
             {#each visiblePages as page}
-              <button class:active={selectedPage?.id === page.id} on:click={() => selectPage(page)}>
+              <button class:active={selectedPage?.id === page.id} on:click={() => selectPage(page, { reveal: true })}>
                 <span class="row spread"><strong>{page.title}</strong><span class:canon={page.usage_role === 'PROJECT_CANON'} class="badge">{roleLabel(page.usage_role)}</span></span>
                 <small>{categoryLabel(page.category_key)}{page.summary ? ` · ${page.summary.slice(0, 48)}` : ''}</small>
               </button>
@@ -361,7 +364,7 @@
               <div class="row spread"><div><h3>연결된 자료</h3><p class="small">이 자료가 세계의 다른 요소와 어떻게 연결되는지 표시합니다.</p></div><span class="badge">{relations.length}</span></div>
               {#each relations as relation}
                 <div class="relation-card">
-                  <button class="relation-link" on:click={() => selectPage(pages.find((page) => page.id === otherPage(relation)))}>
+                  <button class="relation-link" on:click={() => selectPage(pages.find((page) => page.id === otherPage(relation)), { reveal: true })}>
                     <small>{relation.source_page_id === selectedPage.id ? '나가는 연결' : '들어오는 연결'}</small>
                     <strong>{relation.source_page_id === selectedPage.id ? `이 자료 — ${relationLabel(relation.relation_type)} → ${pageName(otherPage(relation))}` : `${pageName(otherPage(relation))} — ${relationLabel(relation.relation_type)} → 이 자료`}</strong>
                     {#if relation.notes}<span>{relation.notes}</span>{/if}
