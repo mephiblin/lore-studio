@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import difflib
 import json
+from datetime import UTC, datetime
 from typing import Any
 
 import markdown
@@ -49,6 +50,9 @@ from app.schemas import (
     DirectionCardCreate,
     DirectionCardRead,
     DirectionCardUpdate,
+    FinalBodyUpdate,
+    FinalizationRead,
+    FinalizationRequest,
     GenerationResult,
     ImageAnalysisRequest,
     IndexJobRead,
@@ -707,6 +711,67 @@ def update_block(block_id: str, payload: LoreBlockUpdate, db: Session = Depends(
     return block
 
 
+@router.get("/documents/{document_id}/finalization", response_model=FinalizationRead)
+def get_document_finalization(
+    document_id: str, db: Session = Depends(get_db)
+) -> dict[str, Any]:
+    document = _get_or_404(db, LoreDocument, document_id, "로어 문서")
+    try:
+        return harness.finalization_summary(db, document)
+    except ValueError as exc:
+        raise _error(409, "FINALIZATION_UNAVAILABLE", str(exc)) from exc
+
+
+@router.post("/documents/{document_id}/finalize", response_model=FinalizationRead)
+async def finalize_document(
+    document_id: str,
+    payload: FinalizationRequest,
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    document = _get_or_404(db, LoreDocument, document_id, "로어 문서")
+    try:
+        return await harness.finalize_document(db, document, instruction=payload.instruction)
+    except ModelGatewayError as exc:
+        raise _error(502, exc.code, str(exc)) from exc
+    except ValueError as exc:
+        raise _error(409, "FINALIZATION_FAILED", str(exc)) from exc
+
+
+@router.patch("/documents/{document_id}/final", response_model=FinalizationRead)
+def update_final_body(
+    document_id: str,
+    payload: FinalBodyUpdate,
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    document = _get_or_404(db, LoreDocument, document_id, "로어 문서")
+    if not document.final_body_markdown:
+        raise _error(409, "FINAL_NOT_CREATED", "먼저 전체 글 다듬기로 완성본을 만드십시오.")
+    document.final_body_markdown = payload.body_markdown.strip()
+    document.finalized_at = datetime.now(UTC)
+    db.add(document)
+    add_lore_revision(
+        db,
+        document,
+        reason="final_user_edit",
+        author_type="user",
+        body_markdown=document.final_body_markdown,
+        body_json={
+            "type": "doc",
+            "content": [
+                {
+                    "type": "paragraph",
+                    "content": [{"type": "text", "text": paragraph}],
+                }
+                for paragraph in document.final_body_markdown.split("\n\n")
+                if paragraph.strip()
+            ],
+        },
+    )
+    db.commit()
+    db.refresh(document)
+    return harness.finalization_summary(db, document)
+
+
 @router.post("/blocks/{block_id}/rewrite", response_model=AuditFindingRead)
 async def propose_block_rewrite(
     block_id: str, payload: RewriteRequest, db: Session = Depends(get_db)
@@ -838,6 +903,7 @@ def dismiss_finding(finding_id: str, db: Session = Depends(get_db)) -> AuditFind
 def export_document(
     document_id: str,
     format: str = Query(default="markdown", pattern="^(markdown|html|json)$"),
+    version: str = Query(default="preferred", pattern="^(preferred|draft|final)$"),
     include_metadata: bool = False,
     db: Session = Depends(get_db),
 ) -> Response:
@@ -849,8 +915,13 @@ def export_document(
             .order_by(LoreBlock.position)
         ).all()
     )
+    draft_body = "\n\n".join(item.content_markdown for item in blocks) or document.body_markdown
+    if version == "final" and not document.final_body_markdown:
+        raise _error(409, "FINAL_NOT_CREATED", "아직 완성본이 없습니다.")
+    use_final = version == "final" or (version == "preferred" and bool(document.final_body_markdown))
+    value_body = document.final_body_markdown if use_final else draft_body
     if format == "markdown":
-        value = document.body_markdown
+        value = value_body
         if include_metadata:
             value += "\n\n<!-- lore-studio: " + json.dumps(
                 [{"id": item.id, "move": item.rhetorical_move, "evidence": item.evidence_ids} for item in blocks],
@@ -858,11 +929,13 @@ def export_document(
             ) + " -->"
         return Response(value, media_type="text/markdown; charset=utf-8")
     if format == "html":
-        value = markdown.markdown(document.body_markdown, extensions=["extra"])
+        value = markdown.markdown(value_body, extensions=["extra"])
         return Response(value, media_type="text/html; charset=utf-8")
     value = {
         "document": LoreDocumentRead.model_validate(document).model_dump(mode="json"),
         "blocks": [LoreBlockRead.model_validate(item).model_dump(mode="json") for item in blocks],
+        "exported_version": "final" if use_final else "draft",
+        "exported_body_markdown": value_body,
     }
     return Response(json.dumps(value, ensure_ascii=False), media_type="application/json")
 
@@ -938,7 +1011,9 @@ async def extract_document_candidates(
         known_pages = [{"id": page.id, "title": page.title, "summary": page.summary} for page in pages]
     try:
         data, result = await extract_candidates(
-            harness.gateway, body=document.body_markdown, known_pages=known_pages
+            harness.gateway,
+            body=document.final_body_markdown or harness.draft_body(db, document),
+            known_pages=known_pages,
         )
     except ModelGatewayError as exc:
         raise _error(502, exc.code, str(exc)) from exc

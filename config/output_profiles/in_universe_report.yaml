@@ -1,0 +1,15 @@
+key: in_universe_report
+version: "1.0.0"
+name: 세계 내부 문서
+rules:
+  paragraph_density: medium
+  sentence_length: medium
+  spoken_clarity: low
+  narrator_scope: in_universe
+  headings: contextual
+  evidence_display: in_world
+  target_units: korean_characters
+length_presets:
+  short: [800, 1500]
+  normal: [2000, 4000]
+  long: [5000, 8000]

@@ -1,6 +1,6 @@
 key: novel_prose
 version: "1.0.0"
-name: 소설 산문
+name: 소설 장면
 rules:
   paragraph_density: medium
   sentence_length: varied

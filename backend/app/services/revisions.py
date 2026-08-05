@@ -62,6 +62,8 @@ def add_lore_revision(
     *,
     reason: str,
     author_type: str = "user",
+    body_markdown: str | None = None,
+    body_json: dict[str, Any] | None = None,
 ) -> LoreRevision:
     current = db.scalar(
         select(func.max(LoreRevision.revision_number)).where(
@@ -78,8 +80,8 @@ def add_lore_revision(
         document_id=document.id,
         parent_revision_id=parent,
         revision_number=int(current or 0) + 1,
-        body_markdown=document.body_markdown,
-        body_json=document.body_json,
+        body_markdown=document.body_markdown if body_markdown is None else body_markdown,
+        body_json=document.body_json if body_json is None else body_json,
         reason=reason,
         author_type=author_type,
     )

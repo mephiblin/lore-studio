@@ -72,7 +72,14 @@ def test_generation_persists_required_stages_and_lore_blocks(monkeypatch) -> Non
     session = PlaybookSession(
         project_id=project.id,
         writing_recipe_id=recipe.id,
-        settings_json={"length": "short", "context_depth": "core"},
+        user_direction="도시의 대가를 마지막까지 숨기지 않는다.",
+        output_profile="lore_article",
+        settings_json={
+            "length": "short",
+            "context_depth": "core",
+            "viewpoint": "third_limited",
+            "tense": "past",
+        },
         seed=7,
     )
     db.add(session)
@@ -98,3 +105,38 @@ def test_generation_persists_required_stages_and_lore_blocks(monkeypatch) -> Non
     }.issubset(stages)
     assert db.query(LoreBlock).filter_by(document_id=document.id).count() >= 1
     assert db.query(GenerationRun).filter_by(session_id=session.id).count() == 2
+
+    result = asyncio.run(
+        harness.finalize_document(db, document, instruction="문단 사이의 시간 흐름을 연결한다.")
+    )
+    assert result["status"] == "ready"
+    assert result["draft_changed"] is False
+    assert document.final_body_markdown
+    assert document.finalized_from_hash == result["current_draft_hash"]
+
+    final_run = db.scalar(
+        select(GenerationRun).where(
+            GenerationRun.session_id == session.id,
+            GenerationRun.task == "finalize",
+        )
+    )
+    assert final_run is not None
+    assert final_run.input_json["editable_draft"]
+    reused = final_run.input_json["original_writing_request"]
+    assert reused["user_direction"] == session.user_direction
+    assert reused["output_profile"]["key"] == "lore_article"
+    assert reused["generation_settings"]["viewpoint"] == "third_limited"
+    assert reused["generation_settings"]["tense"] == "past"
+    assert db.scalar(
+        select(GenerationStage).where(GenerationStage.step == "FINAL_COHERENCE_PASS")
+    ) is not None
+
+    first_block = db.scalar(
+        select(LoreBlock)
+        .where(LoreBlock.document_id == document.id)
+        .order_by(LoreBlock.position)
+    )
+    assert first_block is not None
+    first_block.content_markdown += " 수정됨."
+    db.commit()
+    assert harness.finalization_summary(db, document)["status"] == "stale"

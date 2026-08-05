@@ -1,6 +1,6 @@
 key: lore_article
 version: "1.0.0"
-name: 설정 글
+name: 세계관 설명 글
 rules:
   paragraph_density: high
   sentence_length: medium_to_long

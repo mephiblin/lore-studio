@@ -3,16 +3,26 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models import GenerationRun, GenerationStage, LoreBlock, LoreDocument, LoreRevision, PlaybookSession
+from app.models import (
+    GenerationRun,
+    GenerationStage,
+    LoreBlock,
+    LoreDocument,
+    LoreRevision,
+    PlaybookSession,
+    WritingRecipe,
+)
 from app.services.audits import run_audits
-from app.services.config_loader import load_prompt
+from app.services.config_loader import load_output_profiles, load_prompt
 from app.services.context_compiler import compile_context
 from app.services.model_gateway import ModelGateway
+from app.services.revisions import add_lore_revision
 
 LENGTH_BUDGETS = {
     "short": 1200,
@@ -184,6 +194,16 @@ def _block_json(text: str, attrs: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _plain_document_json(body: str) -> dict[str, Any]:
+    return {
+        "type": "doc",
+        "content": [
+            {"type": "paragraph", "content": [{"type": "text", "text": paragraph}]}
+            for paragraph in _markdown_blocks(body)
+        ],
+    }
+
+
 class LoreHarness:
     def __init__(self, gateway: ModelGateway | None = None) -> None:
         self.gateway = gateway or ModelGateway()
@@ -202,6 +222,183 @@ class LoreHarness:
         db.commit()
         db.refresh(session)
         return pack
+
+    def draft_body(self, db: Session, document: LoreDocument) -> str:
+        blocks = list(
+            db.scalars(
+                select(LoreBlock)
+                .where(LoreBlock.document_id == document.id)
+                .order_by(LoreBlock.position)
+            ).all()
+        )
+        if blocks:
+            return "\n\n".join(
+                block.content_markdown.strip() for block in blocks if block.content_markdown.strip()
+            )
+        return document.body_markdown.strip()
+
+    def finalization_inputs(
+        self, db: Session, document: LoreDocument
+    ) -> tuple[PlaybookSession, dict[str, Any], dict[str, Any], str]:
+        if not document.session_id:
+            raise ValueError("글 만들기 기록이 없는 문서는 전체 글 다듬기를 실행할 수 없습니다.")
+        session = db.get(PlaybookSession, document.session_id)
+        if not session:
+            raise ValueError("이 원고를 만든 글 만들기 기록을 찾을 수 없습니다.")
+        pack = compile_context(db, session)
+        profile = next(
+            (
+                item
+                for item in load_output_profiles()
+                if str(item.get("key")) == session.output_profile
+            ),
+            {"key": session.output_profile, "name": session.output_profile, "rules": {}},
+        )
+        writing_recipe = db.get(WritingRecipe, session.writing_recipe_id)
+        inputs = {
+            "user_direction": session.user_direction,
+            "output_profile": {
+                "key": session.output_profile,
+                "name": profile.get("name", session.output_profile),
+                "rules": profile.get("rules", {}),
+            },
+            "generation_settings": session.settings_json,
+            "writing_recipe": {
+                "name": writing_recipe.name if writing_recipe else "",
+                "version": writing_recipe.version if writing_recipe else "",
+                "recipe": writing_recipe.recipe_json if writing_recipe else {},
+            },
+        }
+        draft = self.draft_body(db, document)
+        return session, pack, inputs, draft
+
+    def finalization_summary(self, db: Session, document: LoreDocument) -> dict[str, Any]:
+        _, _, inputs, draft = self.finalization_inputs(db, document)
+        current_hash = _stable_hash(draft)
+        has_final = bool(document.final_body_markdown.strip())
+        draft_changed = has_final and document.finalized_from_hash != current_hash
+        return {
+            "document": document,
+            "status": "stale" if draft_changed else "ready" if has_final else "not_started",
+            "draft_changed": draft_changed,
+            "current_draft_hash": current_hash,
+            "inputs": inputs,
+        }
+
+    async def finalize_document(
+        self,
+        db: Session,
+        document: LoreDocument,
+        *,
+        instruction: str = "",
+    ) -> dict[str, Any]:
+        session, pack, inputs, draft = self.finalization_inputs(db, document)
+        if not draft:
+            raise ValueError("다듬을 초안 내용이 없습니다.")
+        draft_hash = _stable_hash(draft)
+        payload = {
+            "title": document.title,
+            "editable_draft": draft,
+            "original_writing_request": inputs,
+            "article_plan": session.plan_json,
+            "direction_cards": pack.get("direction_cards", []),
+            "fact_boundaries": {
+                "locked_facts": pack.get("locked_facts", []),
+                "open_questions": pack.get("open_questions", []),
+                "forbidden_material": pack.get("forbidden_material", []),
+                "selected_concepts": [
+                    {
+                        "id": item.get("id"),
+                        "title": item.get("title"),
+                        "summary": item.get("summary", ""),
+                    }
+                    for item in pack.get("selected_concepts", [])
+                ],
+            },
+            "final_pass_instruction": instruction,
+            "instruction": "분석이나 작업 설명 없이 완성된 한국어 글 본문만 출력하라.",
+        }
+        call_result = await self.gateway.complete(
+            [
+                {"role": "system", "content": load_prompt("finalizer.md")},
+                {"role": "user", "content": json.dumps(payload, ensure_ascii=False, indent=2)},
+            ],
+            role="writer",
+            temperature=0.48,
+            max_tokens=None,
+            seed=session.seed,
+        )
+        body = call_result.content.strip()
+        if body.startswith("```") and body.endswith("```"):
+            body = re.sub(r"^```(?:markdown)?\s*|\s*```$", "", body, flags=re.IGNORECASE).strip()
+        if not body:
+            raise ValueError("Writer가 비어 있는 완성본을 반환했습니다.")
+
+        document.final_body_markdown = body
+        document.finalized_from_hash = draft_hash
+        document.finalized_at = datetime.now(UTC)
+        db.add(document)
+        run = GenerationRun(
+            project_id=document.project_id,
+            session_id=session.id,
+            document_id=document.id,
+            task="finalize",
+            model_role="writer",
+            model=str(call_result.model),
+            endpoint=str(call_result.endpoint),
+            runtime="openai-compatible",
+            prompt_components={
+                "recipe": inputs["writing_recipe"].get("name"),
+                "recipe_version": inputs["writing_recipe"].get("version"),
+                "output_profile": session.output_profile,
+                "user_direction": session.user_direction,
+            },
+            selected_concept_ids=_selected_ids(session),
+            direction_card_ids=session.direction_card_ids,
+            params_json={
+                **session.settings_json,
+                "final_pass_instruction": instruction,
+                "model_call": call_result.audit_metadata(),
+            },
+            input_hash=_stable_hash(payload),
+            input_json=payload,
+            usage_json=call_result.usage,
+            output_text=body,
+        )
+        db.add(run)
+        db.flush()
+        add_lore_revision(
+            db,
+            document,
+            reason="final_coherence_pass",
+            author_type="llm",
+            body_markdown=body,
+            body_json=_plain_document_json(body),
+        )
+        _record_stage(
+            db,
+            session,
+            "FINAL_COHERENCE_PASS",
+            input_json={
+                "document_id": document.id,
+                "draft_hash": draft_hash,
+                "reused_inputs": inputs,
+                "final_pass_instruction": instruction,
+            },
+            output_json={"body_hash": _stable_hash(body), "character_count": len(body)},
+            run_id=run.id,
+        )
+        session.state = "finalized"
+        db.add(session)
+        db.commit()
+        db.refresh(document)
+        return {
+            "document": document,
+            "status": "ready",
+            "draft_changed": False,
+            "current_draft_hash": draft_hash,
+            "inputs": inputs,
+        }
 
     async def plan(self, db: Session, session: PlaybookSession) -> dict[str, Any]:
         pack = compile_context(db, session)

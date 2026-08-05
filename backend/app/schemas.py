@@ -285,9 +285,28 @@ class LoreDocumentRead(ORMModel):
     title: str
     body_markdown: str
     body_json: dict[str, Any]
+    final_body_markdown: str
+    finalized_from_hash: str
+    finalized_at: datetime | None
     status: str
     created_at: datetime
     updated_at: datetime
+
+
+class FinalizationRequest(BaseModel):
+    instruction: str = Field(default="", max_length=2000)
+
+
+class FinalBodyUpdate(BaseModel):
+    body_markdown: str = Field(min_length=1)
+
+
+class FinalizationRead(BaseModel):
+    document: LoreDocumentRead
+    status: str
+    draft_changed: bool
+    current_draft_hash: str
+    inputs: dict[str, Any]
 
 
 class AuthorityPromotion(BaseModel):

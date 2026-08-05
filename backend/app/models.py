@@ -257,6 +257,9 @@ class LoreDocument(Base, TimestampMixin):
     title: Mapped[str] = mapped_column(String(400), nullable=False)
     body_markdown: Mapped[str] = mapped_column(Text, default="", nullable=False)
     body_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    final_body_markdown: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    finalized_from_hash: Mapped[str] = mapped_column(String(128), default="", nullable=False)
+    finalized_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     status: Mapped[str] = mapped_column(String(32), default="draft", nullable=False)
 
 

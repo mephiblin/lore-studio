@@ -94,6 +94,24 @@
             "balanced",
             "free"
           ]
+        },
+        "viewpoint": {
+          "enum": [
+            "omniscient",
+            "first_observer",
+            "third_limited"
+          ]
+        },
+        "tense": {
+          "enum": [
+            "present",
+            "past"
+          ]
+        },
+        "mystery_preservation": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
         }
       }
     },

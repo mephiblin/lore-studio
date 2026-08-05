@@ -4,7 +4,7 @@ const routes = [
   ['/', /세계를 선택하고/],
   ['/editor', /설정을 기록하고 연결합니다/],
   ['/playbook', /쓸 대상과 방향을 고르세요/],
-  ['/documents', /원고를 문단별로 다듬습니다/],
+  ['/documents', /초안을 고치고, 한 편의 글로 완성합니다/],
 ];
 
 for (const [route, heading] of routes) {
@@ -49,6 +49,7 @@ test('project-first workflow exposes understandable controls', async ({ page }) 
   await expect(page.getByRole('button', { name: /새 프로젝트/ })).toBeVisible();
 
   await page.goto('/editor');
+  await page.getByLabel('현재 프로젝트').selectOption({ label: '검은 항로 연대기' });
   await expect(page.locator('.archive-page-list strong').filter({ hasText: /^검은 등대$/ })).toBeVisible();
   await expect(page.locator('.archive-page-list strong').filter({ hasText: /^기억세$/ })).toBeVisible();
   await expect(page.getByText('연결된 자료')).toBeVisible();
@@ -117,4 +118,19 @@ test('project-first workflow exposes understandable controls', async ({ page }) 
   await expect(page.getByRole('button', { name: '✓ 사용할 설정 확인됨' })).toBeEnabled();
   await expect(page.getByRole('heading', { name: '이 글이 참고할 세계관' })).toBeVisible();
   await page.request.delete(`${new URL(sessionRequest.url()).origin}/api/v1/playbook-sessions/${session.id}`);
+});
+
+test('document workflow separates editable draft from the final pass', async ({ page }) => {
+  test.skip(process.env.E2E_EXPECT_DATA !== 'true', 'requires the curated Black Route draft');
+  await page.goto('/documents');
+  await page.getByLabel('현재 프로젝트').selectOption({ label: '검은 항로 연대기' });
+  await expect(page.locator('.document-stage-switch').getByRole('button', { name: /초안 편집/ })).toBeVisible();
+  await expect(page.locator('.document-stage-switch').getByRole('button', { name: /완성본/ })).toBeVisible();
+  await page.locator('.document-stage-switch').getByRole('button', { name: /완성본/ }).click();
+  await expect(page.getByRole('heading', { name: '문단 초안을 한 편의 글로 연결합니다.' })).toBeVisible();
+  await expect(page.locator('.final-input-overview')).toContainText('영상 내레이션');
+  await expect(page.locator('.final-input-overview')).toContainText('전지적 설명자');
+  await expect(page.locator('.final-input-overview')).toContainText('과거형 중심');
+  await expect(page.getByRole('button', { name: '완성본 만들기' })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

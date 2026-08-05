@@ -27,5 +27,6 @@
 | 23 | 실제 Writer/Utility/Embedding 결과 | PASS | `VERIFICATION.md`/evaluation JSON |
 | 24 | migration/tests | PASS | PostgreSQL up/down/up, pytest/build/e2e |
 | 25 | 상태 문서 일치 | PASS | README/TASKS/status/audit updated |
+| 26 | 초안 전체를 완성본으로 통합 | PASS | 사용자 지시·글 형태·시점·시제·분량 재사용, `FINAL_COHERENCE_PASS`, 초안/완성본 분리와 변경 감지 |
 
 대표 실제 프로젝트 slug는 `black-route-chronicle`이며 로컬 전용 DB에 정식 컨셉 페이지 9개와 관계·방향성 카드를 보관합니다.
