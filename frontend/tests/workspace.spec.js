@@ -69,12 +69,15 @@ test('project-first workflow exposes understandable controls', async ({ page }) 
   await page.getByRole('button', { name: /배경으로 계속/ }).click();
 
   await expect(page.getByRole('heading', { name: /어디서, 어떤 상황에서/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /주제 검은 등대/ })).toBeVisible();
+  await expect(page.getByText('지금까지 선택')).toHaveCount(0);
   await expect(page.locator('.wizard-choice-card').filter({ has: page.getByText('검은 등대', { exact: true }) })).toHaveCount(0);
   const recoveryRoom = page.locator('.wizard-choice-card').filter({ has: page.getByText('회수실', { exact: true }) });
   await recoveryRoom.click();
   await page.getByRole('button', { name: /주요 요소로 계속/ }).click();
 
   await expect(page.getByRole('heading', { name: /꼭 함께 다룰 것은/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /배경 회수실/ })).toBeVisible();
   await expect(page.locator('.wizard-choice-card').filter({ has: page.getByText('회수실', { exact: true }) })).toHaveCount(0);
   const leah = page.locator('.wizard-choice-card').filter({ has: page.getByText('레아 벨', { exact: true }) });
   await leah.click();

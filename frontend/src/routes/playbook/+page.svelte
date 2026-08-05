@@ -40,6 +40,15 @@
   $: totalSupporting = backgroundIds.length + elementIds.length + conflictIds.length;
   $: hasCurrentSelection = activeStep?.required || activeIds.length || activeStep?.key === 'settings' || activeStep?.key === 'direction' && directionCardIds.length;
   $: nextButtonLabel = activeStep?.next ? `${hasCurrentSelection ? '' : '선택 없이 '}${activeStep.next}` : '';
+  $: progressSummaries = [
+    subject?.title || '선택 필요',
+    selectionSummary(backgroundIds),
+    selectionSummary(elementIds),
+    selectionSummary(conflictIds),
+    selectedCards.length ? selectedCards.length === 1 ? selectedCards[0].title : `${selectedCards[0].title} 외 ${selectedCards.length - 1}개` : '선택 안 함',
+    outputProfile === 'lore_article' ? '세계관 설명 글' : outputProfile === 'video_narration' ? '영상 내레이션' : outputProfile === 'novel_prose' ? '소설 장면' : '세계 내부 문서',
+    document ? '원고 완성' : plan ? '구성안 완료' : preview ? '근거 확인됨' : '작성 전'
+  ];
 
   onMount(loadInitial);
 
@@ -101,6 +110,11 @@
 
   function removeConcept(pageId) { removeEverywhere(pageId); resetRun(); }
   function selectedPages(ids) { return ids.map((id) => pages.find((page) => page.id === id)).filter(Boolean); }
+  function selectionSummary(ids) {
+    const selected = selectedPages(ids);
+    if (!selected.length) return '선택 안 함';
+    return selected.length === 1 ? selected[0].title : `${selected[0].title} 외 ${selected.length - 1}개`;
+  }
 
   function toggleConcept(pageId) {
     if (!activeSlot) return;
@@ -189,7 +203,7 @@
     <nav class="wizard-progress" aria-label="글 만들기 선택 단계">
       {#each wizardSteps as step, index}
         <button class:active={wizardStep === index} class:complete={index < wizardStep || index <= furthestStep && index !== wizardStep} disabled={index > furthestStep} aria-current={wizardStep === index ? 'step' : undefined} on:click={() => setWizardStep(index)}>
-          <span>{index + 1}</span><strong>{step.short}</strong>
+          <span>{index + 1}</span><div><strong>{step.short}</strong><small>{progressSummaries[index]}</small></div>
         </button>
       {/each}
     </nav>
@@ -201,16 +215,6 @@
 
     {#if activeSlot}
       <div class="wizard-layout">
-        <aside class="wizard-ledger" aria-label="현재까지 선택한 자료">
-          <strong>지금까지 선택</strong>
-          {#each wizardSteps.slice(0, 4) as step, index}
-            {@const ids = step.slot === 'subject' ? subjectIds : step.slot === 'background' ? backgroundIds : step.slot === 'elements' ? elementIds : conflictIds}
-            <button class:current={wizardStep === index} disabled={index > furthestStep} on:click={() => setWizardStep(index)}>
-              <span>{step.short}</span><small>{selectedPages(ids).map((page) => page.title).join(', ') || (step.required ? '선택 필요' : '선택 안 함')}</small>
-            </button>
-          {/each}
-        </aside>
-
         <div class="wizard-picker card">
           <div class="library-toolbar"><div><strong>프로젝트 자료</strong><small>{wizardPages.length}개 선택 가능</small></div><input aria-label={`${activeStep.short} 자료 검색`} bind:value={conceptSearch} placeholder="제목·태그·요약 검색" /><select aria-label="자료 종류" bind:value={categoryFilter}><option value="all">모든 종류</option><option value="person">인물</option><option value="place">장소</option><option value="event">사건</option><option value="artifact">유물·기술</option><option value="free">기타</option></select></div>
           <div class="wizard-card-grid">
