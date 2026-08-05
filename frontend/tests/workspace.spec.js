@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 const routes = [
   ['/', /세계를 선택하고/],
   ['/editor', /설정을 기록하고 연결합니다/],
-  ['/playbook', /쓸 대상과 방향을 고르세요/],
+  ['/playbook', /쓸 대상과 전개 방식을 고르세요/],
   ['/documents', /초안을 검토한 뒤 완성 설정을 따로 정합니다/],
   ['/lorebook', /완성된 글만 모아 읽고 보관합니다/],
 ];
@@ -55,8 +55,8 @@ test('project-first workflow exposes understandable controls', async ({ page }) 
   await expect(page.locator('.archive-page-list strong').filter({ hasText: /^기억세$/ })).toBeVisible();
   await expect(page.getByText('연결된 자료')).toBeVisible();
   await expect(page.locator('text=/[0-9a-f]{8}-[0-9a-f]{4}-/')).toHaveCount(0);
-  await page.getByRole('button', { name: /글의 방향 규칙/ }).click();
-  await expect(page.getByText(/무엇을 쓸지가 아니라/)).toBeVisible();
+  await page.getByRole('button', { name: /집필 지침/ }).click();
+  await expect(page.getByText(/강조할 것과 피할 것/)).toBeVisible();
   await expect(page.getByRole('button', { name: 'AI로 세부 규칙 정리' }).first()).toBeVisible();
 
   await page.goto('/playbook');
@@ -86,9 +86,19 @@ test('project-first workflow exposes understandable controls', async ({ page }) 
   await page.getByRole('button', { name: /갈등·변수로 계속/ }).click();
 
   await expect(page.getByRole('heading', { name: /긴장과 변화를/ })).toBeVisible();
-  await page.getByRole('button', { name: /선택 없이 전개 방향으로/ }).click();
-  await expect(page.getByRole('heading', { name: /어떤 방식으로 전개할까요/ })).toBeVisible();
-  await page.getByRole('button', { name: /선택 없이 글 형태로/ }).click();
+  await page.getByRole('button', { name: /선택 없이 집필 지침으로/ }).click();
+  await expect(page.getByRole('heading', { name: /무엇을 강조하거나 피할까요/ })).toBeVisible();
+  await expect(page.getByText(/현재 프로젝트에 저장한/)).toBeVisible();
+  await page.getByRole('button', { name: /선택 없이 전개 방식으로/ }).click();
+
+  await expect(page.getByRole('heading', { name: /어떤 패턴으로 풀어갈까요/ })).toBeVisible();
+  await expect(page.getByText(/프로젝트 자료와 무관한 공통 프리셋/)).toBeVisible();
+  const causalPattern = page.locator('.recipe-option').filter({ hasText: '원인에서 파급으로' });
+  await causalPattern.click();
+  await expect(causalPattern).toHaveAttribute('aria-pressed', 'true');
+  await expect(causalPattern).toContainText('시작 원인');
+  await expect(causalPattern).toContainText('사회의 파급');
+  await page.getByRole('button', { name: /글 형태로 계속/ }).click();
 
   await expect(page.getByRole('heading', { name: /어떤 형태의 글로/ })).toBeVisible();
   await expect(page.getByLabel('시점')).toHaveValue('omniscient');
@@ -101,6 +111,8 @@ test('project-first workflow exposes understandable controls', async ({ page }) 
   await expect(page.locator('.wizard-review-grid')).toContainText('검은 등대');
   await expect(page.locator('.wizard-review-grid')).toContainText('회수실');
   await expect(page.locator('.wizard-review-grid')).toContainText('레아 벨');
+  await expect(page.locator('.wizard-review-grid')).toContainText('전개 방식');
+  await expect(page.locator('.wizard-review-grid')).toContainText('원인에서 파급으로');
   await expect(page.getByRole('button', { name: '초안 작성', exact: true })).toBeDisabled();
   await page.getByRole('button', { name: '사용할 설정 확인 설명' }).click();
   await expect(page.getByRole('tooltip').first()).toBeVisible();
@@ -114,6 +126,7 @@ test('project-first workflow exposes understandable controls', async ({ page }) 
     viewpoint: 'third_limited',
     tense: 'past',
   });
+  expect(sessionRequest.postDataJSON().writing_recipe_id).toBeTruthy();
   const sessionResponse = await sessionRequest.response();
   const session = await sessionResponse.json();
   await expect(page.getByRole('button', { name: '✓ 사용할 설정 확인됨' })).toBeEnabled();
@@ -130,6 +143,7 @@ test('document workflow separates draft editing, editable final settings, and lo
   await expect(page.locator('.document-wizard-progress').getByRole('button', { name: /완성본 만들기/ })).toBeVisible();
   await page.getByRole('button', { name: /완성 설정으로 계속/ }).click();
   await expect(page.getByRole('heading', { name: '완성본의 글 형태를 다시 정하세요.' })).toBeVisible();
+  await expect(page.getByLabel('전개 방식')).toBeVisible();
   await expect(page.getByLabel('결과물')).toHaveValue('video_narration');
   await page.getByLabel('시점').selectOption('first_observer');
   await page.getByLabel('시제').selectOption('present');

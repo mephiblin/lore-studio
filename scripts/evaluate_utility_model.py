@@ -50,7 +50,7 @@ CASES = [
     },
     {
         "name": "direction_rules",
-        "prompt": "방향성 카드 구조화: 효능은 실제여야 한다. 성공 뒤 의존과 대가를 보여주고 처음부터 사기였다는 반전은 피한다.",
+        "prompt": "프로젝트 집필 지침 구조화: 효능은 실제여야 한다. 성공 뒤 의존과 대가를 보여주고 처음부터 사기였다는 반전은 피한다.",
         "schema": {"type": "object", "required": ["sequence", "must_include", "avoid"], "properties": {"sequence": {"type": "array", "items": {"type": "string"}}, "must_include": {"type": "array", "items": {"type": "string"}}, "avoid": {"type": "array", "items": {"type": "string"}}}},
         "check": lambda d: len(d.get("sequence", [])) >= 2 and len(d.get("avoid", [])) >= 1,
     },

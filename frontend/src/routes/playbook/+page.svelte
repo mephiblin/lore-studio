@@ -22,12 +22,14 @@
     { key: 'subject', slot: 'subject', short: '주제', title: '무엇에 관한 글인가요?', copy: '원고의 중심이 될 자료 한 개를 선택하세요.', required: true, next: '배경으로 계속' },
     { key: 'background', slot: 'background', short: '배경', title: '어디서, 어떤 상황에서 벌어지나요?', copy: '주제를 이해하는 데 필요한 장소·시대·상황을 고르세요. 없어도 됩니다.', next: '주요 요소로 계속' },
     { key: 'elements', slot: 'elements', short: '주요 요소', title: '꼭 함께 다룰 것은 무엇인가요?', copy: '글에서 비중 있게 등장할 인물·사건·유물 등을 고르세요. 여러 개를 선택할 수 있습니다.', next: '갈등·변수로 계속' },
-    { key: 'conflicts', slot: 'conflicts', short: '갈등·변수', title: '무엇이 긴장과 변화를 만드나요?', copy: '충돌, 위험, 반전의 원인이 될 자료를 고르세요. 없어도 됩니다.', next: '전개 방향으로 계속' },
-    { key: 'direction', short: '전개 방향', title: '어떤 방식으로 전개할까요?', copy: '세계관 사실이 아니라 이 원고가 사실을 다루는 원칙을 고릅니다.', next: '글 형태로 계속' },
-    { key: 'settings', short: '글 형태', title: '어떤 형태의 글로 만들까요?', copy: '집필 방식, 결과물, 시점·시제와 분량을 정하세요.', next: '확인·작성으로 계속' },
+    { key: 'conflicts', slot: 'conflicts', short: '갈등·변수', title: '무엇이 긴장과 변화를 만드나요?', copy: '충돌, 위험, 반전의 원인이 될 자료를 고르세요. 없어도 됩니다.', next: '집필 지침으로 계속' },
+    { key: 'guidance', short: '집필 지침', title: '이번 글에서 무엇을 강조하거나 피할까요?', copy: '현재 프로젝트에 저장한 강조점과 금지 원칙입니다. 여러 개를 고르거나 건너뛸 수 있습니다.', next: '전개 방식으로 계속' },
+    { key: 'recipe', short: '전개 방식', title: '글을 어떤 패턴으로 풀어갈까요?', copy: '프로젝트 자료와 무관한 공통 프리셋입니다. 정보가 드러나는 순서 하나를 고르세요.', required: true, next: '글 형태로 계속' },
+    { key: 'settings', short: '글 형태', title: '어떤 형태의 글로 만들까요?', copy: '결과물 종류, 시점·시제와 분량을 정하세요.', next: '확인·작성으로 계속' },
     { key: 'review', short: '확인·작성', title: '선택을 확인하고 원고를 만드세요.', copy: '사용할 세계관을 확인하고, 글의 흐름을 정한 뒤 원고를 작성합니다.' }
   ];
   $: selectedCards = cards.filter((card) => directionCardIds.includes(card.id));
+  $: selectedRecipe = recipes.find((recipe) => recipe.id === recipeId);
   $: cardConflicts = selectedCards.flatMap((card) => selectedCards.filter((other) => other.id !== card.id && (card.incompatible_tags || []).some((tag) => (other.tags || []).includes(tag))).map((other) => `${card.title} ↔ ${other.title}`));
   $: estimatedTokens = Math.ceil((length === 'custom' ? customLength : ({ short: 1200, normal: 3000, long: 6500, very_long: 12000 }[length] || 3000)) * 1.8);
   $: visiblePages = pages.filter((page) => {
@@ -40,7 +42,7 @@
   $: activeIds = activeSlot === 'subject' ? subjectIds : activeSlot === 'background' ? backgroundIds : activeSlot === 'elements' ? elementIds : activeSlot === 'conflicts' ? conflictIds : [];
   $: wizardPages = visiblePages.filter((page) => !slotFor(page.id) || slotFor(page.id) === activeSlot);
   $: totalSupporting = backgroundIds.length + elementIds.length + conflictIds.length;
-  $: hasCurrentSelection = activeStep?.required || activeIds.length || activeStep?.key === 'settings' || activeStep?.key === 'direction' && directionCardIds.length;
+  $: hasCurrentSelection = activeIds.length || activeStep?.key === 'settings' || activeStep?.key === 'guidance' && directionCardIds.length || activeStep?.key === 'recipe' && !!recipeId;
   $: nextButtonLabel = activeStep?.next ? `${hasCurrentSelection ? '' : '선택 없이 '}${activeStep.next}` : '';
   $: progressSummaries = [
     subject?.title || '선택 필요',
@@ -48,6 +50,7 @@
     selectionSummary(elementIds),
     selectionSummary(conflictIds),
     selectedCards.length ? selectedCards.length === 1 ? selectedCards[0].title : `${selectedCards[0].title} 외 ${selectedCards.length - 1}개` : '선택 안 함',
+    selectedRecipe?.name || '선택 필요',
     outputProfile === 'lore_article' ? '세계관 설명 글' : outputProfile === 'video_narration' ? '영상 내레이션' : outputProfile === 'novel_prose' ? '소설 장면' : '세계 내부 문서',
     document ? '원고 완성' : plan ? '글의 흐름 준비됨' : preview ? '사용할 설정 확인됨' : '작성 전'
   ];
@@ -141,6 +144,11 @@
     resetRun();
   }
 
+  function selectRecipe(selectedId) {
+    recipeId = selectedId;
+    resetRun();
+  }
+
   async function ensureSession() {
     if (session) return session;
     session = await api.post('/playbook-sessions', {
@@ -199,7 +207,7 @@
 
 <div class="page playbook-page">
   <div class="page-header">
-    <div><p class="eyebrow">글 만들기</p><h1>쓸 대상과 방향을 고르세요.</h1><p>사용할 세계관을 확인하고, 글의 흐름을 정한 뒤 원고를 작성합니다.</p></div>
+    <div><p class="eyebrow">글 만들기</p><h1>쓸 대상과 전개 방식을 고르세요.</h1><p>프로젝트 자료와 집필 지침을 고르고, 공통 전개 패턴을 적용해 원고를 작성합니다.</p></div>
     <div class="project-tools"><label class="project-select">현재 프로젝트<select bind:value={projectId} on:change={changeProject}>{#each projects as project}<option value={project.id}>{project.name}</option>{/each}</select></label><ProjectCreator onCreated={projectCreated} /></div>
   </div>
 
@@ -237,7 +245,7 @@
           </div>
         </div>
       </div>
-    {:else if activeStep.key === 'direction'}
+    {:else if activeStep.key === 'guidance'}
       <div class="direction-option-grid wizard-direction-grid">
         {#each cards as card}
           <button class:selected={directionCardIds.includes(card.id)} class="direction-option" aria-pressed={directionCardIds.includes(card.id)} on:click={() => toggleDirection(card.id)}>
@@ -246,16 +254,32 @@
             {#if card.parsed_rules?.must_include?.length}<small>반드시 포함 · {card.parsed_rules.must_include.slice(0, 2).join(' · ')}</small>{/if}
           </button>
         {/each}
-        {#if !cards.length}<a class="empty-state" href="/editor">아직 방향 규칙이 없습니다. 세계관 자료에서 만들기 →</a>{/if}
+        {#if !cards.length}<a class="empty-state" href="/editor">아직 집필 지침이 없습니다. 세계관 자료에서 만들기 →</a>{/if}
       </div>
-      {#if cardConflicts.length}<div class="notice-error">함께 쓸 수 없는 규칙: {[...new Set(cardConflicts)].join(', ')}</div>{/if}
+      {#if cardConflicts.length}<div class="notice-error">함께 쓸 수 없는 지침: {[...new Set(cardConflicts)].join(', ')}</div>{/if}
       <label class="wide-field">이번 원고에만 추가할 지시 <textarea bind:value={userDirection} on:input={resetRun} placeholder="예: 레아의 추적보다 백야항 시민의 일상을 중심에 둔다."></textarea></label>
+    {:else if activeStep.key === 'recipe'}
+      <div class="recipe-option-grid">
+        {#each recipes as recipe}
+          <button class:selected={recipeId === recipe.id} class="recipe-option" aria-pressed={recipeId === recipe.id} on:click={() => selectRecipe(recipe.id)}>
+            <span class="choice-check">{recipeId === recipe.id ? '✓' : '○'}</span>
+            <span class="recipe-scope">모든 프로젝트에서 사용</span>
+            <strong>{recipe.name}</strong>
+            <p>{recipe.description}</p>
+            <span class="recipe-flow" aria-label={`${recipe.name} 순서`}>
+              {#each recipe.recipe_json?.pattern_preview || [] as part, index}
+                <span>{part}</span>{#if index < (recipe.recipe_json?.pattern_preview || []).length - 1}<i>→</i>{/if}
+              {/each}
+            </span>
+            {#if recipe.recipe_json?.best_for}<small><b>잘 맞는 글</b> {recipe.recipe_json.best_for}</small>{/if}
+          </button>
+        {/each}
+        {#if !recipes.length}<div class="empty-state">사용할 수 있는 공유 전개 방식이 없습니다.</div>{/if}
+      </div>
     {:else if activeStep.key === 'settings'}
       <div class="settings-grid wizard-settings">
         <div class="card stack">
-          <h3>집필 방식</h3>
-          <label>정보를 풀어낼 순서<select bind:value={recipeId} on:change={resetRun}>{#each recipes as recipe}<option value={recipe.id}>{recipe.name}</option>{/each}</select></label>
-          {#if recipeId}{@const recipe = recipes.find((item) => item.id === recipeId)}{#if recipe}<p class="field-help">{recipe.description}</p>{/if}{/if}
+          <h3>결과물과 서술</h3>
           <label>결과물<select bind:value={outputProfile} on:change={resetRun}><option value="lore_article">세계관 설명 글</option><option value="video_narration">영상 내레이션</option><option value="novel_prose">소설 장면</option><option value="in_universe_report">세계 내부 문서</option></select></label>
           <div class="grid-2"><label>시점<select bind:value={viewpoint} on:change={resetRun}><option value="omniscient">전지적 설명자</option><option value="first_observer">1인칭 관찰자</option><option value="third_limited">3인칭 제한</option></select></label><label>시제<select bind:value={tense} on:change={resetRun}><option value="present">현재형 중심</option><option value="past">과거형 중심</option></select></label></div>
         </div>
@@ -273,11 +297,12 @@
         <article><div><span>배경</span><strong>{selectedPages(backgroundIds).map((page) => page.title).join(', ') || '선택 안 함'}</strong></div><button class="ghost" on:click={() => setWizardStep(1)}>수정</button></article>
         <article><div><span>주요 요소</span><strong>{selectedPages(elementIds).map((page) => page.title).join(', ') || '선택 안 함'}</strong></div><button class="ghost" on:click={() => setWizardStep(2)}>수정</button></article>
         <article><div><span>갈등·변수</span><strong>{selectedPages(conflictIds).map((page) => page.title).join(', ') || '선택 안 함'}</strong></div><button class="ghost" on:click={() => setWizardStep(3)}>수정</button></article>
-        <article><div><span>전개 방향</span><strong>{selectedCards.map((card) => card.title).join(', ') || '선택 안 함'}</strong></div><button class="ghost" on:click={() => setWizardStep(4)}>수정</button></article>
-        <article><div><span>글 형태</span><strong>{outputProfile === 'lore_article' ? '세계관 설명 글' : outputProfile === 'video_narration' ? '영상 내레이션' : outputProfile === 'novel_prose' ? '소설 장면' : '세계 내부 문서'} · {viewpoint === 'omniscient' ? '전지적 설명자' : viewpoint === 'first_observer' ? '1인칭 관찰자' : '3인칭 제한'}</strong></div><button class="ghost" on:click={() => setWizardStep(5)}>수정</button></article>
+        <article><div><span>집필 지침</span><strong>{selectedCards.map((card) => card.title).join(', ') || '선택 안 함'}</strong></div><button class="ghost" on:click={() => setWizardStep(4)}>수정</button></article>
+        <article><div><span>전개 방식</span><strong>{selectedRecipe?.name || '선택 필요'}</strong></div><button class="ghost" on:click={() => setWizardStep(5)}>수정</button></article>
+        <article><div><span>글 형태</span><strong>{outputProfile === 'lore_article' ? '세계관 설명 글' : outputProfile === 'video_narration' ? '영상 내레이션' : outputProfile === 'novel_prose' ? '소설 장면' : '세계 내부 문서'} · {viewpoint === 'omniscient' ? '전지적 설명자' : viewpoint === 'first_observer' ? '1인칭 관찰자' : '3인칭 제한'}</strong></div><button class="ghost" on:click={() => setWizardStep(6)}>수정</button></article>
       </div>
       <section class="wizard-run-panel">
-        <div class="run-summary"><strong>{subject?.title}</strong><span>보조 자료 {totalSupporting}개 · 방향 규칙 {directionCardIds.length}개</span><small>세 단계를 차례로 진행합니다. 작성된 초안은 원고 작업 화면에서 바로 열립니다.</small></div>
+        <div class="run-summary"><strong>{subject?.title}</strong><span>보조 자료 {totalSupporting}개 · 집필 지침 {directionCardIds.length}개 · {selectedRecipe?.name}</span><small>세 단계를 차례로 진행합니다. 작성된 초안은 원고 작업 화면에서 바로 열립니다.</small></div>
         <div class="run-actions">
           <div class="run-action"><div><span>1</span><HelpTip label="사용할 설정 확인 설명" text="선택한 자료에서 AI가 사실로 쓸 내용과 임의로 바꾸면 안 되는 내용을 먼저 보여 줍니다." /></div><button class="secondary" disabled={!!busy || !subject} on:click={() => runAction('context-preview')}>{preview ? '✓ 사용할 설정 확인됨' : '사용할 설정 확인'}</button></div>
           <div class="run-action"><div><span>2</span><HelpTip label="글의 흐름 만들기 설명" text="원고를 쓰기 전에 각 문단이 어떤 순서로 무엇을 설명할지 목록으로 만듭니다." /></div><button class="secondary" disabled={!!busy || !subject || !preview} on:click={() => runAction('plan')}>{plan ? '✓ 글의 흐름 준비됨' : '글의 흐름 만들기'}</button></div>
@@ -289,7 +314,7 @@
     {#if activeStep.key !== 'review'}
       <footer class="wizard-actions">
         <button class="ghost" disabled={wizardStep === 0} on:click={() => setWizardStep(wizardStep - 1)}>← 이전</button>
-        <button class="primary" disabled={wizardStep === 0 && !subject || activeStep.key === 'direction' && cardConflicts.length} on:click={nextStep}>{nextButtonLabel} →</button>
+        <button class="primary" disabled={wizardStep === 0 && !subject || activeStep.key === 'guidance' && cardConflicts.length || activeStep.key === 'recipe' && !recipeId} on:click={nextStep}>{nextButtonLabel} →</button>
       </footer>
     {/if}
   </section>

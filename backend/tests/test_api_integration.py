@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 
 from app.db import get_db
 from app.main import app
+from app.models import WritingRecipe
 
 
 def test_project_category_page_recipe_and_authority_api() -> None:
@@ -78,6 +79,49 @@ def test_project_category_page_recipe_and_authority_api() -> None:
         )
         assert recipe_response.status_code == 201
         assert recipe_response.json()["version"] == "1.0.0"
+
+        shared_recipe = WritingRecipe(
+            project_id=None,
+            key="shared-pattern",
+            version="1.0.0",
+            name="공유 전개 방식",
+            recipe_json={"pattern_preview": ["시작", "전환", "결말"]},
+            is_builtin=True,
+            approved=True,
+        )
+        db.add(shared_recipe)
+        db.commit()
+
+        shared_list = client.get("/api/v1/writing-recipes")
+        assert shared_list.status_code == 200
+        assert [item["name"] for item in shared_list.json()] == ["공유 전개 방식"]
+
+        project_list = client.get(
+            "/api/v1/writing-recipes", params={"project_id": project_id}
+        )
+        assert {item["name"] for item in project_list.json()} == {
+            "API 레시피",
+            "공유 전개 방식",
+        }
+
+        rejected_session = client.post(
+            "/api/v1/playbook-sessions",
+            json={
+                "project_id": project_id,
+                "writing_recipe_id": recipe_response.json()["id"],
+            },
+        )
+        assert rejected_session.status_code == 422
+        assert rejected_session.json()["detail"]["code"] == "SHARED_WRITING_RECIPE_REQUIRED"
+
+        accepted_session = client.post(
+            "/api/v1/playbook-sessions",
+            json={
+                "project_id": project_id,
+                "writing_recipe_id": shared_recipe.id,
+            },
+        )
+        assert accepted_session.status_code == 201
     finally:
         app.dependency_overrides.clear()
         db.close()

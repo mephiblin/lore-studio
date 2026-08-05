@@ -6,7 +6,7 @@ Alembic revision `20260805_0001`은 PostgreSQL extension `vector`, schema `lore_
 |---|---|---|
 | 프로젝트 | projects, category_definitions | 최상위 namespace와 사용자 template |
 | 자료 | concept_pages, concept_page_revisions, concept_relations, attachments | 자유 Tiptap 본문, role/authority, era/continuity, facts/questions/forbidden |
-| 방향/방식 | direction_cards, direction_card_pools, writing_recipes, voice_profiles | 원문 보존, parsed suggestion 분리, version |
+| 지침/전개 | direction_cards, direction_card_pools, writing_recipes, voice_profiles | DirectionCard는 프로젝트 집필 지침, 기본 WritingRecipe는 프로젝트 독립 공유 전개 방식, 원문·parsed suggestion·version 분리 |
 | 실행 | playbook_sessions, generation_runs, generation_stages | seed/선택/설정/plan/evidence와 모델 감사 |
 | 문서 | lore_documents, lore_revisions, lore_blocks | `draft` 초안과 `lorebook` 완성본을 별도 행으로 저장, 출처 초안 ID·해시·최종 생성 설정, 위치/Move/근거/확실성/잠금 |
 | 검토 | audit_findings, proposed_concept_updates, reference_analyses, audit_logs | proposal/apply/dismiss 및 명시 승인 |

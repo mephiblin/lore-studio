@@ -22,6 +22,16 @@
     "description": {
       "type": "string"
     },
+    "best_for": {
+      "type": "string"
+    },
+    "pattern_preview": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "string"
+      }
+    },
     "moves": {
       "type": "array",
       "items": {

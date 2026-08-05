@@ -201,7 +201,7 @@
       });
       cards = [card, ...cards];
       cardForm = { title: '', body: '', tags: '' };
-      message = '글의 방향 규칙을 추가했습니다.';
+      message = '집필 지침을 추가했습니다.';
     } catch (e) { error = e.message; }
   }
 
@@ -218,7 +218,7 @@
       });
       cards = cards.map((item) => item.id === updated.id ? updated : item);
       editingCardId = '';
-      message = '방향 규칙을 저장했습니다.';
+      message = '집필 지침을 저장했습니다.';
     } catch (e) { error = e.message; }
   }
 
@@ -259,7 +259,7 @@
   async function approveReference() {
     const result = await api.post(`/reference-analyses/${referenceAnalysis.id}/approve`, {});
     referenceAnalysis = { ...referenceAnalysis, status: result.status };
-    message = '분석한 집필 방식을 승인했습니다.';
+    message = '구성·문체 분석 결과를 승인했습니다.';
   }
 
   async function reindexPage() {
@@ -277,7 +277,7 @@
 
 <div class="page">
   <div class="page-header archive-header">
-    <div><p class="eyebrow">세계관 자료</p><h1>설정을 기록하고 연결합니다.</h1><p>원고에 사용할 인물·장소·사건과 글의 방향 규칙을 관리합니다.</p></div>
+    <div><p class="eyebrow">세계관 자료</p><h1>설정을 기록하고 연결합니다.</h1><p>원고에 사용할 인물·장소·사건과 프로젝트별 집필 지침을 관리합니다.</p></div>
     <div class="project-tools">
       <label>현재 프로젝트<select bind:value={projectId} on:change={changeProject}><option value="">프로젝트 선택</option>{#each projects as project}<option value={project.id}>{project.name}</option>{/each}</select></label>
       <ProjectCreator onCreated={projectCreated} />
@@ -293,7 +293,7 @@
   {:else}
     <nav class="section-tabs" aria-label="세계관 자료 관리">
       <button class:active={activeTab === 'pages'} on:click={() => activeTab = 'pages'}>세계관 자료 <span>{pages.length}</span></button>
-      <button class:active={activeTab === 'directions'} on:click={() => activeTab = 'directions'}>글의 방향 규칙 <span>{cards.length}</span></button>
+      <button class:active={activeTab === 'directions'} on:click={() => activeTab = 'directions'}>집필 지침 <span>{cards.length}</span></button>
     </nav>
 
     {#if activeTab === 'pages'}
@@ -391,7 +391,7 @@
                     <div class="evidence-item"><strong>{paragraph.index + 1}번째 문단 · {paragraph.primary_move}</strong><small>보조 역할 {paragraph.secondary_move} · 범위 {paragraph.scale} · 맺음 {paragraph.ending}</small></div>
                   {/each}
                   {#if !referenceAnalysis.analysis_json?.paragraphs?.length}<p class="empty-mini">분석된 문단이 없습니다.</p>{/if}
-                  <button class="primary" disabled={referenceAnalysis.status !== 'CANDIDATE'} on:click={approveReference}>{referenceAnalysis.status === 'CANDIDATE' ? '집필 방식으로 승인' : '승인됨'}</button>
+                  <button class="primary" disabled={referenceAnalysis.status !== 'CANDIDATE'} on:click={approveReference}>{referenceAnalysis.status === 'CANDIDATE' ? '분석 결과 승인' : '승인됨'}</button>
                 </div>
               {/if}
             {/if}
@@ -401,22 +401,22 @@
     {:else}
       <section class="directions-layout">
         <div class="direction-intro">
-          <p class="eyebrow">글의 방향 규칙</p>
-          <h2>무엇을 쓸지가 아니라,<br />어떻게 다룰지 정합니다.</h2>
-          <p>세계관 사실을 추가하거나 바꾸지 않습니다. 글 만들기에서 선택하면 전개 순서와 피해야 할 반전을 Writer에게 전달합니다.</p>
+          <p class="eyebrow">프로젝트 집필 지침</p>
+          <h2>이 프로젝트의 글에서<br />강조할 것과 피할 것을 정합니다.</h2>
+          <p>세계관 사실도, 글의 전개 순서도 아닙니다. 글 만들기에서 선택하면 이번 원고가 지킬 강조점·금지 사항·결말 원칙을 Writer에게 전달합니다.</p>
         </div>
         <div class="card stack direction-create">
-          <h3>새 방향 규칙</h3>
-          <label>규칙 이름 <input bind:value={cardForm.title} placeholder="예: 선의의 결과가 새 문제를 만든다" /></label>
-          <label>원고에 어떤 방향을 적용할까요? <textarea bind:value={cardForm.body} placeholder="반드시 보여 줄 과정과 피할 전개를 자연스럽게 적어 주세요."></textarea></label>
+          <h3>새 집필 지침</h3>
+          <label>지침 이름 <input bind:value={cardForm.title} placeholder="예: 제도의 효능과 대가를 함께 보여 준다" /></label>
+          <label>이 프로젝트의 글에서 무엇을 지킬까요? <textarea bind:value={cardForm.body} placeholder="강조할 내용, 반드시 보여 줄 과정, 피할 해석을 자연스럽게 적어 주세요."></textarea></label>
           <label>찾기용 태그 <input bind:value={cardForm.tags} placeholder="제도, 의존, 대가" /></label>
-          <button class="primary" disabled={!cardForm.title.trim() || !cardForm.body.trim()} on:click={createCard}>규칙 추가</button>
+          <button class="primary" disabled={!cardForm.title.trim() || !cardForm.body.trim()} on:click={createCard}>지침 추가</button>
         </div>
         <div class="direction-list">
           {#each cards as card}
             <article class="direction-card">
               {#if editingCardId === card.id}
-                <div class="stack"><label>규칙 이름 <input bind:value={cardDraft.title} /></label><label>방향 설명 <textarea bind:value={cardDraft.body}></textarea></label><label>태그 <input bind:value={cardDraft.tags} /></label><div class="row"><button class="primary" on:click={() => saveCard(card)}>저장</button><button class="ghost" on:click={() => editingCardId = ''}>취소</button></div></div>
+                <div class="stack"><label>지침 이름 <input bind:value={cardDraft.title} /></label><label>지침 설명 <textarea bind:value={cardDraft.body}></textarea></label><label>태그 <input bind:value={cardDraft.tags} /></label><div class="row"><button class="primary" on:click={() => saveCard(card)}>저장</button><button class="ghost" on:click={() => editingCardId = ''}>취소</button></div></div>
               {:else}
                 <div class="row spread"><div><div class="tag-row">{#each card.tags || [] as tag}<span class="badge">{tag}</span>{/each}</div><h3>{card.title}</h3></div><span class="badge canon">선택 가능</span></div>
                 <p>{card.body}</p>

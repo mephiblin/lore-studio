@@ -332,7 +332,7 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
 
 /* Survey-style playbook. The progress line reads like a route plotted across a chart. */
 .wizard-shell { overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: rgba(251, 252, 251, .82); box-shadow: 0 1px 0 #fff; }
-.wizard-progress { display: grid; grid-template-columns: repeat(7, minmax(96px, 1fr)); overflow-x: auto; border-bottom: 1px solid var(--line); background: var(--paper-deep); }
+.wizard-progress { display: grid; grid-template-columns: repeat(8, minmax(96px, 1fr)); overflow-x: auto; border-bottom: 1px solid var(--line); background: var(--paper-deep); }
 .wizard-progress button { position: relative; min-height: 72px; display: flex; gap: 8px; align-items: center; padding: 11px 13px; border: 0; border-right: 1px solid var(--line); background: transparent; color: var(--muted-text); text-align: left; }
 .wizard-progress button:last-child { border-right: 0; }
 .wizard-progress button::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: transparent; }
@@ -366,6 +366,18 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
 .selection-action { padding-top: 9px; border-top: 1px solid var(--line); color: var(--ink-soft); font-size: 11px; font-weight: 780; }
 .selected .selection-action { color: #416c5a; }
 .wizard-direction-grid, .wizard-settings, .wizard-review-grid { margin: 0; padding: clamp(18px, 3vw, 30px); }
+.recipe-option-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: clamp(18px, 3vw, 30px); }
+.recipe-option { position: relative; min-height: 250px; display: flex; flex-direction: column; align-items: stretch; padding: 18px; text-align: left; border: 1px solid var(--line); border-radius: 7px; color: var(--ink); background: #fff; }
+.recipe-option:hover { border-color: var(--line-strong); transform: translateY(-1px); box-shadow: 0 8px 22px rgba(16,43,54,.07); }
+.recipe-option.selected { border-color: #739688; background: #edf5f1; box-shadow: inset 3px 0 var(--lichen); }
+.recipe-option > strong { margin: 15px 32px 8px 0; font: 600 18px/1.25 Georgia, "Noto Serif KR", serif; }
+.recipe-option > p { flex: 1; margin: 0 0 16px; color: var(--muted-text); font-size: 12px; line-height: 1.6; }
+.recipe-scope { align-self: flex-start; color: #527366; font-size: 9px; font-weight: 780; letter-spacing: .02em; }
+.recipe-flow { display: flex; align-items: center; gap: 5px; overflow-x: auto; margin-bottom: 15px; padding: 10px; border-radius: 5px; background: var(--paper-deep); white-space: nowrap; }
+.recipe-flow span { padding: 4px 6px; border: 1px solid var(--line); border-radius: 3px; color: var(--ink-soft); background: #fff; font-size: 9px; font-weight: 760; }
+.recipe-flow i { color: var(--signal); font-size: 10px; font-style: normal; }
+.recipe-option > small { color: var(--muted-text); font-size: 10px; line-height: 1.55; }
+.recipe-option > small b { margin-right: 5px; color: var(--ink-soft); }
 .wizard-settings { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .wizard-settings .card { box-shadow: none; }
 .wizard-review-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
@@ -475,7 +487,7 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
   .archive-inspector { grid-column: auto; grid-template-columns: 1fr; max-height: none; }
   .archive-inspector > * { grid-column: auto !important; }
   .direction-create, .direction-list, .suggestion-review { grid-column: 1; }
-  .direction-option-grid, .evidence-columns { grid-template-columns: 1fr; }
+  .direction-option-grid, .recipe-option-grid, .evidence-columns { grid-template-columns: 1fr; }
   .route-rail { grid-template-columns: repeat(2, 1fr); }
   .route-rail > span:nth-child(2) { border-right: 0; }
   .route-rail > span:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
@@ -486,7 +498,7 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
   .review-summary { flex-wrap: wrap; }
   .run-actions { display: grid; grid-template-columns: 1fr 1fr; }
   .completion-banner { align-items: stretch; flex-direction: column; }
-  .wizard-progress { grid-template-columns: repeat(7, 118px); }
+  .wizard-progress { grid-template-columns: repeat(8, 118px); }
   .wizard-settings, .wizard-review-grid { grid-template-columns: 1fr; }
   .wizard-run-panel { align-items: stretch; flex-direction: column; }
   .wizard-run-panel .run-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }

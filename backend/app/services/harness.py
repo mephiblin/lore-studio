@@ -263,7 +263,7 @@ class LoreHarness:
         }
         writing_recipe = db.get(WritingRecipe, effective_recipe_id)
         if not writing_recipe or writing_recipe.project_id not in {None, document.project_id}:
-            raise ValueError("선택한 집필 방식을 이 프로젝트에서 사용할 수 없습니다.")
+            raise ValueError("선택한 전개 방식을 이 프로젝트에서 사용할 수 없습니다.")
         available_profiles = load_output_profiles()
         profile = next(
             (

@@ -108,7 +108,7 @@ async def suggest_direction(gateway: ModelGateway, body: str) -> tuple[dict[str,
         [
             {
                 "role": "system",
-                "content": "사용자의 방향성 카드 원문을 바꾸지 말고 목표·순서·필수·회피·결말 선호로 구조화하라.",
+                "content": "사용자의 프로젝트 집필 지침 원문을 바꾸지 말고 목표·순서·필수·회피·결말 선호로 구조화하라.",
             },
             {"role": "user", "content": body},
         ],

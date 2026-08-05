@@ -12,7 +12,7 @@
 3. `original_writing_request.output_profile`: 결과물 종류와 형식 규칙이다.
 4. `original_writing_request.generation_settings`: 시점, 시제, 분량, 자세함, 미스터리 보존, 창작 자유도다.
 5. `original_writing_request.writing_recipe`: 정보를 공개하는 순서와 글의 전개 방식이다.
-6. `direction_cards`: 선택된 전개 원칙이다.
+6. `direction_cards`: 현재 프로젝트에서 선택한 강조·금지 등의 집필 지침이다.
 7. `fact_boundaries`: 확정 사실, 열린 질문, 변경 금지 설정이다.
 
 # 금지

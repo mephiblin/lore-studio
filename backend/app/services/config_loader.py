@@ -50,6 +50,7 @@ def seed_builtin_recipes(db: Session) -> None:
             select(WritingRecipe).where(
                 WritingRecipe.key == key,
                 WritingRecipe.version == version,
+                WritingRecipe.project_id.is_(None),
             )
         )
         clean = {k: v for k, v in data.items() if not k.startswith("_")}
@@ -58,6 +59,7 @@ def seed_builtin_recipes(db: Session) -> None:
             existing.description = str(data.get("description", ""))
             existing.recipe_json = clean
             existing.is_builtin = True
+            existing.approved = True
         else:
             db.add(
                 WritingRecipe(

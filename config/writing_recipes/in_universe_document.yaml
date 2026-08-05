@@ -1,45 +1,46 @@
 key: in_universe_document
 version: "1.0.0"
-name: 인-유니버스 문서형
-description: 세계 내부의 작성자·기관·목적·편견이 드러나는 기록물로 작성한다.
+name: 증거에서 판단으로
+description: 관찰된 사실과 서로 다른 증거를 쌓은 뒤, 해석의 한계를 밝히고 판단이나 결론에 도달합니다.
+best_for: 사건 조사, 인물 평가, 미스터리, 상반된 기록처럼 근거를 비교해야 하는 소재
+pattern_preview:
+  - 관찰 사실
+  - 증거 비교
+  - 모순·빈틈
+  - 판단
 philosophy:
-  - 문서 작성자가 왜 이 기록을 남기는지 명확히 한다.
-  - 기록의 누락·검열·오해도 세계관 정보의 일부로 사용한다.
-  - 독자는 작성자보다 더 많은 것을 추론할 수 있어야 한다.
+  - 관찰과 해석과 판단을 같은 어조로 섞지 않는다.
+  - 독자가 결론에 이르는 근거를 순서대로 확인할 수 있게 한다.
+  - 증거가 부족하면 판단의 범위를 명시적으로 제한한다.
 required_moves:
-  - DOCUMENT_CONTEXT
-  - OBSERVATION
-  - INSTITUTIONAL_INTERPRETATION
-  - PROCEDURE_OR_DECISION
+  - ANCHOR
+  - COMPARE
+  - COMPLICATE
+  - INTERPRET
 optional_moves:
-  - REDACTION
-  - CONTRADICTION
-  - APPENDIX
-  - FINAL_NOTE
+  - ORIENT
+  - EXEMPLIFY
+  - WITHHOLD
+  - TURN
 moves:
-  - id: DOCUMENT_CONTEXT
-    purpose: 작성자, 수신자, 목적, 날짜·등급 등 문서 상황을 세운다.
-  - id: OBSERVATION
-    purpose: 관찰·증거·증언을 기록한다.
-  - id: INSTITUTIONAL_INTERPRETATION
-    purpose: 기관이 증거를 어떻게 분류하고 이해하는지 보여준다.
-  - id: PROCEDURE_OR_DECISION
-    purpose: 격리·처분·배치·재판 등 문서가 요구하는 행동을 제시한다.
-  - id: REDACTION
-    purpose: 삭제·검열·접근 제한을 통해 권력과 미지를 드러낸다.
-  - id: CONTRADICTION
-    purpose: 공식 결론과 증거 사이의 균열을 남긴다.
-  - id: FINAL_NOTE
-    purpose: 후일 추가된 짧은 기록으로 문서의 안전성을 뒤집는다.
+  - id: ANCHOR
+    purpose: 가장 확실하게 관찰된 사실이나 증거부터 제시한다.
+  - id: COMPARE
+    purpose: 출처가 다른 기록·증언·결과가 일치하거나 갈리는 지점을 비교한다.
+  - id: COMPLICATE
+    purpose: 공식 설명으로 풀리지 않는 모순이나 누락을 드러낸다.
+  - id: INTERPRET
+    purpose: 증거가 허용하는 범위 안에서 의미와 가능한 결론을 설명한다.
+  - id: WITHHOLD
+    purpose: 증거가 부족한 결론은 확정하지 않고 남겨 둔다.
 planner_rules:
-  - 작성자가 알 수 없는 전지적 사실을 쓰지 않는다.
-  - 문서 형식 장식이 정보 전개를 압도하지 않게 한다.
-  - 검열은 빈칸 남발이 아니라 의미 있는 누락에 사용한다.
+  - 각 해석이 어떤 증거에 기대는지 블록 목적에 드러낸다.
+  - 자료가 말하지 않는 작성자·기관·출처를 임의로 만들지 않는다.
+  - 결론 전에 핵심 모순이나 대안 설명을 한 번은 검토한다.
 style_defaults:
-  narrator: in_world_author
   information_density: high
-  tone: institutional
-  bias_visible: true
+  evidence_order: strongest_first
+  certainty_visible: true
 audit_rules:
-  - 작성자의 지식 범위를 벗어난 문장이 있는지 확인한다.
-  - 보고서 용어만 늘어놓고 사건의 의미가 사라지지 않았는지 확인한다.
+  - 관찰 사실과 해석이 구분되어 있는지 확인한다.
+  - 결론이 앞서 제시한 증거보다 강하게 단정되지 않았는지 확인한다.

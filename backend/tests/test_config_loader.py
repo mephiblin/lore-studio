@@ -13,3 +13,14 @@ def test_yaml_loader_reads_recipe_directory(tmp_path: Path, monkeypatch) -> None
     monkeypatch.setattr(config_loader.settings, "app_config_root", tmp_path)
     items = config_loader._load_yaml_files(recipe_dir)
     assert items[0]["key"] == "sample"
+
+
+def test_builtin_recipes_are_shared_progression_patterns() -> None:
+    config_root = Path(__file__).resolve().parents[2] / "config"
+    recipes = config_loader._load_yaml_files(config_root / "writing_recipes")
+    assert len(recipes) >= 5
+    assert len({recipe["key"] for recipe in recipes}) == len(recipes)
+    for recipe in recipes:
+        assert recipe["pattern_preview"]
+        assert recipe["best_for"]
+        assert recipe["required_moves"]

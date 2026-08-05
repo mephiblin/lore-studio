@@ -1,41 +1,46 @@
 key: novel_scene
 version: "1.0.0"
-name: 소설 장면형
-description: 인물의 지각·행동·선택을 중심으로 하나의 시간 연속 장면을 작성한다.
+name: 목표에서 결과로
+description: 원하는 것을 먼저 세우고 방해와 압박을 높인 뒤, 선택이 어떤 결과를 만드는지 따라갑니다.
+best_for: 인물의 선택, 세력 간 충돌, 작전과 실패처럼 행동의 인과가 중요한 소재
+pattern_preview:
+  - 목표
+  - 방해
+  - 선택
+  - 결과
 philosophy:
-  - 장면 안에서 시간과 공간의 연속성을 유지한다.
-  - 설명은 인물의 행동·감각·대화 속에 배치한다.
-  - 장면이 끝날 때 상태, 관계, 지식 중 하나는 달라져야 한다.
+  - 독자가 무엇을 이루려는지 먼저 이해하게 한다.
+  - 갈등은 목표를 어렵게 만드는 방향으로 단계적으로 강화한다.
+  - 결과는 우연이 아니라 앞선 선택에서 이어지게 한다.
 required_moves:
-  - ENTER_SCENE
-  - ESTABLISH_GOAL
-  - PRESSURE
-  - CHOICE
-  - CONSEQUENCE
+  - ANCHOR
+  - COMPLICATE
+  - ESCALATE
+  - TURN
+  - INTERPRET
 optional_moves:
-  - REVEAL
-  - REVERSAL
-  - QUIET_BEAT
+  - ORIENT
+  - EXEMPLIFY
+  - STING
 moves:
-  - id: ENTER_SCENE
-    purpose: 인물, 장소, 즉각적인 상황을 빠르게 세운다.
-  - id: ESTABLISH_GOAL
-    purpose: 인물이 지금 원하는 것을 장면 안에서 드러낸다.
-  - id: PRESSURE
-    purpose: 목표를 어렵게 만드는 장애·상대·시간 압박을 가한다.
-  - id: CHOICE
-    purpose: 인물이 결과를 바꾸는 선택을 하게 한다.
-  - id: CONSEQUENCE
-    purpose: 선택의 직접 결과와 다음 장면의 긴장을 남긴다.
+  - id: ANCHOR
+    purpose: 인물·집단·제도가 지금 원하는 목표와 이유를 분명히 한다.
+  - id: COMPLICATE
+    purpose: 목표를 어렵게 만드는 첫 장애와 이해관계의 충돌을 제시한다.
+  - id: ESCALATE
+    purpose: 대가와 시간 압박을 키워 선택을 피할 수 없게 한다.
+  - id: TURN
+    purpose: 선택 또는 결정으로 상황의 방향을 바꾼다.
+  - id: INTERPRET
+    purpose: 선택의 직접 결과와 이후 세계에 남은 변화를 설명한다.
 planner_rules:
-  - POV 인물이 알 수 없는 정보는 직접 서술하지 않는다.
-  - 두 문단 이상 배경 설명만 이어지면 행동 또는 감각으로 전환한다.
-  - 장면의 핵심 갈등은 하나로 제한한다.
+  - 핵심 목표는 하나로 유지하고 부차적인 갈등이 이를 가리지 않게 한다.
+  - 선택 전에 선택의 대가가 무엇인지 독자가 알 수 있게 한다.
+  - 결과는 선택과 연결된 자료 근거를 사용한다.
 style_defaults:
-  narrator: third_limited
   information_density: medium
-  dialogue_ratio: medium
-  temporal_continuity: strict
+  causal_continuity: strict
+  tension_curve: rising
 audit_rules:
-  - 인물의 위치·소유·지식이 컨셉 페이지와 충돌하지 않는지 확인한다.
-  - 장면이 단순 설명으로 끝나지 않는지 확인한다.
+  - 목표와 최종 결과 사이의 인과가 끊기지 않았는지 확인한다.
+  - 압박이 같은 형태로 반복되기만 하지 않았는지 확인한다.

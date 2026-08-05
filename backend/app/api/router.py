@@ -437,7 +437,7 @@ def list_direction_cards(project_id: str = Query(...), db: Session = Depends(get
 def update_direction_card(
     card_id: str, payload: DirectionCardUpdate, db: Session = Depends(get_db)
 ) -> DirectionCard:
-    card = _get_or_404(db, DirectionCard, card_id, "방향성 카드")
+    card = _get_or_404(db, DirectionCard, card_id, "집필 지침")
     for key, value in payload.model_dump(exclude_unset=True).items():
         setattr(card, key, value)
     db.add(card)
@@ -448,14 +448,14 @@ def update_direction_card(
 
 @router.delete("/direction-cards/{card_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_direction_card(card_id: str, db: Session = Depends(get_db)) -> None:
-    card = _get_or_404(db, DirectionCard, card_id, "방향성 카드")
+    card = _get_or_404(db, DirectionCard, card_id, "집필 지침")
     db.delete(card)
     db.commit()
 
 
 @router.post("/direction-cards/{card_id}/suggest-structure")
 async def suggest_direction_structure(card_id: str, db: Session = Depends(get_db)) -> dict[str, Any]:
-    card = _get_or_404(db, DirectionCard, card_id, "방향성 카드")
+    card = _get_or_404(db, DirectionCard, card_id, "집필 지침")
     try:
         suggestion, result = await suggest_direction(harness.gateway, card.body)
     except ModelGatewayError as exc:
@@ -481,11 +481,15 @@ async def suggest_direction_structure(card_id: str, db: Session = Depends(get_db
 def list_writing_recipes(
     project_id: str | None = None, db: Session = Depends(get_db)
 ) -> list[WritingRecipe]:
-    stmt = select(WritingRecipe)
+    stmt = select(WritingRecipe).where(WritingRecipe.approved.is_(True))
     if project_id:
         stmt = stmt.where(
             (WritingRecipe.project_id == project_id) | (WritingRecipe.project_id.is_(None))
         )
+    else:
+        # The playbook's progression choices are global presets. Project recipes
+        # created by reference analysis must never leak into another project.
+        stmt = stmt.where(WritingRecipe.project_id.is_(None))
     return list(db.scalars(stmt.order_by(WritingRecipe.name, WritingRecipe.version.desc())).all())
 
 
@@ -531,7 +535,13 @@ def delete_writing_recipe(recipe_id: str, db: Session = Depends(get_db)) -> None
 @router.post("/playbook-sessions", response_model=PlaybookSessionRead, status_code=status.HTTP_201_CREATED)
 def create_playbook_session(payload: PlaybookSessionCreate, db: Session = Depends(get_db)) -> PlaybookSession:
     _get_or_404(db, Project, payload.project_id, "프로젝트")
-    _get_or_404(db, WritingRecipe, payload.writing_recipe_id, "집필 레시피")
+    recipe = _get_or_404(db, WritingRecipe, payload.writing_recipe_id, "전개 방식")
+    if recipe.project_id is not None or not recipe.approved:
+        raise _error(
+            422,
+            "SHARED_WRITING_RECIPE_REQUIRED",
+            "글 만들기에서는 모든 프로젝트가 함께 쓰는 전개 방식만 선택할 수 있습니다.",
+        )
     session = PlaybookSession(**payload.model_dump())
     db.add(session)
     db.commit()
@@ -564,7 +574,13 @@ def update_playbook_session(
     session = _get_or_404(db, PlaybookSession, session_id, "플레이북 세션")
     changes = payload.model_dump(exclude_unset=True)
     if "writing_recipe_id" in changes:
-        _get_or_404(db, WritingRecipe, changes["writing_recipe_id"], "집필 레시피")
+        recipe = _get_or_404(db, WritingRecipe, changes["writing_recipe_id"], "전개 방식")
+        if recipe.project_id is not None or not recipe.approved:
+            raise _error(
+                422,
+                "SHARED_WRITING_RECIPE_REQUIRED",
+                "글 만들기에서는 모든 프로젝트가 함께 쓰는 전개 방식만 선택할 수 있습니다.",
+            )
     for key, value in changes.items():
         setattr(session, key, value)
     if changes:

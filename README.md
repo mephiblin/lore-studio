@@ -1,13 +1,13 @@
 # Lore Studio v1.0
 
-Lore Studio는 세계관 자료, 글의 방향 규칙, 집필 방식, 결과물 형식을 분리해 조합하고 로컬 LLM으로 근거가 추적되는 원고를 만드는 단일 사용자용 로컬 작업실입니다. 생성 원고에서 발견한 새 설정은 `CANDIDATE → DRAFT_SETTING → PROJECT_CANON` 승인 단계를 거치며 자동으로 정사가 되지 않습니다.
+Lore Studio는 세계관 자료, 프로젝트 집필 지침, 공유 전개 방식, 결과물 형식을 분리해 조합하고 로컬 LLM으로 근거가 추적되는 원고를 만드는 단일 사용자용 로컬 작업실입니다. 생성 원고에서 발견한 새 설정은 `CANDIDATE → DRAFT_SETTING → PROJECT_CANON` 승인 단계를 거치며 자동으로 정사가 되지 않습니다.
 
 ## 현재 구현
 
 - FastAPI, PostgreSQL 16, `pgvector`, Alembic의 `lore_app`/`lore_vector` 분리 스키마
 - Writer/Utility/Vision/Embedding 역할별 OpenAI 호환 로컬 모델 게이트웨이
 - BGE-M3 청크 인덱싱, 프로젝트·namespace·source role 격리, FTS/Dense RRF 검색
-- 컨셉/관계/방향성/레시피/플레이북 CRUD와 revision·audit log
+- 컨셉/관계/집필 지침/공유 전개 방식/플레이북 CRUD와 revision·audit log
 - Context → editable Plan → LoreBlock Draft → 세 감사 → revision 단계 기록
 - 문단 잠금, 부분 재작성 Diff 승인/폐기, 후보 추출/승인, Markdown/HTML/JSON 내보내기
 - 이미지 Vision 제안, 참고 글 구조 분석, 내레이션 visual beat/ComfyUI 초안
