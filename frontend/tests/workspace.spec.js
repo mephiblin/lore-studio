@@ -59,19 +59,44 @@ test('project-first workflow exposes understandable controls', async ({ page }) 
 
   await page.goto('/playbook');
   await expect(page.locator('select[multiple]')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: '1. 선택 근거 확인' })).toBeDisabled();
-  const lighthouse = page.locator('.concept-choice-card').filter({
-    has: page.getByRole('heading', { name: '검은 등대', exact: true }),
+  await expect(page.getByRole('heading', { name: '무엇에 관한 글인가요?' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /배경으로 계속/ })).toBeDisabled();
+  const lighthouse = page.locator('.wizard-choice-card').filter({
+    has: page.getByText('검은 등대', { exact: true }),
   });
-  await lighthouse.getByRole('button', { name: '주제로 쓰기' }).click();
-  await expect(page.getByText('주제 · 필수').locator('..')).toContainText('검은 등대');
-  await expect(page.getByRole('button', { name: '1. 선택 근거 확인' })).toBeEnabled();
-  await expect(page.getByRole('button', { name: '3. 원고 작성' })).toBeDisabled();
+  await lighthouse.click();
+  await expect(lighthouse).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: /배경으로 계속/ }).click();
+
+  await expect(page.getByRole('heading', { name: /어디서, 어떤 상황에서/ })).toBeVisible();
+  await expect(page.locator('.wizard-choice-card').filter({ has: page.getByText('검은 등대', { exact: true }) })).toHaveCount(0);
+  const recoveryRoom = page.locator('.wizard-choice-card').filter({ has: page.getByText('회수실', { exact: true }) });
+  await recoveryRoom.click();
+  await page.getByRole('button', { name: /주요 요소로 계속/ }).click();
+
+  await expect(page.getByRole('heading', { name: /꼭 함께 다룰 것은/ })).toBeVisible();
+  await expect(page.locator('.wizard-choice-card').filter({ has: page.getByText('회수실', { exact: true }) })).toHaveCount(0);
+  const leah = page.locator('.wizard-choice-card').filter({ has: page.getByText('레아 벨', { exact: true }) });
+  await leah.click();
+  await page.getByRole('button', { name: /갈등·변수로 계속/ }).click();
+
+  await expect(page.getByRole('heading', { name: /긴장과 변화를/ })).toBeVisible();
+  await page.getByRole('button', { name: /선택 없이 전개 방향으로/ }).click();
+  await expect(page.getByRole('heading', { name: /어떤 방식으로 전개할까요/ })).toBeVisible();
+  await page.getByRole('button', { name: /선택 없이 글 형태로/ }).click();
+
+  await expect(page.getByRole('heading', { name: /어떤 형태의 글로/ })).toBeVisible();
   await expect(page.getByLabel('시점')).toHaveValue('omniscient');
   await expect(page.getByLabel('시제')).toHaveValue('present');
-
   await page.getByLabel('시점').selectOption('third_limited');
   await page.getByLabel('시제').selectOption('past');
+  await page.getByRole('button', { name: /확인·작성으로 계속/ }).click();
+
+  await expect(page.getByRole('heading', { name: /선택을 확인하고 원고를/ })).toBeVisible();
+  await expect(page.locator('.wizard-review-grid')).toContainText('검은 등대');
+  await expect(page.locator('.wizard-review-grid')).toContainText('회수실');
+  await expect(page.locator('.wizard-review-grid')).toContainText('레아 벨');
+  await expect(page.getByRole('button', { name: '3. 원고 작성' })).toBeDisabled();
   const sessionRequestPromise = page.waitForRequest((request) =>
     request.method() === 'POST' && request.url().endsWith('/api/v1/playbook-sessions')
   );
