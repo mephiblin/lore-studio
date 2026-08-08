@@ -8,7 +8,15 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.models import WritingRecipe
+from app.models import CategoryDefinition, Project, WritingRecipe
+
+DEFAULT_CATEGORY_SLOTS = {
+    "artifact": ["subject", "elements"],
+    "event": ["subject", "background", "elements", "conflicts"],
+    "free": ["subject", "background", "elements", "conflicts"],
+    "person": ["subject", "elements", "conflicts"],
+    "place": ["subject", "background"],
+}
 
 
 def _load_yaml_files(directory: Path) -> list[dict[str, Any]]:
@@ -25,6 +33,36 @@ def _load_yaml_files(directory: Path) -> list[dict[str, Any]]:
 
 def load_page_templates() -> list[dict[str, Any]]:
     return _load_yaml_files(settings.app_config_root / "page_templates")
+
+
+def seed_project_categories(db: Session, project: Project) -> list[CategoryDefinition]:
+    """Copy starter categories into a project; afterward they are project-owned and editable."""
+    existing_keys = set(
+        db.scalars(
+            select(CategoryDefinition.key).where(CategoryDefinition.project_id == project.id)
+        ).all()
+    )
+    created: list[CategoryDefinition] = []
+    for data in load_page_templates():
+        key = str(data.get("key", "")).strip()
+        if not key or key in existing_keys:
+            continue
+        template = {k: v for k, v in data.items() if not k.startswith("_")}
+        template["recommended_slots"] = DEFAULT_CATEGORY_SLOTS.get(
+            key, ["subject", "background", "elements", "conflicts"]
+        )
+        category = CategoryDefinition(
+            project_id=project.id,
+            key=key,
+            name=str(data.get("name", key)),
+            description="",
+            template_json=template,
+            is_builtin=False,
+        )
+        db.add(category)
+        created.append(category)
+        existing_keys.add(key)
+    return created
 
 
 def load_output_profiles() -> list[dict[str, Any]]:

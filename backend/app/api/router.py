@@ -31,6 +31,7 @@ from app.models import (
     ReferenceAnalysis,
     VoiceProfile,
     WritingRecipe,
+    new_id,
 )
 from app.schemas import (
     AuditFindingRead,
@@ -77,7 +78,12 @@ from app.schemas import (
     WritingRecipeUpdate,
 )
 from app.services.authority import AUTHORITY_STATES, AuthorityTransitionError, promote_page
-from app.services.config_loader import load_direction_card_presets, load_output_profiles, load_page_templates
+from app.services.config_loader import (
+    load_direction_card_presets,
+    load_output_profiles,
+    load_page_templates,
+    seed_project_categories,
+)
 from app.services.context_compiler import compile_context, tiptap_to_text
 from app.services.harness import LoreHarness
 from app.services.model_gateway import ModelGatewayError
@@ -146,6 +152,50 @@ def _require_project(entity: Any, project_id: str, label: str) -> None:
         raise _error(404, "PROJECT_SCOPE_MISMATCH", f"이 프로젝트에서 {label}을(를) 찾을 수 없습니다.")
 
 
+def _resolve_category_key(
+    db: Session,
+    project_id: str,
+    category_key: str,
+    custom_category: str = "",
+) -> str:
+    """Validate a project category and upgrade the legacy custom-category input."""
+    custom_name = custom_category.strip()
+    if custom_name:
+        category = db.scalar(
+            select(CategoryDefinition).where(
+                CategoryDefinition.project_id == project_id,
+                CategoryDefinition.name == custom_name,
+            )
+        )
+        if category is None:
+            category = CategoryDefinition(
+                project_id=project_id,
+                key=f"custom-{new_id().replace('-', '')[:12]}",
+                name=custom_name,
+                description="기존 사용자 정의 종류에서 이전됨",
+                template_json={
+                    "recommended_slots": ["subject", "background", "elements", "conflicts"]
+                },
+                is_builtin=False,
+            )
+            db.add(category)
+            db.flush()
+        return category.key
+    category = db.scalar(
+        select(CategoryDefinition).where(
+            CategoryDefinition.project_id == project_id,
+            CategoryDefinition.key == category_key,
+        )
+    )
+    if category is None:
+        raise _error(
+            422,
+            "PROJECT_CATEGORY_REQUIRED",
+            "현재 프로젝트에 속한 자료 종류를 선택해 주세요.",
+        )
+    return category.key
+
+
 @router.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -177,6 +227,8 @@ def create_project(payload: ProjectCreate, db: Session = Depends(get_db)) -> Pro
     project = Project(**payload.model_dump())
     db.add(project)
     try:
+        db.flush()
+        seed_project_categories(db, project)
         db.commit()
     except IntegrityError as exc:
         db.rollback()
@@ -217,9 +269,10 @@ def delete_project(project_id: str, db: Session = Depends(get_db)) -> None:
 def create_category(
     payload: CategoryDefinitionCreate, db: Session = Depends(get_db)
 ) -> CategoryDefinition:
-    if payload.project_id:
-        _get_or_404(db, Project, payload.project_id, "프로젝트")
-    category = CategoryDefinition(**payload.model_dump(), is_builtin=False)
+    _get_or_404(db, Project, payload.project_id, "프로젝트")
+    data = payload.model_dump()
+    data["key"] = data.get("key") or f"custom-{new_id().replace('-', '')[:12]}"
+    category = CategoryDefinition(**data, is_builtin=False)
     db.add(category)
     try:
         db.commit()
@@ -232,14 +285,11 @@ def create_category(
 
 @router.get("/categories", response_model=list[CategoryDefinitionRead])
 def list_categories(
-    project_id: str | None = None, db: Session = Depends(get_db)
+    project_id: str = Query(...), db: Session = Depends(get_db)
 ) -> list[CategoryDefinition]:
-    stmt = select(CategoryDefinition)
-    if project_id:
-        stmt = stmt.where(
-            (CategoryDefinition.project_id == project_id) | (CategoryDefinition.project_id.is_(None))
-        )
-    return list(db.scalars(stmt.order_by(CategoryDefinition.is_builtin.desc(), CategoryDefinition.name)).all())
+    _get_or_404(db, Project, project_id, "프로젝트")
+    stmt = select(CategoryDefinition).where(CategoryDefinition.project_id == project_id)
+    return list(db.scalars(stmt.order_by(CategoryDefinition.name)).all())
 
 
 @router.patch("/categories/{category_id}", response_model=CategoryDefinitionRead)
@@ -247,8 +297,6 @@ def update_category(
     category_id: str, payload: CategoryDefinitionUpdate, db: Session = Depends(get_db)
 ) -> CategoryDefinition:
     category = _get_or_404(db, CategoryDefinition, category_id, "카테고리")
-    if category.is_builtin:
-        raise _error(409, "BUILTIN_CATEGORY_IMMUTABLE", "기본 카테고리는 수정할 수 없습니다.")
     for key, value in payload.model_dump(exclude_unset=True).items():
         setattr(category, key, value)
     db.commit()
@@ -259,8 +307,28 @@ def update_category(
 @router.delete("/categories/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_category(category_id: str, db: Session = Depends(get_db)) -> None:
     category = _get_or_404(db, CategoryDefinition, category_id, "카테고리")
-    if category.is_builtin:
-        raise _error(409, "BUILTIN_CATEGORY_IMMUTABLE", "기본 카테고리는 삭제할 수 없습니다.")
+    page_count = db.scalar(
+        select(func.count(ConceptPage.id)).where(
+            ConceptPage.project_id == category.project_id,
+            ConceptPage.category_key == category.key,
+        )
+    ) or 0
+    if page_count:
+        raise _error(
+            409,
+            "CATEGORY_IN_USE",
+            f"이 종류를 사용하는 자료가 {page_count}개 있습니다. 먼저 다른 종류로 옮겨 주세요.",
+        )
+    db.add(
+        AuditLog(
+            project_id=category.project_id,
+            action="DELETE",
+            entity_type="CategoryDefinition",
+            entity_id=category.id,
+            before_json={"key": category.key, "name": category.name},
+            reason="사용자 명시 삭제",
+        )
+    )
     db.delete(category)
     db.commit()
 
@@ -269,6 +337,12 @@ def delete_category(category_id: str, db: Session = Depends(get_db)) -> None:
 def create_concept_page(payload: ConceptPageCreate, db: Session = Depends(get_db)) -> ConceptPage:
     _get_or_404(db, Project, payload.project_id, "프로젝트")
     data = payload.model_dump()
+    data["category_key"] = _resolve_category_key(
+        db,
+        payload.project_id,
+        payload.category_key,
+        payload.custom_category,
+    )
     page = ConceptPage(**data, authority_state=data["usage_role"])
     db.add(page)
     db.flush()
@@ -336,6 +410,13 @@ def update_concept_page(
 ) -> ConceptPage:
     page = _get_or_404(db, ConceptPage, page_id, "컨셉 페이지")
     changes = payload.model_dump(exclude_unset=True)
+    if "category_key" in changes or changes.get("custom_category"):
+        changes["category_key"] = _resolve_category_key(
+            db,
+            page.project_id,
+            str(changes.get("category_key", page.category_key)),
+            str(changes.get("custom_category", "")),
+        )
     requested_role = changes.get("usage_role")
     if requested_role in AUTHORITY_STATES and requested_role != page.authority_state:
         raise _error(
@@ -1185,7 +1266,9 @@ def create_candidate(payload: CandidateCreate, db: Session = Depends(get_db)) ->
     if payload.target_page_id:
         target = _get_or_404(db, ConceptPage, payload.target_page_id, "기존 컨셉 페이지")
         _require_project(target, payload.project_id, "기존 컨셉 페이지")
-    candidate = ProposedConceptUpdate(**payload.model_dump(), status="CANDIDATE")
+    data = payload.model_dump()
+    data["category_key"] = _resolve_category_key(db, payload.project_id, payload.category_key)
+    candidate = ProposedConceptUpdate(**data, status="CANDIDATE")
     db.add(candidate)
     db.commit()
     db.refresh(candidate)
@@ -1209,21 +1292,35 @@ async def extract_document_candidates(
             select(ConceptPage).where(ConceptPage.project_id == document.project_id)
         ).all()
         known_pages = [{"id": page.id, "title": page.title, "summary": page.summary} for page in pages]
+    categories = [
+        {"key": category.key, "name": category.name}
+        for category in db.scalars(
+            select(CategoryDefinition)
+            .where(CategoryDefinition.project_id == document.project_id)
+            .order_by(CategoryDefinition.name)
+        ).all()
+    ]
     try:
         data, result = await extract_candidates(
             harness.gateway,
             body=harness.draft_body(db, document),
             known_pages=known_pages,
+            categories=categories,
         )
     except ModelGatewayError as exc:
         raise _error(502, exc.code, str(exc)) from exc
     created: list[ProposedConceptUpdate] = []
+    category_keys = {category["key"] for category in categories}
+    fallback_category = "free" if "free" in category_keys else next(iter(category_keys), "")
     for item in data.get("candidates", []):
+        category_key = str(item.get("category_key") or fallback_category)
+        if category_key not in category_keys:
+            category_key = fallback_category
         candidate = ProposedConceptUpdate(
             project_id=document.project_id,
             document_id=document.id,
             title=str(item.get("title") or "새 설정 후보"),
-            category_key=str(item.get("category_key") or "free"),
+            category_key=category_key,
             candidate_sentence=str(item.get("candidate_sentence") or ""),
             summary=str(item.get("summary") or ""),
             body=str(item.get("candidate_sentence") or ""),
@@ -1359,10 +1456,13 @@ def decide_candidate(
     elif decision == "this_document_only":
         candidate.status = "THIS_DOCUMENT_ONLY"
     elif decision in {"save_draft", "approve_canon"}:
+        category_key = _resolve_category_key(
+            db, candidate.project_id, candidate.category_key
+        )
         page = ConceptPage(
             project_id=candidate.project_id,
             title=candidate.title,
-            category_key=candidate.category_key,
+            category_key=category_key,
             usage_role="CANDIDATE",
             authority_state="CANDIDATE",
             namespace=_get_or_404(db, Project, candidate.project_id, "프로젝트").universe_namespace,

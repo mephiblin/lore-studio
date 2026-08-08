@@ -1,14 +1,8 @@
 import { expect, test } from '@playwright/test';
 
-const routes = [
-  ['/', /세계를 선택하고/],
-  ['/editor', /설정을 기록하고 연결합니다/],
-  ['/playbook', /쓸 대상과 전개 방식을 고르세요/],
-  ['/documents', /초안을 검토한 뒤 완성 설정을 따로 정합니다/],
-  ['/lorebook', /완성된 글만 모아 읽고 보관합니다/],
-];
+const routes = ['/', '/editor', '/playbook', '/documents', '/lorebook'];
 
-for (const [route, heading] of routes) {
+for (const route of routes) {
   test(`${route} renders without browser or API errors`, async ({ page }) => {
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
@@ -16,7 +10,11 @@ for (const [route, heading] of routes) {
       if (response.status() >= 400) errors.push(`${response.status()} ${response.url()}`);
     });
     await page.goto(route);
-    await expect(page.getByRole('heading', { level: 1 })).toContainText(heading);
+    if (route === '/') {
+      await expect(page.getByRole('heading', { level: 1 })).toContainText(/세계를 선택하고/);
+    } else {
+      await expect(page.getByLabel('현재 프로젝트')).toBeVisible();
+    }
     await expect.poll(() => errors).toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     expect(await page.locator('.app-nav').evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
@@ -39,9 +37,77 @@ test('small mobile navigation and workflow steps stay inside the viewport', asyn
   }
 });
 
+test('mobile project creator stays above navigation and closes without data loss', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile', 'mobile dialog check only');
+  await page.goto('/');
+  await expect(page.getByText('연결 상태 확인 중…')).toBeHidden();
+  await page.getByRole('button', { name: '+ 새 프로젝트' }).click();
+  const dialog = page.getByRole('dialog', { name: '새 프로젝트 만들기' });
+  await expect(dialog).toBeVisible();
+  const bounds = await dialog.boundingBox();
+  expect(bounds.x).toBeGreaterThanOrEqual(0);
+  expect(bounds.y).toBeGreaterThanOrEqual(0);
+  expect(bounds.x + bounds.width).toBeLessThanOrEqual(390);
+  expect(bounds.y + bounds.height).toBeLessThanOrEqual(844 - 61);
+  await page.getByLabel('프로젝트 이름').fill('닫기 검증');
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+});
+
+test('dense Diablo materials stay bounded and use its project taxonomy', async ({ page }, testInfo) => {
+  test.skip(process.env.E2E_EXPECT_DATA !== 'true', 'requires the curated Diablo project');
+  const browserErrors = [];
+  page.on('pageerror', (error) => browserErrors.push(error.message));
+
+  await page.goto('/editor');
+  await page.getByLabel('현재 프로젝트').selectOption({ label: 'Diablo' });
+  await page.getByLabel('종류 필터').selectOption({ label: '일반 몬스터 종족' });
+  await expect(page.locator('.archive-page-list button').first()).toBeVisible();
+  expect(await page.locator('.archive-page-list button').count()).toBeGreaterThan(10);
+  await expect(page.locator('.archive-page-list button').first()).toContainText('일반 몬스터 종족');
+  if (testInfo.project.name === 'desktop') {
+    const list = await page.locator('.archive-list').boundingBox();
+    expect(list.height).toBeLessThanOrEqual(900 - 45);
+    expect(await page.locator('.archive-page-list').evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
+  }
+
+  await page.goto('/playbook');
+  await page.getByLabel('현재 프로젝트').selectOption({ label: 'Diablo' });
+  await expect(page.getByText('이 단계의 추천 자료')).toBeVisible();
+  expect(await page.locator('.wizard-choice-card').count()).toBeLessThanOrEqual(18);
+  if (testInfo.project.name === 'mobile') {
+    const grid = await page.locator('.wizard-card-grid').boundingBox();
+    expect(grid.height).toBeLessThanOrEqual(461);
+    expect(await page.locator('.wizard-card-grid').evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
+  }
+  await page.getByRole('button', { name: '전체', exact: true }).click();
+  await expect(page.getByText('모든 세계관 자료')).toBeVisible();
+  await page.getByLabel('자료 종류').selectOption({ label: '일반 몬스터 종족' });
+  await expect(page.locator('.wizard-choice-card').first()).toContainText('일반 몬스터 종족');
+  await page.locator('.wizard-choice-card').first().click();
+  await page.getByRole('button', { name: /배경으로 계속/ }).click();
+  await expect(page.getByRole('heading', { name: /어디서, 어떤 상황에서/ })).toBeVisible();
+  await expect.poll(() => browserErrors).toEqual([]);
+});
+
+test('lorebook defaults to reading and edit mode is reversible', async ({ page }) => {
+  test.skip(process.env.E2E_EXPECT_DATA !== 'true', 'requires a Diablo lorebook entry');
+  await page.goto('/lorebook');
+  await page.getByLabel('현재 프로젝트').selectOption({ label: 'Diablo' });
+  await expect(page.locator('.lorebook-body-reader')).toBeVisible();
+  await expect(page.getByLabel('로어북 글 제목')).toHaveCount(0);
+  await page.getByRole('button', { name: '글 편집' }).click();
+  await expect(page.getByLabel('로어북 글 제목')).toBeVisible();
+  await expect(page.getByLabel('로어북 글 내용')).toHaveJSProperty('tagName', 'TEXTAREA');
+  await page.getByRole('button', { name: '취소' }).click();
+  await expect(page.locator('.lorebook-body-reader')).toBeVisible();
+  await expect(page.getByLabel('로어북 글 제목')).toHaveCount(0);
+});
+
 test('a project can be added after projects already exist', async ({ page }, testInfo) => {
   const projectName = `UX 검증 ${testInfo.project.name} ${Date.now()}`;
   await page.goto('/');
+  await expect(page.getByText('연결 상태 확인 중…')).toBeHidden();
   await page.getByRole('button', { name: '+ 새 프로젝트' }).click();
   await page.getByLabel('프로젝트 이름').fill(projectName);
   await page.getByLabel('한 줄 설명').fill('자동 검증 뒤 삭제되는 프로젝트');
@@ -55,15 +121,32 @@ test('a project can be added after projects already exist', async ({ page }, tes
   expect(response?.status()).toBe(201);
   const project = await response.json();
   await expect(page.getByRole('heading', { name: projectName })).toBeVisible();
+
+  await page.goto('/editor');
+  await page.getByLabel('현재 프로젝트').selectOption({ label: projectName });
+  await page.getByRole('button', { name: /자료 종류/ }).click();
+  await expect(page.getByLabel('새 자료 종류 이름')).toBeVisible();
+  await page.getByLabel('새 자료 종류 이름').fill('세력');
+  await page.getByRole('button', { name: '자료 종류 만들기' }).click();
+  await expect(page.getByText("'세력' 자료 종류를 만들었습니다.")).toBeVisible();
+  await page.getByRole('button', { name: /세계관 자료/ }).click();
+  await page.getByRole('button', { name: '+ 새 자료' }).click();
+  await expect(page.getByLabel('자료 종류')).toContainText('세력');
+
   await page.request.delete(`${new URL(createdRequest.url()).origin}/api/v1/projects/${project.id}`);
 });
 
 test('project-first workflow exposes understandable controls', async ({ page }, testInfo) => {
   test.skip(process.env.E2E_EXPECT_DATA !== 'true', 'requires the curated Black Route world project');
   await page.goto('/');
-  await expect(page.getByText('글 작성')).toBeVisible();
-  await expect(page.getByText('자료 검색')).toBeVisible();
-  await expect(page.getByText('준비됨').first()).toBeVisible();
+  if (testInfo.project.name === 'mobile') {
+    await expect(page.locator('.model-board').getByText('실제 연결')).toBeVisible();
+    await expect(page.getByRole('heading', { name: '어느 세계에서 작업할까요?' })).toBeVisible();
+  } else {
+    await expect(page.getByText('글 작성')).toBeVisible();
+    await expect(page.getByText('자료 검색')).toBeVisible();
+    await expect(page.getByText('준비됨').first()).toBeVisible();
+  }
   await expect(page.getByRole('button', { name: /새 프로젝트/ })).toBeVisible();
 
   await page.goto('/editor');
@@ -187,7 +270,7 @@ test('document workflow separates draft editing, editable final settings, and lo
 
   await page.goto('/lorebook');
   await page.getByLabel('현재 프로젝트').selectOption({ label: '검은 항로 연대기' });
-  await expect(page.getByRole('heading', { name: '완성된 글만 모아 읽고 보관합니다.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '책장' })).toBeVisible();
 });
 
 test('draft edits and a new paragraph are saved before moving to final settings', async ({ page }, testInfo) => {

@@ -39,8 +39,8 @@ class ProjectUpdate(BaseModel):
 
 
 class CategoryDefinitionCreate(BaseModel):
-    project_id: str | None = None
-    key: str = Field(min_length=1, max_length=100)
+    project_id: str
+    key: str | None = Field(default=None, min_length=1, max_length=100)
     name: str = Field(min_length=1, max_length=200)
     description: str = ""
     template_json: dict[str, Any] = Field(default_factory=dict)
@@ -54,7 +54,7 @@ class CategoryDefinitionUpdate(BaseModel):
 
 class CategoryDefinitionRead(ORMModel):
     id: str
-    project_id: str | None
+    project_id: str
     key: str
     name: str
     description: str

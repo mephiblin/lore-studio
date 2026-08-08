@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "DraftSaveRequest",
-  "description": "제목, 상태, 순서가 있는 전체 원고 문단을 하나의 사용자 리비전으로 저장한다.",
+  "description": "제목, 상태, 순서가 있는 전체 초안 문단을 하나의 사용자 리비전으로 저장한다.",
   "type": "object",
   "required": ["title", "status", "blocks"],
   "properties": {

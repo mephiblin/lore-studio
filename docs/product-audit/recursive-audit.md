@@ -5,22 +5,24 @@ Overall status: COMPLETE
 ## Completion contract
 
 - Primary user: DGX Spark에서 로컬 모델로 세계관을 축적하고 매일 로어를 집필하는 단일 사용자.
-- Top job: 자료·방향·작문 방식·출력 설정을 재현 가능한 플레이북으로 조합해 근거가 추적되는 편집 가능한 로어를 실제 모델로 완성한다.
+- Top job: 세계관 자료·집필 지침·전개 방식·결과물 형태를 재현 가능한 글 만들기 기록으로 조합해 근거가 추적되는 초안과 완성본을 실제 모델로 만든다.
 - In scope: 첨부 v1.0의 DB, API, 역할별 모델, 검색, UI, 감사, 후보 승격, 멀티모달 최소 경로, 테스트, CI, 운영 문서.
-- Non-goals: 외부 cloud LLM, 다중 사용자 인증, 모델 파일 배포, 자동 정사 승격, 실제 TTS/ComfyUI 서버 자체 제공.
+- Non-goals: 외부 cloud LLM, 다중 사용자 인증, 모델 파일 배포, 정식 설정 자동 승격, 실제 TTS/ComfyUI 서버 자체 제공.
 - Constraints: Ubuntu ARM64/DGX Spark, Docker Compose, PostgreSQL/pgvector, 로컬 OpenAI-compatible API, 프로젝트 데이터 격리.
-- Completion gates: 25개 인수 조건, 실제 Writer/Utility/Vision/Embedding 대표 실행, offline test/build/UI E2E, Compose/migration/browser, 모든 FIX_NOW 검증.
+- Completion gates: 27개 인수 조건, 실제 Writer/Utility/Vision/Embedding 대표 실행, offline test/build/UI E2E, Compose/migration/browser, 모든 FIX_NOW 검증.
 
 ## Product snapshot
 
 - Repository / surface: `/home/inri/문서/lore-studio`; FastAPI, SvelteKit, Tiptap, PostgreSQL, llama.cpp.
-- Baseline revision or date: `facfc4f`, 2026-08-05.
+- Baseline: `facfc4f` starter, 2026-08-05. Current audited revision: `65c44fb`, 2026-08-06.
 - Runtime / test entry points: `docker compose`, `make test`, `make e2e`, `make test-models`, `/api/v1`, browser UI.
-- Existing documentation: README, TASKS, VERIFICATION, acceptance, architecture/data/harness, nine local operation guides, model evaluation JSON/Markdown.
+- Existing documentation: README, TASKS, VERIFICATION, acceptance, architecture/data/harness, local operation guides, UI information architecture, model evaluation JSON/Markdown.
 
 ## Current conclusion
 
-Lore Studio는 starter가 아니라 실제 local-first v1.0으로 신뢰할 수 있다. 운영 DB는 Alembic과 전용 vector schema를 사용하고, 권위·reference·namespace 경계는 모델 판단이 아닌 서비스 코드와 테스트가 강제한다. 현재 Compose는 가상 생성 경로 없이 Gemma Writer/Utility/Vision과 BGE-M3로 대표 생성·검색·이미지·수정·후보·export를 완료했다. 외부 TTS/ComfyUI가 없을 때는 명시된 fallback만 사용한다.
+Lore Studio는 starter가 아니라 실제 local-first v1.0으로 신뢰할 수 있다. 운영 DB는 Alembic과 전용 vector schema를 사용하고, 권위·reference·namespace 경계는 모델 판단이 아닌 서비스 코드와 테스트가 강제한다. 현재 Compose는 가상 생성 경로 없이 Gemma Writer/Utility/Vision과 BGE-M3로 대표 생성·검색·이미지·수정·후보·export를 완료했다. 초안은 전체 문단 단위로 저장되고 최신 초안은 별도 완성 단계를 거쳐 로어북 문서가 된다. 외부 TTS/ComfyUI가 없을 때는 명시된 fallback만 사용한다.
+
+2026-08-06 후속 UX 재점검에서는 프로젝트 생성, 자료 선택 후 본문 이동, 설문형 글 만들기, 전개 방식/집필 지침 분리, 모바일 레이아웃, 초안 자동 저장, 별도 로어북, UI 용어 통합을 검증했습니다. 원고 수정이 단계 이동 시 저장되지 않던 문제는 전체 초안 원자 저장 API와 새로고침 회귀 테스트로 해소했습니다.
 
 ## Cycle 1
 
@@ -48,17 +50,17 @@ Lore Studio는 starter가 아니라 실제 local-first v1.0으로 신뢰할 수 
 
 - Selected approach: persistence/authority/search invariant를 서비스 경계에 먼저 두고 role gateway와 staged generation을 연결한 뒤 문서 중심 UI를 구축했다.
 - Alternatives considered: SQLite 운영, 외부 vector DB 공유, Qwen 자동 fallback, 자동 canon 승격은 각각 migration, isolation, safety, authority 계약을 위반해 배제했다.
-- Changes made: 22-table domain, Alembic, role gateway, hybrid search, 10-stage harness, LoreBlock/Diff/audits/candidates/reference/Vision/video fallback, responsive UI, tests/CI/ops.
+- Changes made: 22-table domain, Alembic, role gateway, hybrid search, 10-stage 초안 harness, LoreBlock/Diff/audits/candidates/reference/Vision/video fallback, 전체 초안 저장, `FINAL_COHERENCE_PASS`, 별도 로어북, responsive UI, tests/CI/ops.
 - Files / migrations / documentation: `backend/app`, `backend/alembic`, `frontend/src`, `frontend/tests`, `scripts`, `.github/workflows/ci.yml`, README/TASKS/VERIFICATION와 `docs` 전체.
 
 ### Verification
 
 | Check | Command or method | Result | Artifact / evidence |
 |---|---|---|---|
-| Python logic/API | `.venv/bin/pytest -q` | PASS; 10 passed, 3 opt-in skipped | authority, leakage, context, search, gateway, generation, API integration tests |
+| Python logic/API | `.venv/bin/pytest -q` | PASS; 13 passed, 3 opt-in skipped | authority, leakage, context, search, gateway, generation, draft persistence, API integration tests |
 | Static/bundle | Ruff and `scripts/validate_bundle.py` | PASS | Python, JSON Schema, YAML |
 | Frontend | `npm --prefix frontend run build` | PASS | adapter-node production output |
-| Browser real data | `make e2e` | PASS; 10 passed | desktop 1600x900 and mobile 390x844, controls and overflow |
+| Browser real data | `make e2e` | PASS; 18 passed, 2 skipped | desktop 1600x900, mobile 390x844, 360x844 overflow, draft save/reload |
 | Model-offline UI | Compose with model endpoints unavailable | PASS | fabricated generation response 없이 OFFLINE 상태와 주요 UI 렌더링 |
 | PostgreSQL migration | Alembic upgrade, downgrade, upgrade | PASS | vector extension and two schemas |
 | Actual model stack | Compose status and representative API calls | PASS | live mode; Gemma and BGE available; endpoint/key hidden |
@@ -68,7 +70,7 @@ Lore Studio는 starter가 아니라 실제 local-first v1.0으로 신뢰할 수 
 
 ### Re-audit
 
-- Regressions checked: build, API startup/migration, authority invariant, reference fact exclusion, search filters, model-offline explicit failure, desktop/mobile viewport and curated real data reload.
+- Regressions checked: build, API startup/migration, authority invariant, reference fact exclusion, search filters, model-offline explicit failure, desktop/mobile viewport, 프로젝트 응답 경합, 전체 초안 저장과 curated data reload.
 - New or changed findings: no remaining in-scope correctness finding. Static Playwright session tool was unavailable, so equivalent Chromium runner evidence and screenshots were reviewed.
 - Remaining `FIX_NOW` items: none.
 - Recursion decision: STOP_COMPLETE

@@ -20,7 +20,9 @@
       "minLength": 1
     },
     "category_key": {
-      "type": "string"
+      "type": "string",
+      "minLength": 1,
+      "description": "현재 project_id에 속한 CategoryDefinition.key"
     },
     "tags": {
       "type": "array",
@@ -33,9 +35,9 @@
       "enum": [
         "PROJECT_CANON",
         "DRAFT_SETTING",
-        "SOURCE_EVIDENCE",
+        "CANON_EVIDENCE",
         "SECONDARY_INTERPRETATION",
-        "INSPIRATION_ONLY",
+        "INSPIRATION",
         "DISCOURSE_REFERENCE",
         "CANDIDATE",
         "REJECTED"

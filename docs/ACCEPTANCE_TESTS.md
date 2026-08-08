@@ -5,9 +5,9 @@
 | 1 | Compose build/up | PASS | DB healthy, API 18000, UI 5173 |
 | 2 | 프로젝트 생성 | PASS | 실제 API/UI 프로젝트 |
 | 3 | 자유 본문 저장 | PASS | API integration + Tiptap UI |
-| 4 | 카테고리/태그/역할/관계 검색 | PASS | 자료 필터, 이름 기반 연결/역연결, 관계 생성·삭제 |
+| 4 | 프로젝트별 자료 종류/태그/역할/관계 검색 | PASS | 프로젝트별 종류 생성·수정·필터, 다른 프로젝트 종류 연결 차단, 사용 중 삭제 차단, 이름 기반 연결/역연결 |
 | 5 | 프로젝트 집필 지침 다중 조합 | PASS | 카드형 선택, 목적 설명, 충돌 경고 |
-| 6 | 자료 역할 선택 | PASS | 한 단계에 한 역할만 노출하는 설문형 흐름, 중복 역할 방지, 선택 단계 건너뛰기 |
+| 6 | 자료 역할 선택 | PASS | 한 단계에 한 역할만 노출, 단계별 추천 18개·전체 전환·더 보기, 중복 역할 방지, 선택 단계 건너뛰기 |
 | 7 | 선택/설정/seed 재현 | PASS | 생성 세션에 모든 선택과 seed 저장 |
 | 8 | 공유 전개 방식/결과물/시점·시제/분량/범위/자유도 | PASS | 독립 전개 카드 단계, 단계형 글 만들기와 요청 본문 E2E |
 | 9 | 사실/질문/금지/참고 구분 | PASS | 쉬운 설명·툴팁을 포함한 ‘이 글이 참고할 세계관’ 3패널 |
@@ -17,9 +17,9 @@
 | 13 | BGE-M3 검색 | PASS | 실제 Compose Dense hit |
 | 14 | 임베딩 저장소 격리 | PASS | lore_studio_pgdata/lore_vector |
 | 15 | LoreBlock 저장 | PASS | 제목·상태·전체 문단 원자 저장, 문단 추가/수정/삭제, 단계 이동 자동 저장과 새로고침 복원, 모바일 편집 UI |
-| 16 | 부분 재작성 Diff 승인/취소 | PASS | real proposal/apply + dismiss API/UI |
+| 16 | 부분 재작성 Diff 승인/취소 | PASS | real proposal/apply + dismiss API/UI, 모바일 원고 도구 점프와 결과 자동 이동 |
 | 17 | 근거와 감사 | PASS | UUID 대신 자료명 근거 chip + 3 auditors |
-| 18 | 자동 정사 금지 | PASS | invariant/API test |
+| 18 | 정식 설정 자동 승격 금지 | PASS | invariant/API test |
 | 19 | 후보 추출/승인 | PASS | real extraction/two-step audit |
 | 20 | 참고 구조 분석·사실 격리 | PASS | raw body excluded + leakage tests |
 | 21 | MD/HTML/JSON export | PASS | 실제 byte 결과 |
@@ -28,6 +28,6 @@
 | 24 | migration/tests | PASS | PostgreSQL up/down/up, pytest/build/e2e |
 | 25 | 상태 문서 일치 | PASS | README/TASKS/status/audit updated |
 | 26 | 초안 전체를 완성본으로 통합 | PASS | 완성 설정 전체 수정, `FINAL_COHERENCE_PASS`, 초안과 로어북 문서 분리, 출처 해시 변경 감지 |
-| 27 | 로어북 독립 탐색 | PASS | 상단 로어북 메뉴, 완성본 전용 목록·편집·내보내기, 출처 초안 이동 |
+| 27 | 로어북 독립 탐색 | PASS | 상단 로어북 메뉴, 기본 읽기/명시적 편집 모드, 줄바꿈 제목, 내보내기, 출처 초안 이동 |
 
-대표 실제 프로젝트 slug는 `black-route-chronicle`이며 로컬 전용 DB에 정식 컨셉 페이지 9개와 관계·집필 지침 카드를 보관합니다. 전개 방식 프리셋은 프로젝트에 귀속되지 않습니다.
+대표 실제 프로젝트 slug는 `black-route-chronicle`이며 로컬 전용 DB에 정식 세계관 자료 9개와 관계·집필 지침을 보관합니다. 전개 방식 프리셋은 프로젝트에 귀속되지 않습니다. 최신 자동 검증 수치는 루트 `VERIFICATION.md`를 권위 기록으로 사용합니다.

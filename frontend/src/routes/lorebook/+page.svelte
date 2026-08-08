@@ -8,6 +8,8 @@
   let projects = [], entries = [];
   let projectId = '', selected = null, sourceState = null;
   let busy = '', error = '', message = '';
+  let editing = false;
+  $: readingBlocks = readerBlocks(selected?.body_markdown || '');
 
   onMount(loadInitial);
 
@@ -36,7 +38,7 @@
   }
 
   async function selectEntry(entry) {
-    selected = entry ? { ...entry } : null; sourceState = null; message = '';
+    selected = entry ? { ...entry } : null; sourceState = null; message = ''; editing = false;
     if (!selected?.source_document_id) return;
     try { sourceState = await api.get(`/documents/${selected.source_document_id}/finalization`); }
     catch { sourceState = null; }
@@ -53,6 +55,7 @@
       });
       entries = entries.map((item) => item.id === selected.id ? selected : item);
       message = '로어북 글을 저장했습니다.';
+      editing = false;
     } catch (e) { error = e.message; }
     finally { busy = ''; }
   }
@@ -63,11 +66,30 @@
       present: '현재형 중심', past: '과거형 중심', short: '짧게', normal: '보통', long: '길게', very_long: '매우 길게'
     })[value] || value || '지정 안 함';
   }
+
+  function statusLabel(value) {
+    return ({ approved: '완료', review: '검토 중', archived: '보관' })[value] || value;
+  }
+
+  function readerBlocks(markdown) {
+    return markdown.split(/\n\s*\n/).map((raw) => raw.trim()).filter(Boolean).map((raw) => {
+      if (raw.startsWith('### ')) return { type: 'h4', text: raw.slice(4) };
+      if (raw.startsWith('## ')) return { type: 'h3', text: raw.slice(3) };
+      if (raw.startsWith('# ')) return { type: 'h2', text: raw.slice(2) };
+      return { type: 'p', text: raw };
+    });
+  }
+
+  function cancelEdit() {
+    const persisted = entries.find((entry) => entry.id === selected?.id);
+    if (persisted) selected = { ...persisted };
+    editing = false;
+    message = '';
+  }
 </script>
 
 <div class="page lorebook-page">
-  <div class="page-header">
-    <div><p class="eyebrow">로어북</p><h1>완성된 글만 모아 읽고 보관합니다.</h1><p>초안과 분리된 최종 글입니다. 여기서 수정하고 원하는 형식으로 내보낼 수 있습니다.</p></div>
+  <div class="page-tools">
     <div class="project-tools"><label style="min-width:260px">현재 프로젝트<select bind:value={projectId} on:change={loadEntries}>{#each projects as project}<option value={project.id}>{project.name}</option>{/each}</select></label><ProjectCreator onCreated={projectCreated} /></div>
   </div>
 
@@ -89,10 +111,34 @@
     <main class="stack lorebook-reader">
       {#if selected}
         {#if sourceState?.status === 'stale'}<div class="notice-error"><strong>연결된 초안이 바뀌었습니다.</strong> 이 글은 이전 초안을 바탕으로 만든 버전입니다. <a href={`/documents?document=${selected.source_document_id}`}>원고 작업에서 다시 만들기 →</a></div>{/if}
-        <article class="card lorebook-sheet">
-          <header class="lorebook-sheet-heading"><div><p class="eyebrow">로어북 글</p><input aria-label="로어북 글 제목" bind:value={selected.title} /><span>{selected.body_markdown.length.toLocaleString()}자 · {new Date(selected.published_at || selected.updated_at).toLocaleString('ko-KR')}</span></div><span class="lorebook-mark">LORE<br />BOOK</span></header>
-          <textarea class="lorebook-body" aria-label="로어북 글 내용" bind:value={selected.body_markdown}></textarea>
-          <footer class="lorebook-actions"><label>보관 상태<select bind:value={selected.status}><option value="approved">완료</option><option value="review">검토 중</option><option value="archived">보관</option></select></label><div><a class="ghost" href={`${API_BASE}/lorebook/${selected.id}/export?format=markdown`} target="_blank">Markdown</a><a class="ghost" href={`${API_BASE}/lorebook/${selected.id}/export?format=html`} target="_blank">HTML</a><a class="ghost" href={`${API_BASE}/lorebook/${selected.id}/export?format=json`} target="_blank">JSON</a><button class="primary" on:click={saveEntry}>로어북 글 저장</button></div></footer>
+        <article class="card lorebook-sheet" class:editing>
+          <header class="lorebook-sheet-heading">
+            <div class="lorebook-title-block">
+              <p class="eyebrow">로어북 글</p>
+              {#if editing}<input aria-label="로어북 글 제목" bind:value={selected.title} />{:else}<h2>{selected.title}</h2>{/if}
+              <span>{statusLabel(selected.status)} · {selected.body_markdown.length.toLocaleString()}자 · {new Date(selected.published_at || selected.updated_at).toLocaleString('ko-KR')}</span>
+            </div>
+            <div class="lorebook-heading-actions"><span class="lorebook-mark">LORE<br />BOOK</span>{#if !editing}<button class="secondary" on:click={() => editing = true}>글 편집</button>{/if}</div>
+          </header>
+          {#if editing}
+            <textarea class="lorebook-body lorebook-body-editor" aria-label="로어북 글 내용" bind:value={selected.body_markdown}></textarea>
+          {:else}
+            <div class="lorebook-body lorebook-body-reader" aria-label="로어북 글 내용">
+              {#each readingBlocks as block}
+                {#if block.type === 'h2'}<h2>{block.text}</h2>
+                {:else if block.type === 'h3'}<h3>{block.text}</h3>
+                {:else if block.type === 'h4'}<h4>{block.text}</h4>
+                {:else}<p>{block.text}</p>{/if}
+              {/each}
+            </div>
+          {/if}
+          <footer class="lorebook-actions">
+            {#if editing}<label>보관 상태<select bind:value={selected.status}><option value="approved">완료</option><option value="review">검토 중</option><option value="archived">보관</option></select></label>{:else}<span class="lorebook-read-note">읽기 모드 · 편집할 때만 입력란이 열립니다.</span>{/if}
+            <div>
+              {#if !editing}<a class="ghost" href={`${API_BASE}/lorebook/${selected.id}/export?format=markdown`} target="_blank">Markdown</a><a class="ghost" href={`${API_BASE}/lorebook/${selected.id}/export?format=html`} target="_blank">HTML</a><a class="ghost" href={`${API_BASE}/lorebook/${selected.id}/export?format=json`} target="_blank">JSON</a>
+              {:else}<button class="ghost" on:click={cancelEdit}>취소</button><button class="primary" on:click={saveEntry}>변경 저장</button>{/if}
+            </div>
+          </footer>
         </article>
         <details class="card lorebook-provenance"><summary>이 글을 만든 설정</summary><div class="details-body"><div><small>결과물 형태</small><strong>{selected.generation_inputs_json?.output_profile?.name || '기록 없음'}</strong></div><div><small>전개 방식</small><strong>{selected.generation_inputs_json?.writing_recipe?.name || '기록 없음'}</strong></div><div><small>시점·시제·분량</small><strong>{settingLabel(selected.generation_inputs_json?.generation_settings?.viewpoint)} · {settingLabel(selected.generation_inputs_json?.generation_settings?.tense)} · {settingLabel(selected.generation_inputs_json?.generation_settings?.length)}</strong></div><div><small>추가 지시</small><p>{selected.generation_inputs_json?.user_direction || '추가 지시 없음'}</p></div></div></details>
         <div class="row spread lorebook-source-link"><span>출처 초안은 로어북 글과 별도로 보존됩니다.</span><a class="secondary" href={`/documents?document=${selected.source_document_id}`}>출처 초안 열기</a></div>

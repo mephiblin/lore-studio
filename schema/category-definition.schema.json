@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.lore-studio/schema/category-definition.schema.json",
+  "title": "CategoryDefinition",
+  "type": "object",
+  "required": [
+    "project_id",
+    "key",
+    "name",
+    "description",
+    "template_json"
+  ],
+  "properties": {
+    "project_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "description": "프로젝트 안에서 안정적으로 유지되는 내부 식별자"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "description": {
+      "type": "string"
+    },
+    "template_json": {
+      "type": "object",
+      "properties": {
+        "recommended_slots": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": ["subject", "background", "elements", "conflicts"]
+          }
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

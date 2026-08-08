@@ -3,14 +3,14 @@
   import TiptapEditor from '$lib/components/TiptapEditor.svelte';
   import ProjectCreator from '$lib/components/ProjectCreator.svelte';
   import { api } from '$lib/api';
-  import { categoryLabel, relationLabel, roleLabel, relationLabels } from '$lib/labels';
+  import { relationLabel, roleLabel, relationLabels } from '$lib/labels';
   import { initialProjectId, rememberProject } from '$lib/project';
 
   let projects = [];
   let projectId = '';
   let pages = [];
   let cards = [];
-  let templates = [];
+  let categories = [];
   let selectedPage = null;
   let activeTab = 'pages';
   let error = '';
@@ -25,6 +25,14 @@
   let newPageOpen = false;
   let editingCardId = '';
   let cardDraft = { title: '', body: '', tags: '' };
+  let categoryForm = { name: '', description: '' };
+
+  const categorySlotOptions = [
+    { key: 'subject', label: '주제' },
+    { key: 'background', label: '배경' },
+    { key: 'elements', label: '주요 요소' },
+    { key: 'conflicts', label: '갈등·변수' }
+  ];
 
   $: visiblePages = pages.filter((page) => {
     const matchesText = !pageFilter || `${page.title} ${page.summary} ${(page.tags || []).join(' ')}`.toLowerCase().includes(pageFilter.toLowerCase());
@@ -32,7 +40,7 @@
   });
   $: allTags = [...new Set(pages.flatMap((page) => page.tags || []))].sort();
 
-  let pageForm = { title: '', category_key: 'free', purpose: 'setting' };
+  let pageForm = { title: '', category_key: '', purpose: 'setting' };
   let cardForm = { title: '', body: '', tags: '' };
   let relationForm = { target_page_id: '', relation_type: 'RELATED_TO', notes: '' };
 
@@ -47,7 +55,6 @@
 
   async function loadInitial() {
     try {
-      templates = await api.get('/presets/page-templates');
       projects = await api.get('/projects');
       projectId = initialProjectId(projects);
       if (projectId) await loadProjectData();
@@ -70,12 +77,20 @@
     if (!projectId) return;
     error = '';
     message = '';
+    categoryFilter = 'all';
     try {
-      [pages, cards, indexStats] = await Promise.all([
+      [pages, cards, indexStats, categories] = await Promise.all([
         api.get(`/concept-pages?project_id=${projectId}`),
         api.get(`/direction-cards?project_id=${projectId}`),
-        api.get(`/index/stats?project_id=${projectId}`)
+        api.get(`/index/stats?project_id=${projectId}`),
+        api.get(`/categories?project_id=${projectId}`)
       ]);
+      pageForm = {
+        ...pageForm,
+        category_key: categories.some((item) => item.key === pageForm.category_key)
+          ? pageForm.category_key
+          : categories[0]?.key || ''
+      };
       if (pages[0]) await selectPage(pages[0]);
       else { selectedPage = null; relations = []; }
     } catch (e) { error = e.message; }
@@ -102,7 +117,7 @@
         forbidden_changes: []
       });
       pages = [page, ...pages];
-      pageForm = { title: '', category_key: 'free', purpose: 'setting' };
+      pageForm = { title: '', category_key: categories[0]?.key || '', purpose: 'setting' };
       newPageOpen = false;
       await selectPage(page, { reveal: true });
       message = '새 자료를 만들었습니다. 본문과 핵심 사실을 채워 보세요.';
@@ -116,7 +131,6 @@
       const updated = await api.patch(`/concept-pages/${selectedPage.id}`, {
         title: selectedPage.title,
         category_key: selectedPage.category_key,
-        custom_category: selectedPage.custom_category,
         tags: typeof selectedPage.tagsText === 'string' ? selectedPage.tagsText.split(',').map((item) => item.trim()).filter(Boolean) : selectedPage.tags,
         namespace: selectedPage.namespace,
         era: selectedPage.era,
@@ -168,6 +182,70 @@
 
   function pageName(pageId) {
     return pages.find((page) => page.id === pageId)?.title || '삭제된 자료';
+  }
+
+  function categoryName(page) {
+    return categories.find((item) => item.key === page?.category_key)?.name || page?.custom_category || page?.category_key || '종류 없음';
+  }
+
+  function categoryUsedCount(category) {
+    return pages.filter((page) => page.category_key === category.key).length;
+  }
+
+  function categorySlots(category) {
+    return category.template_json?.recommended_slots || [];
+  }
+
+  function toggleCategorySlot(category, slot) {
+    const current = categorySlots(category);
+    const recommended_slots = current.includes(slot)
+      ? current.filter((item) => item !== slot)
+      : [...current, slot];
+    category.template_json = { ...(category.template_json || {}), recommended_slots };
+    categories = [...categories];
+  }
+
+  async function createCategory() {
+    if (!projectId || !categoryForm.name.trim()) return;
+    error = ''; message = '';
+    try {
+      const category = await api.post('/categories', {
+        project_id: projectId,
+        name: categoryForm.name.trim(),
+        description: categoryForm.description.trim(),
+        template_json: { recommended_slots: categorySlotOptions.map((item) => item.key) }
+      });
+      categories = [...categories, category].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+      pageForm = { ...pageForm, category_key: category.key };
+      categoryForm = { name: '', description: '' };
+      message = `'${category.name}' 자료 종류를 만들었습니다.`;
+    } catch (e) { error = e.message; }
+  }
+
+  async function saveCategory(category) {
+    if (!category.name.trim()) return;
+    error = ''; message = '';
+    try {
+      const updated = await api.patch(`/categories/${category.id}`, {
+        name: category.name.trim(),
+        description: category.description.trim(),
+        template_json: category.template_json || {}
+      });
+      categories = categories.map((item) => item.id === updated.id ? updated : item)
+        .sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+      message = `'${updated.name}' 자료 종류를 저장했습니다.`;
+    } catch (e) { error = e.message; }
+  }
+
+  async function deleteCategory(category) {
+    if (!confirm(`'${category.name}' 자료 종류를 삭제할까요? 사용 중인 종류는 삭제할 수 없습니다.`)) return;
+    error = ''; message = '';
+    try {
+      await api.delete(`/categories/${category.id}`);
+      categories = categories.filter((item) => item.id !== category.id);
+      if (pageForm.category_key === category.key) pageForm = { ...pageForm, category_key: categories[0]?.key || '' };
+      message = `'${category.name}' 자료 종류를 삭제했습니다.`;
+    } catch (e) { error = e.message; }
   }
 
   function otherPage(relation) {
@@ -283,8 +361,7 @@
 </script>
 
 <div class="page">
-  <div class="page-header archive-header">
-    <div><p class="eyebrow">세계관 자료</p><h1>설정을 기록하고 연결합니다.</h1><p>원고에 사용할 인물·장소·사건과 프로젝트별 집필 지침을 관리합니다.</p></div>
+  <div class="page-tools">
     <div class="project-tools">
       <label>현재 프로젝트<select bind:value={projectId} on:change={changeProject}><option value="">프로젝트 선택</option>{#each projects as project}<option value={project.id}>{project.name}</option>{/each}</select></label>
       <ProjectCreator onCreated={projectCreated} />
@@ -300,6 +377,7 @@
   {:else}
     <nav class="section-tabs" aria-label="세계관 자료 관리">
       <button class:active={activeTab === 'pages'} on:click={() => activeTab = 'pages'}>세계관 자료 <span>{pages.length}</span></button>
+      <button class:active={activeTab === 'categories'} on:click={() => activeTab = 'categories'}>자료 종류 <span>{categories.length}</span></button>
       <button class:active={activeTab === 'directions'} on:click={() => activeTab = 'directions'}>집필 지침 <span>{cards.length}</span></button>
     </nav>
 
@@ -311,18 +389,18 @@
             <div class="inline-create stack">
               <label>자료 이름 <input bind:value={pageForm.title} placeholder="예: 황혼 시장" /></label>
               <div class="grid-2">
-                <label>종류<select bind:value={pageForm.category_key}>{#each templates as template}<option value={template.key}>{template.name}</option>{/each}</select></label>
+                <label>자료 종류<select bind:value={pageForm.category_key}>{#each categories as category}<option value={category.key}>{category.name}</option>{/each}</select></label>
                 <label>용도<select bind:value={pageForm.purpose}><option value="setting">세계관 설정</option><option value="evidence">정식 설정 근거</option><option value="inspiration">영감 자료</option><option value="style">문체 참고</option></select></label>
               </div>
-              <button class="primary" disabled={!pageForm.title.trim()} on:click={createPage}>자료 만들기</button>
+              <button class="primary" disabled={!pageForm.title.trim() || !pageForm.category_key} on:click={createPage}>자료 만들기</button>
             </div>
           {/if}
-          <div class="filter-row"><input aria-label="자료 검색" bind:value={pageFilter} placeholder="제목·태그·요약 검색" /><select aria-label="종류 필터" bind:value={categoryFilter}><option value="all">모든 종류</option>{#each templates as template}<option value={template.key}>{template.name}</option>{/each}</select></div>
+          <div class="filter-row"><input aria-label="자료 검색" bind:value={pageFilter} placeholder="제목·태그·요약 검색" /><select aria-label="종류 필터" bind:value={categoryFilter}><option value="all">모든 종류</option>{#each categories as category}<option value={category.key}>{category.name}</option>{/each}</select></div>
           <div class="archive-page-list">
             {#each visiblePages as page}
               <button class:active={selectedPage?.id === page.id} on:click={() => selectPage(page, { reveal: true })}>
                 <span class="row spread"><strong>{page.title}</strong><span class:canon={page.usage_role === 'PROJECT_CANON'} class="badge">{roleLabel(page.usage_role)}</span></span>
-                <small>{categoryLabel(page.category_key)}{page.summary ? ` · ${page.summary.slice(0, 48)}` : ''}</small>
+                <small>{categoryName(page)}{page.summary ? ` · ${page.summary.slice(0, 48)}` : ''}</small>
               </button>
             {/each}
             {#if !visiblePages.length}<div class="empty-mini">조건에 맞는 자료가 없습니다.</div>{/if}
@@ -332,7 +410,7 @@
         <section class="stack manuscript-panel">
           {#if selectedPage}
             <div class="card manuscript-toolbar">
-              <div><span class="badge">{categoryLabel(selectedPage.category_key)}</span><h2>{selectedPage.title}</h2><p>{selectedPage.summary || '이 자료를 한 문장으로 설명해 보세요.'}</p></div>
+              <div><span class="badge">{categoryName(selectedPage)}</span><h2>{selectedPage.title}</h2><p>{selectedPage.summary || '이 자료를 한 문장으로 설명해 보세요.'}</p></div>
               <button class="primary" on:click={savePage}>변경 저장</button>
             </div>
             {#key selectedPage.id}
@@ -345,7 +423,7 @@
           {#if selectedPage}
             <div class="row spread"><h2>핵심 정보</h2><span class:canon={selectedPage.usage_role === 'PROJECT_CANON'} class="badge">{roleLabel(selectedPage.usage_role)}</span></div>
             <label>제목 <input bind:value={selectedPage.title} /></label>
-            <label>종류<select bind:value={selectedPage.category_key}>{#each templates as template}<option value={template.key}>{template.name}</option>{/each}</select></label>
+            <label>자료 종류<select bind:value={selectedPage.category_key}>{#each categories as category}<option value={category.key}>{category.name}</option>{/each}</select></label>
             <label>태그 <input bind:value={selectedPage.tagsText} list="known-tags" placeholder="쉼표로 구분" /></label>
             <datalist id="known-tags">{#each allTags as tag}<option value={tag}></option>{/each}</datalist>
             <label>한 줄 요약 <textarea bind:value={selectedPage.summary} placeholder="이 자료가 무엇인지 짧게 설명하세요."></textarea></label>
@@ -385,7 +463,6 @@
             <details>
               <summary>고급 정보</summary>
               <div class="stack details-body">
-                <label>사용자 정의 종류 <input bind:value={selectedPage.custom_category} /></label>
                 <label>자료 범위 <input bind:value={selectedPage.namespace} /></label>
                 <div class="notice"><strong>검색 상태</strong><div class="small">{indexStats?.indexed_pages || 0}개 자료 · {indexStats?.chunks || 0}개 조각</div></div>
                 <button class="secondary" on:click={reindexPage}>최신 내용을 검색에 반영</button>
@@ -407,7 +484,7 @@
           {/if}
         </aside>
       </div>
-    {:else}
+    {:else if activeTab === 'directions'}
       <section class="directions-layout">
         <div class="direction-intro">
           <p class="eyebrow">프로젝트 집필 지침</p>
@@ -454,6 +531,41 @@
             <div class="row"><button class="primary" on:click={applyCardSuggestion}>세부 규칙 저장</button><button class="ghost" on:click={() => cardSuggestion = null}>취소</button></div>
           </section>
         {/if}
+      </section>
+    {:else}
+      <section class="category-manager">
+        <div class="category-intro">
+          <p class="eyebrow">프로젝트 자료 종류</p>
+          <h2>이 세계에 맞는 분류를<br />직접 정합니다.</h2>
+          <p>시작용 종류도 이 프로젝트의 소유입니다. 이름과 설명을 바꾸거나 새 종류를 더할 수 있습니다. 종류를 바꿔도 자료 본문은 그대로 유지됩니다.</p>
+        </div>
+        <div class="stack">
+          <div class="card stack category-create">
+            <h3>새 자료 종류</h3>
+            <label>이름 <input aria-label="새 자료 종류 이름" bind:value={categoryForm.name} placeholder="예: 세력, 마법 체계, 생물종" /></label>
+            <label>설명 <textarea bind:value={categoryForm.description} placeholder="어떤 자료를 이 종류로 묶을지 짧게 적어 주세요."></textarea></label>
+            <p class="small">새 종류는 처음에 글 만들기의 모든 선택 단계에 추천됩니다. 만든 뒤 아래에서 추천 위치를 조정할 수 있습니다.</p>
+            <button class="primary" disabled={!categoryForm.name.trim()} on:click={createCategory}>자료 종류 만들기</button>
+          </div>
+          <div class="category-list">
+            {#each categories as category}
+              <article class="card stack category-card">
+                <div class="row spread"><strong>{categoryUsedCount(category)}개 자료 사용 중</strong><button class="ghost danger" on:click={() => deleteCategory(category)}>삭제</button></div>
+                <label>이름 <input bind:value={category.name} /></label>
+                <label>설명 <textarea bind:value={category.description} placeholder="이 종류에 들어갈 자료의 기준"></textarea></label>
+                <fieldset>
+                  <legend>글 만들기에서 먼저 추천할 위치</legend>
+                  <div class="category-slot-list">
+                    {#each categorySlotOptions as slot}
+                      <label><input type="checkbox" checked={categorySlots(category).includes(slot.key)} on:change={() => toggleCategorySlot(category, slot.key)} /> {slot.label}</label>
+                    {/each}
+                  </div>
+                </fieldset>
+                <button class="secondary" disabled={!category.name.trim()} on:click={() => saveCategory(category)}>이 종류 저장</button>
+              </article>
+            {/each}
+          </div>
+        </div>
       </section>
     {/if}
   {/if}

@@ -7,13 +7,14 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ModelRole = Literal["writer", "utility", "vision", "embedding", "fallback"]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 class Settings(BaseSettings):
     app_name: str = "Lore Studio"
     app_env: str = "development"
     database_url: str = "sqlite:///./lore_studio.db"
-    app_config_root: Path = Path("../config")
+    app_config_root: Path = PROJECT_ROOT / "config"
     cors_origins: str = "http://localhost:5173"
 
     writer_model_base_url: str = "http://localhost:8080/v1"

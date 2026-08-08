@@ -11,6 +11,7 @@ export const roleLabels = {
 
 export const categoryLabels = {
   artifact: '유물·기술',
+  creature: '종족·생물',
   event: '사건',
   free: '자유 자료',
   person: '인물',
@@ -86,4 +87,10 @@ export const documentStatusLabels = {
 
 export const roleLabel = (value) => roleLabels[value] || value;
 export const categoryLabel = (value) => categoryLabels[value] || value;
+export function pageCategoryKey(page) {
+  if (page?.properties_json?.entity_type === 'creature_lineage') return 'creature';
+  if (page?.custom_category === '일반 몬스터 종족') return 'creature';
+  return page?.category_key || 'free';
+}
+export const pageCategoryLabel = (page) => categoryLabel(pageCategoryKey(page));
 export const relationLabel = (value) => relationLabels[value] || value;

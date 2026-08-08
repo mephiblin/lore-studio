@@ -55,6 +55,7 @@
       }
     },
     "user_direction": {
+      "description": "이번 초안에만 적용하는 추가 지시",
       "type": "string"
     },
     "writing_recipe_id": {
@@ -62,6 +63,7 @@
       "type": "string"
     },
     "output_profile": {
+      "description": "결과물 형태(Output Profile) key",
       "type": "string"
     },
     "settings_json": {

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+from copy import deepcopy
 from typing import Any
 
 from app.services.model_gateway import ModelCallResult, ModelGateway
@@ -127,15 +128,21 @@ async def extract_candidates(
     *,
     body: str,
     known_pages: list[dict[str, Any]],
+    categories: list[dict[str, str]],
 ) -> tuple[dict[str, Any], ModelCallResult]:
     payload = {
         "known_pages": known_pages,
+        "project_categories": categories,
         "draft": body,
         "rules": [
             "원고에 새로 등장했지만 알려진 페이지에 없는 설정만 후보로 제안한다.",
             "후보는 확정 사실이 아니며 자동 정사 승격 대상이 아니다.",
+            "category_key는 project_categories에 있는 key 중 하나만 사용한다.",
         ],
     }
+    schema = deepcopy(CANDIDATE_SCHEMA)
+    category_keys = [category["key"] for category in categories]
+    schema["properties"]["candidates"]["items"]["properties"]["category_key"]["enum"] = category_keys
     result = await gateway.complete(
         [
             {"role": "system", "content": "로어 원고에서 검토할 새 설정 후보를 추출한다."},
@@ -145,7 +152,7 @@ async def extract_candidates(
         temperature=0.1,
         max_tokens=2400,
         response_mode="json_schema",
-        json_schema=CANDIDATE_SCHEMA,
+        json_schema=schema,
         schema_name="concept_candidates",
     )
     return parse_object(result.content), result

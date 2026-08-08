@@ -24,7 +24,7 @@ logs:
 	docker compose logs -f backend frontend db
 
 test:
-	$(PYTEST) -q
+	APP_CONFIG_ROOT=$(CURDIR)/config $(PYTEST) -q
 
 test-models:
 	RUN_LOCAL_MODEL_TESTS=true RUN_EMBEDDING_TESTS=true RUN_VISION_TESTS=true \

@@ -11,6 +11,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     String,
@@ -67,6 +68,9 @@ class Project(Base, TimestampMixin):
     concept_pages: Mapped[list["ConceptPage"]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )
+    categories: Mapped[list["CategoryDefinition"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan"
+    )
 
 
 class CategoryDefinition(Base, TimestampMixin):
@@ -74,8 +78,8 @@ class CategoryDefinition(Base, TimestampMixin):
     __table_args__ = (UniqueConstraint("project_id", "key", name="uq_category_project_key"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
-    project_id: Mapped[str | None] = mapped_column(
-        ForeignKey("projects.id", ondelete="CASCADE"), nullable=True, index=True
+    project_id: Mapped[str] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True
     )
     key: Mapped[str] = mapped_column(String(100), nullable=False)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -83,10 +87,18 @@ class CategoryDefinition(Base, TimestampMixin):
     template_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     is_builtin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
+    project: Mapped[Project] = relationship(back_populates="categories")
+
 
 class ConceptPage(Base, TimestampMixin):
     __tablename__ = "concept_pages"
     __table_args__ = (
+        ForeignKeyConstraint(
+            ["project_id", "category_key"],
+            ["category_definitions.project_id", "category_definitions.key"],
+            name="fk_concept_page_project_category",
+            ondelete="RESTRICT",
+        ),
         Index("ix_concept_project_namespace_role", "project_id", "namespace", "usage_role"),
     )
 

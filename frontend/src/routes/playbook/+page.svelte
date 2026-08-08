@@ -4,16 +4,16 @@
   import HelpTip from '$lib/components/HelpTip.svelte';
   import ProjectCreator from '$lib/components/ProjectCreator.svelte';
   import { api } from '$lib/api';
-  import { categoryLabel, moveDescriptions, moveLabels, roleLabel } from '$lib/labels';
+  import { moveDescriptions, moveLabels, roleLabel } from '$lib/labels';
   import { initialProjectId, rememberProject } from '$lib/project';
 
-  let projects = [], pages = [], cards = [], recipes = [];
+  let projects = [], pages = [], cards = [], recipes = [], categories = [];
   let projectId = '', recipeId = '', outputProfile = 'lore_article', userDirection = '';
   let subjectIds = [], backgroundIds = [], elementIds = [], conflictIds = [], directionCardIds = [];
   let length = 'normal', customLength = 4000, detailLevel = 3, contextDepth = 'balanced', creativity = 'conservative', mystery = 4, seed = 42;
   let viewpoint = 'omniscient', tense = 'present';
-  let conceptSearch = '', categoryFilter = 'all';
-  let session = null, preview = null, plan = null, document = null;
+  let conceptSearch = '', categoryFilter = 'all', conceptScope = 'recommended', pageLimit = 18;
+  let session = null, preview = null, plan = null, generatedDocument = null;
   let busy = '', error = '', planDirty = false;
   let wizardStep = 0, furthestStep = 0;
 
@@ -40,7 +40,10 @@
   $: activeStep = wizardSteps[wizardStep];
   $: activeSlot = activeStep?.slot || '';
   $: activeIds = activeSlot === 'subject' ? subjectIds : activeSlot === 'background' ? backgroundIds : activeSlot === 'elements' ? elementIds : activeSlot === 'conflicts' ? conflictIds : [];
-  $: wizardPages = visiblePages.filter((page) => !slotFor(page.id) || slotFor(page.id) === activeSlot);
+  $: wizardCandidates = visiblePages
+    .filter((page) => !slotFor(page.id) || slotFor(page.id) === activeSlot)
+    .filter((page) => conceptScope === 'all' || !!conceptSearch || activeIds.includes(page.id) || recommendedForSlot(page, activeSlot));
+  $: wizardPages = wizardCandidates.slice(0, pageLimit);
   $: totalSupporting = backgroundIds.length + elementIds.length + conflictIds.length;
   $: hasCurrentSelection = activeIds.length || activeStep?.key === 'settings' || activeStep?.key === 'guidance' && directionCardIds.length || activeStep?.key === 'recipe' && !!recipeId;
   $: nextButtonLabel = activeStep?.next ? `${hasCurrentSelection ? '' : '선택 없이 '}${activeStep.next}` : '';
@@ -52,7 +55,7 @@
     selectedCards.length ? selectedCards.length === 1 ? selectedCards[0].title : `${selectedCards[0].title} 외 ${selectedCards.length - 1}개` : '선택 안 함',
     selectedRecipe?.name || '선택 필요',
     outputProfile === 'lore_article' ? '세계관 설명 글' : outputProfile === 'video_narration' ? '영상 내레이션' : outputProfile === 'novel_prose' ? '소설 장면' : '세계 내부 문서',
-    document ? '원고 완성' : plan ? '글의 흐름 준비됨' : preview ? '사용할 설정 확인됨' : '작성 전'
+    generatedDocument ? '원고 완성' : plan ? '글의 흐름 준비됨' : preview ? '사용할 설정 확인됨' : '작성 전'
   ];
 
   onMount(loadInitial);
@@ -80,14 +83,35 @@
   async function loadProjectData() {
     if (!projectId) return;
     try {
-      [pages, cards] = await Promise.all([api.get(`/concept-pages?project_id=${projectId}`), api.get(`/direction-cards?project_id=${projectId}`)]);
+      [pages, cards, categories] = await Promise.all([
+        api.get(`/concept-pages?project_id=${projectId}`),
+        api.get(`/direction-cards?project_id=${projectId}`),
+        api.get(`/categories?project_id=${projectId}`)
+      ]);
       subjectIds = []; backgroundIds = []; elementIds = []; conflictIds = []; directionCardIds = [];
-      wizardStep = 0; furthestStep = 0;
+      wizardStep = 0; furthestStep = 0; conceptScope = 'recommended'; pageLimit = 18;
       resetRun();
     } catch (e) { error = e.message; }
   }
 
-  function resetRun() { session = preview = plan = document = null; planDirty = false; }
+  function resetRun() { session = preview = plan = generatedDocument = null; planDirty = false; }
+
+  function recommendedForSlot(page, slot) {
+    const category = categories.find((item) => item.key === page.category_key);
+    const slots = category?.template_json?.recommended_slots;
+    return !Array.isArray(slots) || slots.includes(slot);
+  }
+
+  function recommendationCopy(slot) {
+    const names = categories
+      .filter((category) => (category.template_json?.recommended_slots || []).includes(slot))
+      .map((category) => category.name);
+    return names.length ? `${names.join(' · ')} 종류로 지정한 자료` : '현재 단계에 추천하도록 지정한 자료';
+  }
+
+  function categoryName(page) {
+    return categories.find((item) => item.key === page?.category_key)?.name || page?.custom_category || page?.category_key || '종류 없음';
+  }
 
   function slotFor(pageId) {
     if (subjectIds.includes(pageId)) return 'subject';
@@ -131,7 +155,8 @@
     if (index < 0 || index >= wizardSteps.length) return;
     wizardStep = index;
     furthestStep = Math.max(furthestStep, index);
-    setTimeout(() => document.querySelector('.wizard-shell')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+    conceptSearch = ''; categoryFilter = 'all'; conceptScope = 'recommended'; pageLimit = 18;
+    setTimeout(() => window.document.querySelector('.wizard-shell')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
   }
 
   function nextStep() {
@@ -183,7 +208,7 @@
         await api.postEvents(`/playbook-sessions/${current.id}/generate/stream`, {}, (event, data) => {
           if (event === 'progress') busy = data.message;
           if (event === 'error') throw new Error(`${data.message} (${data.code})`);
-          if (event === 'complete') { session = data.session; plan = data.plan; document = data.document; completedDocument = data.document; }
+          if (event === 'complete') { session = data.session; plan = data.plan; generatedDocument = data.document; completedDocument = data.document; }
         });
         if (completedDocument) {
           busy = '완성된 원고를 여는 중';
@@ -206,8 +231,7 @@
 </script>
 
 <div class="page playbook-page">
-  <div class="page-header">
-    <div><p class="eyebrow">글 만들기</p><h1>쓸 대상과 전개 방식을 고르세요.</h1><p>세계관 자료와 집필 지침을 고르고, 공통 전개 방식을 적용해 초안을 작성합니다.</p></div>
+  <div class="page-tools">
     <div class="project-tools"><label class="project-select">현재 프로젝트<select bind:value={projectId} on:change={changeProject}>{#each projects as project}<option value={project.id}>{project.name}</option>{/each}</select></label><ProjectCreator onCreated={projectCreated} /></div>
   </div>
 
@@ -231,18 +255,27 @@
     {#if activeSlot}
       <div class="wizard-layout">
         <div class="wizard-picker card">
-          <div class="library-toolbar"><div><strong>세계관 자료</strong><small>{wizardPages.length}개 선택 가능</small></div><input aria-label={`${activeStep.short} 자료 검색`} bind:value={conceptSearch} placeholder="제목·태그·요약 검색" /><select aria-label="자료 종류" bind:value={categoryFilter}><option value="all">모든 종류</option><option value="person">인물</option><option value="place">장소</option><option value="event">사건</option><option value="artifact">유물·기술</option><option value="free">자유 자료</option></select></div>
+          <div class="library-toolbar">
+            <div><strong>세계관 자료</strong><small>{wizardCandidates.length}개 중 {wizardPages.length}개 표시</small></div>
+            <input aria-label={`${activeStep.short} 자료 검색`} bind:value={conceptSearch} on:input={() => pageLimit = 18} placeholder="제목·태그·요약 검색" />
+            <select aria-label="자료 종류" bind:value={categoryFilter} on:change={() => pageLimit = 18}><option value="all">모든 종류</option>{#each categories as category}<option value={category.key}>{category.name}</option>{/each}</select>
+          </div>
+          <div class="wizard-scope-bar">
+            <div><strong>{conceptScope === 'recommended' ? '이 단계의 추천 자료' : '모든 세계관 자료'}</strong><small>{conceptScope === 'recommended' ? recommendationCopy(activeSlot) : '종류나 역할과 관계없이 배정되지 않은 자료 전체'}</small></div>
+            <div class="scope-switch" role="group" aria-label="자료 표시 범위"><button class:active={conceptScope === 'recommended'} on:click={() => { conceptScope = 'recommended'; pageLimit = 18; }}>추천</button><button class:active={conceptScope === 'all'} on:click={() => { conceptScope = 'all'; pageLimit = 18; }}>전체</button></div>
+          </div>
           <div class="wizard-card-grid">
             {#each wizardPages as page}
               <button class:selected={activeIds.includes(page.id)} class="wizard-choice-card" aria-pressed={activeIds.includes(page.id)} on:click={() => toggleConcept(page.id)}>
                 <span class="selection-mark">{activeIds.includes(page.id) ? '✓' : activeSlot === 'subject' ? '○' : '+'}</span>
-                <span class="row spread"><span class="badge">{categoryLabel(page.category_key)}</span><small>{roleLabel(page.usage_role)}</small></span>
+                <span class="row spread"><span class="badge">{categoryName(page)}</span><small>{roleLabel(page.usage_role)}</small></span>
                 <strong>{page.title}</strong><p>{page.summary || '요약이 없습니다.'}</p>
                 <span class="selection-action">{activeIds.includes(page.id) ? '선택됨' : activeSlot === 'subject' ? '이 자료를 주제로 선택' : `${activeStep.short}에 추가`}</span>
               </button>
             {/each}
             {#if !wizardPages.length}<div class="empty-state">검색 조건에 맞는 자료가 없거나, 모든 자료가 앞 단계에 배정됐습니다.</div>{/if}
           </div>
+          {#if wizardPages.length < wizardCandidates.length}<button class="secondary wizard-load-more" on:click={() => pageLimit += 18}>자료 더 보기 · {wizardCandidates.length - wizardPages.length}개 남음</button>{/if}
         </div>
       </div>
     {:else if activeStep.key === 'guidance'}
@@ -349,5 +382,5 @@
     </section>
   {/if}
 
-  {#if wizardStep === wizardSteps.length - 1 && document}<div class="completion-banner"><div><strong>{document.title}</strong><span>{document.body_markdown.length.toLocaleString()}자 초안을 저장했습니다.</span></div><a class="primary" href={`/documents?document=${document.id}`}>이 초안 작업하기 →</a></div>{/if}
+  {#if wizardStep === wizardSteps.length - 1 && generatedDocument}<div class="completion-banner"><div><strong>{generatedDocument.title}</strong><span>{generatedDocument.body_markdown.length.toLocaleString()}자 초안을 저장했습니다.</span></div><a class="primary" href={`/documents?document=${generatedDocument.id}`}>이 초안 작업하기 →</a></div>{/if}
 </div>

@@ -192,8 +192,17 @@
     try {
       activeProposal = await api.post(`/blocks/${block.id}/rewrite`, { operation: rewriteOperation, instruction: rewriteInstruction, direction_card_ids: [] });
       audits = [activeProposal, ...audits.filter((item) => item.id !== activeProposal.id)];
+      setTimeout(() => window.document.querySelector('.document-inspector')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
     } catch (e) { error = e.message; }
     finally { busy = ''; }
+  }
+
+  function scrollToDocumentTools() {
+    window.document.querySelector('.document-inspector')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function scrollToDraft() {
+    window.document.querySelector('.document-main')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   async function decideProposal(action) {
@@ -255,8 +264,7 @@
 </script>
 
 <div class="page">
-  <div class="page-header">
-    <div><p class="eyebrow">원고 작업</p><h1>초안을 검토한 뒤 완성 설정을 따로 정합니다.</h1><p>각 단계에서는 지금 필요한 작업만 보여 줍니다. 만들어진 완성본은 로어북에 저장됩니다.</p></div>
+  <div class="page-tools">
     <div class="project-tools"><label style="min-width:260px">현재 프로젝트<select bind:value={projectId} on:change={changeProject}>{#each projects as project}<option value={project.id}>{project.name}</option>{/each}</select></label><ProjectCreator onCreated={projectCreated} /></div>
   </div>
 
@@ -281,6 +289,7 @@
       <div class="empty-state workflow-empty">‘글 만들기’에서 초안을 만들면 이곳에서 편집하고 로어북 글로 완성할 수 있습니다.</div>
     {:else if workflowStep === 0}
       <div class="document-edit-stage">
+        <button class="secondary mobile-inspector-jump" on:click={scrollToDocumentTools}>원고 도구 보기 · 부분 재작성 · 점검 · 설정 후보 ↓</button>
         <main class="stack document-main">
           <div class="document-toolbar">
             <input class="document-title-input" aria-label="초안 제목" bind:value={selected.title} on:input={markDraftDirty} />
@@ -296,6 +305,7 @@
           <button class="add-document-block" on:click={addBlock}>+ 새 문단 추가</button>
         </main>
         <aside class="stack document-inspector">
+          <button class="ghost mobile-draft-return" on:click={scrollToDraft}>↑ 초안으로 돌아가기</button>
           <section class="card stack"><p class="eyebrow">변경안 비교</p><h3 style="margin:0">부분 재작성</h3><label>작업<select bind:value={rewriteOperation}><option value="shorter">더 짧게</option><option value="longer">더 자세히</option><option value="add_example">사례 추가</option><option value="expository">설명형으로</option><option value="scene">장면형으로</option><option value="style_only">사실 유지·문체만</option><option value="transition">앞뒤 연결만</option></select></label><label>추가 지시<textarea bind:value={rewriteInstruction}></textarea></label>{#if activeProposal}<pre style="max-height:320px">{activeProposal.proposed_diff}</pre><div class="row"><button class="primary" on:click={() => decideProposal('apply')}>변경안 적용</button><button class="ghost" on:click={() => decideProposal('dismiss')}>폐기</button></div>{:else}<p class="small">문단의 ‘부분 재작성’을 누르면 원문을 덮지 않고 변경안을 만듭니다.</p>{/if}</section>
           <section class="card stack"><p class="eyebrow">원고 점검</p><h3 style="margin:0">주의할 점과 근거</h3><div class="evidence-flow">{#each audits.filter((item) => item.audit_type !== 'REWRITE').slice(0, 8) as finding}<div class="evidence-item"><strong>{auditTypeLabels[finding.audit_type] || '원고 점검'}</strong><small>{finding.message}</small></div>{/each}{#if !audits.filter((item) => item.audit_type !== 'REWRITE').length}<div class="evidence-item"><strong>기록된 경고 없음</strong><small>점검은 원고를 자동 수정하지 않습니다.</small></div>{/if}</div></section>
           <section class="card stack"><div class="row spread"><div><p class="eyebrow">승인 대기</p><h3 style="margin:0">설정 후보</h3></div><span class="badge candidate">{candidates.filter((item) => item.status === 'CANDIDATE').length}</span></div><button class="secondary" on:click={extractNewCandidates}>현재 초안에서 설정 후보 찾기</button>{#each candidates.filter((item) => item.status === 'CANDIDATE').slice(0, 5) as candidate}<div class="evidence-item"><strong>{candidate.title}</strong><small>{candidate.summary || candidate.candidate_sentence}</small><div class="row wrap" style="margin-top:8px"><button class="ghost" on:click={() => decideCandidate(candidate, 'this_document_only')}>이번 글만</button><button class="secondary" on:click={() => decideCandidate(candidate, 'save_draft')}>설정 초안으로 저장</button><button class="primary" on:click={() => decideCandidate(candidate, 'approve_canon')}>정식 설정으로 승인</button></div></div>{/each}</section>

@@ -21,25 +21,41 @@ def test_project_category_page_recipe_and_authority_api() -> None:
         )
         assert project_response.status_code == 201
         project_id = project_response.json()["id"]
+        starter_categories = client.get(
+            "/api/v1/categories", params={"project_id": project_id}
+        ).json()
+        assert {item["name"] for item in starter_categories} >= {
+            "인물",
+            "장소",
+            "사건",
+            "유물·기술",
+            "자유 페이지",
+        }
 
         category_response = client.post(
             "/api/v1/categories",
             json={
                 "project_id": project_id,
-                "key": "phenomenon",
                 "name": "현상",
-                "template_json": {"fields": []},
+                "template_json": {"recommended_slots": ["subject", "conflicts"]},
             },
         )
         assert category_response.status_code == 201
-        assert client.get("/api/v1/categories", params={"project_id": project_id}).json()[0]["name"] == "현상"
+        category = category_response.json()
+        assert category["key"].startswith("custom-")
+        assert "현상" in {
+            item["name"]
+            for item in client.get(
+                "/api/v1/categories", params={"project_id": project_id}
+            ).json()
+        }
 
         page_response = client.post(
             "/api/v1/concept-pages",
             json={
                 "project_id": project_id,
                 "title": "빈 필드도 저장되는 자유 본문",
-                "category_key": "phenomenon",
+                "category_key": category["key"],
                 "usage_role": "CANDIDATE",
                 "body_json": {
                     "type": "doc",
@@ -49,6 +65,37 @@ def test_project_category_page_recipe_and_authority_api() -> None:
         )
         assert page_response.status_code == 201
         page_id = page_response.json()["id"]
+
+        renamed = client.patch(
+            f"/api/v1/categories/{category['id']}", json={"name": "초자연 현상"}
+        )
+        assert renamed.status_code == 200
+        assert renamed.json()["key"] == category["key"]
+        assert client.get(f"/api/v1/concept-pages/{page_id}").json()["category_key"] == category["key"]
+
+        used_delete = client.delete(f"/api/v1/categories/{category['id']}")
+        assert used_delete.status_code == 409
+        assert used_delete.json()["detail"]["code"] == "CATEGORY_IN_USE"
+
+        other_project = client.post(
+            "/api/v1/projects", json={"name": "다른 세계", "slug": "other-world"}
+        ).json()
+        cross_project_category = client.post(
+            "/api/v1/concept-pages",
+            json={
+                "project_id": other_project["id"],
+                "title": "잘못된 분류 연결",
+                "category_key": category["key"],
+            },
+        )
+        assert cross_project_category.status_code == 422
+        assert cross_project_category.json()["detail"]["code"] == "PROJECT_CATEGORY_REQUIRED"
+
+        unused = client.post(
+            "/api/v1/categories",
+            json={"project_id": project_id, "name": "임시 종류"},
+        ).json()
+        assert client.delete(f"/api/v1/categories/{unused['id']}").status_code == 204
 
         direct_canon = client.patch(
             f"/api/v1/concept-pages/{page_id}", json={"usage_role": "PROJECT_CANON"}
