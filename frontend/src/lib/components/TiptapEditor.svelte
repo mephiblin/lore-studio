@@ -57,19 +57,23 @@
 <style>
   .editor-shell {
     min-height: 460px;
-    border: 1px solid var(--border);
-    border-radius: 5px;
-    background: var(--surface);
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--paper);
+    box-shadow: 0 10px 30px rgba(20, 43, 53, .06);
   }
-  .editor-toolbar { display:flex; gap:4px; padding:7px; border-bottom:1px solid var(--line); background:var(--paper-deep); }
-  .editor-toolbar button { min-width:32px; border:1px solid transparent; background:transparent; border-radius:3px; padding:5px 7px; color:var(--muted-text); font-size:12px; }
+  .editor-toolbar { display:flex; gap:4px; padding:8px 10px; border-bottom:1px solid var(--line); background:var(--paper-deep); }
+  .editor-toolbar button { min-width:34px; min-height:32px; border:1px solid transparent; background:transparent; border-radius:3px; padding:5px 8px; color:var(--muted-text); font-size:12px; }
   .editor-toolbar button:hover { background:#fff; border-color:var(--line); color:var(--ink); }
   .editor-content :global(.ProseMirror) {
     min-height: 430px;
-    padding: 28px;
+    padding: clamp(24px, 4vw, 48px);
     outline: none;
-    line-height: 1.75;
+    color: var(--ink);
+    font: 16px/1.85 Georgia, "Noto Serif KR", serif;
   }
+  .editor-content :global(.ProseMirror > :first-child) { margin-top: 0; }
   .editor-content :global(.ProseMirror p.is-editor-empty:first-child::before) {
     color: var(--muted);
     content: attr(data-placeholder);
@@ -80,14 +84,19 @@
   .editor-content :global(h1),
   .editor-content :global(h2),
   .editor-content :global(h3) {
-    line-height: 1.25;
+    color: var(--ink);
+    font-family: Georgia, "Noto Serif KR", serif;
+    line-height: 1.3;
   }
   .editor-content :global(blockquote) {
-    border-left: 3px solid var(--border-strong);
+    border-left: 3px solid var(--signal);
     margin-left: 0;
     padding-left: 18px;
     color: var(--muted-text);
   }
   .editor-content :global(section[data-lore-block]) { position:relative; margin:14px 0; padding:10px 18px; border-left:3px solid var(--signal); background:#f6f8f6; }
   .editor-content :global(section[data-lore-block][locked="true"]) { border-left-color:var(--lichen); }
+  @media (max-width: 540px) {
+    .editor-content :global(.ProseMirror) { min-height: 360px; padding: 22px 18px; font-size: 15px; }
+  }
 </style>

@@ -3,11 +3,11 @@
   import '../styles.css';
 
   const navigation = [
-    { href: '/', label: '프로젝트', mark: '⌂' },
-    { href: '/editor', label: '세계관 자료', mark: '◇' },
-    { href: '/playbook', label: '글 만들기', mark: '▶' },
-    { href: '/documents', label: '원고 작업', mark: '▤' },
-    { href: '/lorebook', label: '로어북', mark: '▥' }
+    { href: '/', label: '프로젝트', mark: '01' },
+    { href: '/editor', label: '세계관 자료', mark: '02' },
+    { href: '/playbook', label: '글 만들기', mark: '03' },
+    { href: '/documents', label: '원고 작업', mark: '04' },
+    { href: '/lorebook', label: '로어북', mark: '05' }
   ];
 </script>
 
