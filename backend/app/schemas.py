@@ -12,12 +12,29 @@ class ORMModel(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ProjectSettings(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    canon_policy: str | None = None
+    cover_image: str = Field(default="", max_length=2_500_000)
+    cover_image_name: str = Field(default="", max_length=300)
+
+    @field_validator("cover_image")
+    @classmethod
+    def validate_cover_image(cls, value: str) -> str:
+        if value and not value.startswith(
+            ("data:image/jpeg;base64,", "data:image/png;base64,", "data:image/webp;base64,")
+        ):
+            raise ValueError("프로젝트 커버는 JPEG, PNG, WebP 이미지여야 합니다.")
+        return value
+
+
 class ProjectCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     slug: str = Field(min_length=1, max_length=200)
     description: str = ""
     universe_namespace: str = "default"
-    settings_json: dict[str, Any] = Field(default_factory=dict)
+    settings_json: ProjectSettings = Field(default_factory=ProjectSettings)
 
 
 class ProjectRead(ORMModel):
@@ -26,7 +43,7 @@ class ProjectRead(ORMModel):
     slug: str
     description: str
     universe_namespace: str
-    settings_json: dict[str, Any]
+    settings_json: ProjectSettings
     created_at: datetime
     updated_at: datetime
 
@@ -35,7 +52,7 @@ class ProjectUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = None
     universe_namespace: str | None = None
-    settings_json: dict[str, Any] | None = None
+    settings_json: ProjectSettings | None = None
 
 
 class CategoryDefinitionCreate(BaseModel):

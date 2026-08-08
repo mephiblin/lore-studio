@@ -174,38 +174,68 @@ test('lorebook defaults to reading and edit mode is reversible', async ({ page }
 
 test('a project can be added after projects already exist', async ({ page }, testInfo) => {
   const projectName = `UX 검증 ${testInfo.project.name} ${Date.now()}`;
+  let project = null;
+  let apiOrigin = '';
   await page.goto('/');
-  await expect(page.getByText('연결 상태 확인 중…')).toBeHidden();
-  await page.getByRole('button', { name: '+ 새 프로젝트' }).click();
-  await page.getByLabel('프로젝트 이름').fill(projectName);
-  await page.getByLabel('한 줄 설명').fill('자동 검증 뒤 삭제되는 프로젝트');
+  try {
+    await expect(page.getByText('연결 상태 확인 중…')).toBeHidden();
+    await expect(page.getByLabel('작업 흐름')).toHaveCount(0);
+    await page.getByRole('button', { name: '+ 새 프로젝트' }).click();
+    await page.getByLabel('프로젝트 이름').fill(projectName);
+    await page.getByLabel('한 줄 설명').fill('자동 검증 뒤 삭제되는 프로젝트');
 
-  const createdRequestPromise = page.waitForRequest((request) =>
-    request.method() === 'POST' && request.url().endsWith('/api/v1/projects')
-  );
-  await page.getByRole('button', { name: '프로젝트 만들기' }).click();
-  const createdRequest = await createdRequestPromise;
-  const response = await createdRequest.response();
-  expect(response?.status()).toBe(201);
-  const project = await response.json();
-  await expect(page.getByRole('heading', { name: projectName })).toBeVisible();
+    const createdRequestPromise = page.waitForRequest((request) =>
+      request.method() === 'POST' && request.url().endsWith('/api/v1/projects')
+    );
+    await page.getByRole('button', { name: '프로젝트 만들기' }).click();
+    const createdRequest = await createdRequestPromise;
+    const response = await createdRequest.response();
+    expect(response?.status()).toBe(201);
+    project = await response.json();
+    apiOrigin = new URL(createdRequest.url()).origin;
+    const projectCard = page.locator('.project-card').filter({ has: page.getByRole('heading', { name: projectName }) });
+    await expect(projectCard).toBeVisible();
+    if (testInfo.project.name === 'desktop') {
+      expect((await projectCard.boundingBox()).width).toBeLessThanOrEqual(305);
+    }
 
-  await page.goto('/editor');
-  await page.getByLabel('현재 프로젝트').selectOption({ label: projectName });
-  await page.getByRole('navigation', { name: '세계관 자료 관리' }).getByRole('button', { name: /^자료 종류/ }).click();
-  await expect(page.locator('.category-intro')).toHaveCount(0);
-  await expect(page.locator('.category-settings-row')).toHaveCount(5);
-  await expectStepHelp(page, '자료 종류 설명', '자료 종류는 프로젝트별 분류');
-  await page.getByText('새 자료 종류 만들기', { exact: true }).click();
-  await expect(page.getByLabel('새 자료 종류 이름')).toBeVisible();
-  await page.getByLabel('새 자료 종류 이름').fill('세력');
-  await page.getByRole('button', { name: '자료 종류 만들기' }).click();
-  await expect(page.getByText("'세력' 자료 종류를 만들었습니다.")).toBeVisible();
-  await page.getByRole('button', { name: /세계관 자료/ }).click();
-  await page.getByRole('button', { name: '+ 새 자료' }).click();
-  await expect(page.getByLabel('자료 종류')).toContainText('세력');
+    const coverResponsePromise = page.waitForResponse((response) =>
+      response.request().method() === 'PATCH' && response.url().endsWith(`/api/v1/projects/${project.id}`)
+    );
+    await projectCard.getByLabel(`${projectName} 커버 이미지`).setInputFiles({
+      name: 'cover.png',
+      mimeType: 'image/png',
+      buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl7NqQAAAAASUVORK5CYII=', 'base64'),
+    });
+    const coverResponse = await coverResponsePromise;
+    expect(coverResponse.status()).toBe(200);
+    await expect(projectCard.getByRole('img', { name: `${projectName} 프로젝트 커버` })).toBeVisible();
+    expect((await coverResponse.json()).settings_json.cover_image).toMatch(/^data:image\/jpeg;base64,/);
 
-  await page.request.delete(`${new URL(createdRequest.url()).origin}/api/v1/projects/${project.id}`);
+    const removeResponsePromise = page.waitForResponse((response) =>
+      response.request().method() === 'PATCH' && response.url().endsWith(`/api/v1/projects/${project.id}`)
+    );
+    await projectCard.getByRole('button', { name: `${projectName} 커버 제거` }).click();
+    expect((await removeResponsePromise).status()).toBe(200);
+    await expect(projectCard.getByRole('img')).toHaveCount(0);
+
+    await page.goto('/editor');
+    await page.getByLabel('현재 프로젝트').selectOption({ label: projectName });
+    await page.getByRole('navigation', { name: '세계관 자료 관리' }).getByRole('button', { name: /^자료 종류/ }).click();
+    await expect(page.locator('.category-intro')).toHaveCount(0);
+    await expect(page.locator('.category-settings-row')).toHaveCount(5);
+    await expectStepHelp(page, '자료 종류 설명', '자료 종류는 프로젝트별 분류');
+    await page.getByText('새 자료 종류 만들기', { exact: true }).click();
+    await expect(page.getByLabel('새 자료 종류 이름')).toBeVisible();
+    await page.getByLabel('새 자료 종류 이름').fill('세력');
+    await page.getByRole('button', { name: '자료 종류 만들기' }).click();
+    await expect(page.getByText("'세력' 자료 종류를 만들었습니다.")).toBeVisible();
+    await page.getByRole('button', { name: /세계관 자료/ }).click();
+    await page.getByRole('button', { name: '+ 새 자료' }).click();
+    await expect(page.getByLabel('자료 종류')).toContainText('세력');
+  } finally {
+    if (project && apiOrigin) await page.request.delete(`${apiOrigin}/api/v1/projects/${project.id}`);
+  }
 });
 
 test('project-first workflow exposes understandable controls', async ({ page }, testInfo) => {

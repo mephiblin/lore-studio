@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.lore-studio/schema/project.schema.json",
+  "title": "Project",
+  "type": "object",
+  "required": ["id", "name", "slug", "description", "universe_namespace", "settings_json"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "slug": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "description": {
+      "type": "string"
+    },
+    "universe_namespace": {
+      "type": "string"
+    },
+    "settings_json": {
+      "type": "object",
+      "properties": {
+        "canon_policy": {
+          "type": ["string", "null"]
+        },
+        "cover_image": {
+          "type": "string",
+          "maxLength": 2500000,
+          "pattern": "^(|data:image/(jpeg|png|webp);base64,)"
+        },
+        "cover_image_name": {
+          "type": "string",
+          "maxLength": 300
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

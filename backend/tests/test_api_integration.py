@@ -21,6 +21,24 @@ def test_project_category_page_recipe_and_authority_api() -> None:
         )
         assert project_response.status_code == 201
         project_id = project_response.json()["id"]
+        cover = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB"
+        cover_response = client.patch(
+            f"/api/v1/projects/{project_id}",
+            json={
+                "settings_json": {
+                    "canon_policy": "user_approved_only",
+                    "cover_image": cover,
+                    "cover_image_name": "cover.png",
+                }
+            },
+        )
+        assert cover_response.status_code == 200
+        assert cover_response.json()["settings_json"]["cover_image"] == cover
+        invalid_cover = client.patch(
+            f"/api/v1/projects/{project_id}",
+            json={"settings_json": {"cover_image": "https://example.com/cover.jpg"}},
+        )
+        assert invalid_cover.status_code == 422
         starter_categories = client.get(
             "/api/v1/categories", params={"project_id": project_id}
         ).json()
