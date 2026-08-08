@@ -263,7 +263,7 @@
   }
 </script>
 
-<div class="page">
+<div class="page workspace-page documents-page">
   <div class="page-tools">
     <div class="project-tools"><label style="min-width:260px">현재 프로젝트<select bind:value={projectId} on:change={changeProject}>{#each projects as project}<option value={project.id}>{project.name}</option>{/each}</select></label><ProjectCreator onCreated={projectCreated} /></div>
   </div>

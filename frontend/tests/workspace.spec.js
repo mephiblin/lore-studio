@@ -24,6 +24,40 @@ for (const route of routes) {
   });
 }
 
+test('desktop navigation collapses, persists, and gives the workspace more room', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'desktop sidebar check only');
+  await page.goto('/editor');
+  const shell = page.locator('.app-shell');
+  const expandedMainWidth = (await page.locator('.app-main').boundingBox()).width;
+  const expandedWidth = (await page.locator('.app-nav').boundingBox()).width;
+  await page.getByRole('button', { name: '주요 메뉴 접기' }).click();
+  await expect(shell).toHaveClass(/nav-collapsed/);
+  await expect(page.getByRole('button', { name: '주요 메뉴 펼치기' })).toBeVisible();
+  await expect(page.locator('.app-nav')).toHaveCSS('width', '64px');
+  const collapsedWidth = (await page.locator('.app-nav').boundingBox()).width;
+  const collapsedMainWidth = (await page.locator('.app-main').boundingBox()).width;
+  expect(collapsedWidth).toBeLessThan(expandedWidth);
+  expect(collapsedMainWidth).toBeGreaterThan(expandedMainWidth);
+  await page.reload();
+  await expect(shell).toHaveClass(/nav-collapsed/);
+  await page.getByRole('button', { name: '주요 메뉴 펼치기' }).click();
+});
+
+test('desktop workspaces keep the browser page fixed and scroll inside their main panels', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'desktop workspace check only');
+  await page.goto('/editor');
+  await expect(page.locator('.workspace-main')).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight)).toBe(true);
+  const workspace = await page.locator('.workspace-page').boundingBox();
+  expect(workspace.height).toBeLessThanOrEqual(900);
+
+  await page.goto('/lorebook');
+  expect(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight)).toBe(true);
+  const shelf = await page.locator('.lorebook-shelf').boundingBox();
+  const reader = await page.locator('.lorebook-reader').boundingBox();
+  expect(shelf.y).toBe(reader.y);
+});
+
 test('small mobile navigation and workflow steps stay inside the viewport', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'mobile', 'small-viewport check only');
   await page.setViewportSize({ width: 360, height: 844 });

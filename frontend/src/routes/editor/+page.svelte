@@ -360,7 +360,7 @@
   }
 </script>
 
-<div class="page">
+<div class="page workspace-page editor-page">
   <div class="page-tools">
     <div class="project-tools">
       <label>현재 프로젝트<select bind:value={projectId} on:change={changeProject}><option value="">프로젝트 선택</option>{#each projects as project}<option value={project.id}>{project.name}</option>{/each}</select></label>
@@ -517,6 +517,7 @@
               {/if}
             </article>
           {/each}
+          {#if !cards.length}<div class="empty-state direction-empty"><strong>아직 집필 지침이 없습니다.</strong><p>위에서 이 프로젝트의 글이 반복해서 지킬 원칙을 추가하세요.</p></div>{/if}
         </div>
         {#if cardSuggestion}
           <section class="card suggestion-review stack">

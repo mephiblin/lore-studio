@@ -230,7 +230,7 @@
   function removeBlock(index) { plan = { ...plan, blocks: plan.blocks.filter((_, i) => i !== index) }; planDirty = true; }
 </script>
 
-<div class="page playbook-page">
+<div class="page playbook-page workspace-page">
   <div class="page-tools">
     <div class="project-tools"><label class="project-select">현재 프로젝트<select bind:value={projectId} on:change={changeProject}>{#each projects as project}<option value={project.id}>{project.name}</option>{/each}</select></label><ProjectCreator onCreated={projectCreated} /></div>
   </div>
@@ -238,6 +238,7 @@
   {#if error}<p class="notice-error">{error}</p>{/if}
   {#if busy}<div class="working-banner" role="status"><span></span><strong>{busy}…</strong><small>선택한 자료와 현재 단계는 저장됩니다.</small></div>{/if}
 
+  <div class="playbook-workspace">
   <section class="wizard-shell">
     <nav class="wizard-progress" aria-label="글 만들기 선택 단계">
       {#each wizardSteps as step, index}
@@ -383,4 +384,5 @@
   {/if}
 
   {#if wizardStep === wizardSteps.length - 1 && generatedDocument}<div class="completion-banner"><div><strong>{generatedDocument.title}</strong><span>{generatedDocument.body_markdown.length.toLocaleString()}자 초안을 저장했습니다.</span></div><a class="primary" href={`/documents?document=${generatedDocument.id}`}>이 초안 작업하기 →</a></div>{/if}
+  </div>
 </div>
