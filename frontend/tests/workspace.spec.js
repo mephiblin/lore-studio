@@ -238,17 +238,12 @@ test('a project can be added after projects already exist', async ({ page }, tes
   }
 });
 
-test('project-first workflow exposes understandable controls', async ({ page }, testInfo) => {
+test('project-first workflow exposes understandable controls', async ({ page }) => {
   test.skip(process.env.E2E_EXPECT_DATA !== 'true', 'requires the curated Black Route world project');
   await page.goto('/');
-  if (testInfo.project.name === 'mobile') {
-    await expect(page.locator('.model-board').getByText('실제 연결')).toBeVisible();
-    await expect(page.getByRole('heading', { name: '어느 세계에서 작업할까요?' })).toBeVisible();
-  } else {
-    await expect(page.getByText('글 작성')).toBeVisible();
-    await expect(page.getByText('자료 검색')).toBeVisible();
-    await expect(page.getByText('준비됨').first()).toBeVisible();
-  }
+  await expect(page.locator('.model-board')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: '어느 세계에서 작업할까요?' })).toBeVisible();
+  expect((await page.locator('.home-briefing').boundingBox()).height).toBeLessThanOrEqual(180);
   await expect(page.getByRole('button', { name: /새 프로젝트/ })).toBeVisible();
 
   await page.goto('/editor');
