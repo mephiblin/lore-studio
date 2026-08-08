@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
+  import HelpTip from '$lib/components/HelpTip.svelte';
   import ProjectCreator from '$lib/components/ProjectCreator.svelte';
   import { api, API_BASE } from '$lib/api';
   import { auditTypeLabels, certaintyLabels, documentStatusLabels, moveLabels } from '$lib/labels';
@@ -28,7 +29,6 @@
     { short: '완성본 만들기', title: '한 편의 글로 다듬어 로어북에 보냅니다.', copy: '최신 초안 전체와 아래 설정을 Writer에게 전달합니다.' }
   ];
 
-  $: activeWorkflow = workflowSteps[workflowStep];
   $: selectedRecipe = recipes.find((item) => item.id === finalRecipeId);
   $: selectedProfile = outputProfiles.find((item) => item.key === finalOutputProfile);
   $: finalLengthLabel = finalLength === 'custom' ? `직접 지정 · ${Number(finalCustomLength).toLocaleString()}자` : ({ short: '짧게', normal: '보통', long: '길게', very_long: '매우 길게' }[finalLength] || finalLength);
@@ -274,16 +274,16 @@
   <section class="wizard-shell document-workflow">
     <nav class="wizard-progress document-wizard-progress" aria-label="원고 완성 단계">
       {#each workflowSteps as step, index}
-        <button class:active={workflowStep === index} class:complete={index < workflowStep || index <= furthestStep && index !== workflowStep} disabled={index > furthestStep} aria-current={workflowStep === index ? 'step' : undefined} on:click={() => setWorkflowStep(index)}>
-          <span>{index + 1}</span><div><strong>{step.short}</strong><small>{index === 0 ? selected?.title || '초안 선택 필요' : index === 1 ? selectedProfile?.name || '설정 전' : finalization?.lorebook_entry ? '로어북 글 다시 만들기' : '로어북에 새 글 저장'}</small></div>
-        </button>
+        <div class="wizard-progress-item">
+          <button class="wizard-step-button" class:active={workflowStep === index} class:complete={index < workflowStep || index <= furthestStep && index !== workflowStep} disabled={index > furthestStep} aria-current={workflowStep === index ? 'step' : undefined} on:click={() => setWorkflowStep(index)}>
+            <span>{index + 1}</span><div><strong>{step.short}</strong><small>{index === 0 ? selected?.title || '초안 선택 필요' : index === 1 ? selectedProfile?.name || '설정 전' : finalization?.lorebook_entry ? '로어북 글 다시 만들기' : '로어북에 새 글 저장'}</small></div>
+          </button>
+          <HelpTip label={`${step.short} 단계 설명`} text={`${step.title} ${step.copy}`} />
+        </div>
       {/each}
     </nav>
 
-    <header class="wizard-heading">
-      <div><p class="eyebrow">{workflowStep + 1} / {workflowSteps.length}</p><h2>{activeWorkflow.title}</h2><p>{activeWorkflow.copy}</p></div>
-      {#if documents.length}<label class="workflow-document-select">작업할 초안 {#if draftDirty}<span class="draft-dirty">저장 안 됨</span>{/if}<select value={selected?.id || ''} on:change={(event) => changeDocument(documents.find((item) => item.id === event.currentTarget.value) || null)}>{#each documents as document}<option value={document.id}>{document.title}</option>{/each}</select></label>{/if}
-    </header>
+    {#if documents.length}<div class="document-contextbar"><label class="workflow-document-select">작업할 초안 {#if draftDirty}<span class="draft-dirty">저장 안 됨</span>{/if}<select value={selected?.id || ''} on:change={(event) => changeDocument(documents.find((item) => item.id === event.currentTarget.value) || null)}>{#each documents as document}<option value={document.id}>{document.title}</option>{/each}</select></label></div>{/if}
 
     {#if !selected}
       <div class="empty-state workflow-empty">‘글 만들기’에서 초안을 만들면 이곳에서 편집하고 로어북 글로 완성할 수 있습니다.</div>

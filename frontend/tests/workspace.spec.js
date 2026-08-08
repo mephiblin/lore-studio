@@ -2,6 +2,11 @@ import { expect, test } from '@playwright/test';
 
 const routes = ['/', '/editor', '/playbook', '/documents', '/lorebook'];
 
+async function expectStepHelp(page, label, text) {
+  await page.getByLabel(label).click();
+  await expect(page.getByRole('tooltip').filter({ hasText: text })).toBeVisible();
+}
+
 for (const route of routes) {
   test(`${route} renders without browser or API errors`, async ({ page }) => {
     const errors = [];
@@ -149,7 +154,7 @@ test('dense Diablo materials stay bounded and use its project taxonomy', async (
   await expect(page.locator('.wizard-choice-card').first()).toContainText('일반 몬스터 종족');
   await page.locator('.wizard-choice-card').first().click();
   await page.getByRole('button', { name: /배경으로 계속/ }).click();
-  await expect(page.getByRole('heading', { name: /어디서, 어떤 상황에서/ })).toBeVisible();
+  await expectStepHelp(page, '배경 단계 설명', '어디서, 어떤 상황에서');
   await expect.poll(() => browserErrors).toEqual([]);
 });
 
@@ -187,7 +192,11 @@ test('a project can be added after projects already exist', async ({ page }, tes
 
   await page.goto('/editor');
   await page.getByLabel('현재 프로젝트').selectOption({ label: projectName });
-  await page.getByRole('button', { name: /자료 종류/ }).click();
+  await page.getByRole('navigation', { name: '세계관 자료 관리' }).getByRole('button', { name: /^자료 종류/ }).click();
+  await expect(page.locator('.category-intro')).toHaveCount(0);
+  await expect(page.locator('.category-settings-row')).toHaveCount(5);
+  await expectStepHelp(page, '자료 종류 설명', '자료 종류는 프로젝트별 분류');
+  await page.getByText('새 자료 종류 만들기', { exact: true }).click();
   await expect(page.getByLabel('새 자료 종류 이름')).toBeVisible();
   await page.getByLabel('새 자료 종류 이름').fill('세력');
   await page.getByRole('button', { name: '자료 종류 만들기' }).click();
@@ -230,13 +239,15 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
   }
   await expect(page.getByText('연결된 자료')).toBeVisible();
   await expect(page.locator('text=/[0-9a-f]{8}-[0-9a-f]{4}-/')).toHaveCount(0);
-  await page.getByRole('button', { name: /집필 지침/ }).click();
-  await expect(page.getByText(/강조할 것과 피할 것/)).toBeVisible();
+  await page.getByRole('navigation', { name: '세계관 자료 관리' }).getByRole('button', { name: /^집필 지침/ }).click();
+  await expect(page.locator('.direction-intro')).toHaveCount(0);
+  await expectStepHelp(page, '집필 지침 설명', '반복해 지킬 강조점');
   await expect(page.getByRole('button', { name: 'AI로 세부 규칙 정리' }).first()).toBeVisible();
 
   await page.goto('/playbook');
   await expect(page.locator('select[multiple]')).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: '무엇에 관한 글인가요?' })).toBeVisible();
+  await expect(page.locator('.wizard-heading')).toHaveCount(0);
+  await expectStepHelp(page, '주제 단계 설명', '무엇에 관한 글인가요?');
   await expect(page.getByRole('button', { name: /배경으로 계속/ })).toBeDisabled();
   const lighthouse = page.locator('.wizard-choice-card').filter({
     has: page.getByText('검은 등대', { exact: true }),
@@ -245,7 +256,7 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
   await expect(lighthouse).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: /배경으로 계속/ }).click();
 
-  await expect(page.getByRole('heading', { name: /어디서, 어떤 상황에서/ })).toBeVisible();
+  await expectStepHelp(page, '배경 단계 설명', '어디서, 어떤 상황에서');
   await expect(page.getByRole('button', { name: /주제 검은 등대/ })).toBeVisible();
   await expect(page.getByText('지금까지 선택')).toHaveCount(0);
   await expect(page.locator('.wizard-choice-card').filter({ has: page.getByText('검은 등대', { exact: true }) })).toHaveCount(0);
@@ -253,21 +264,19 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
   await recoveryRoom.click();
   await page.getByRole('button', { name: /주요 요소로 계속/ }).click();
 
-  await expect(page.getByRole('heading', { name: /꼭 함께 다룰 것은/ })).toBeVisible();
+  await expectStepHelp(page, '주요 요소 단계 설명', '꼭 함께 다룰 것은');
   await expect(page.getByRole('button', { name: /배경 회수실/ })).toBeVisible();
   await expect(page.locator('.wizard-choice-card').filter({ has: page.getByText('회수실', { exact: true }) })).toHaveCount(0);
   const leah = page.locator('.wizard-choice-card').filter({ has: page.getByText('레아 벨', { exact: true }) });
   await leah.click();
   await page.getByRole('button', { name: /갈등·변수로 계속/ }).click();
 
-  await expect(page.getByRole('heading', { name: /긴장과 변화를/ })).toBeVisible();
+  await expectStepHelp(page, '갈등·변수 단계 설명', '무엇이 긴장과 변화를');
   await page.getByRole('button', { name: /선택 없이 집필 지침으로/ }).click();
-  await expect(page.getByRole('heading', { name: /무엇을 강조하거나 피할까요/ })).toBeVisible();
-  await expect(page.getByText(/현재 프로젝트에 저장한/)).toBeVisible();
+  await expectStepHelp(page, '집필 지침 단계 설명', '이번 글에서 무엇을 강조하거나 피할까요');
   await page.getByRole('button', { name: /선택 없이 전개 방식으로/ }).click();
 
-  await expect(page.getByRole('heading', { name: /어떤 방식으로 풀어갈까요/ })).toBeVisible();
-  await expect(page.getByText(/세계관 자료와 무관한 공통 전개 방식/)).toBeVisible();
+  await expectStepHelp(page, '전개 방식 단계 설명', '글을 어떤 방식으로 풀어갈까요');
   const causalPattern = page.locator('.recipe-option').filter({ hasText: '원인에서 파급으로' });
   await causalPattern.click();
   await expect(causalPattern).toHaveAttribute('aria-pressed', 'true');
@@ -275,14 +284,14 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
   await expect(causalPattern).toContainText('사회의 파급');
   await page.getByRole('button', { name: /결과물 형태로 계속/ }).click();
 
-  await expect(page.getByRole('heading', { name: /어떤 결과물로/ })).toBeVisible();
+  await expectStepHelp(page, '결과물 형태 단계 설명', '어떤 결과물로 만들까요');
   await expect(page.getByLabel('시점')).toHaveValue('omniscient');
   await expect(page.getByLabel('시제')).toHaveValue('present');
   await page.getByLabel('시점').selectOption('third_limited');
   await page.getByLabel('시제').selectOption('past');
   await page.getByRole('button', { name: /확인·작성으로 계속/ }).click();
 
-  await expect(page.getByRole('heading', { name: /선택을 확인하고 초안을/ })).toBeVisible();
+  await expectStepHelp(page, '확인·작성 단계 설명', '선택을 확인하고 초안을 만드세요');
   await expect(page.locator('.wizard-review-grid')).toContainText('검은 등대');
   await expect(page.locator('.wizard-review-grid')).toContainText('회수실');
   await expect(page.locator('.wizard-review-grid')).toContainText('레아 벨');
@@ -290,8 +299,7 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
   await expect(page.locator('.wizard-review-grid')).toContainText('원인에서 파급으로');
   await expect(page.getByRole('button', { name: '초안 작성', exact: true })).toBeDisabled();
   await page.getByRole('button', { name: '사용할 설정 확인 설명' }).click();
-  await expect(page.getByRole('tooltip').first()).toBeVisible();
-  await expect(page.getByRole('tooltip').first()).toContainText('AI가 사실로 쓸 내용');
+  await expect(page.getByRole('tooltip').filter({ hasText: 'AI가 사실로 쓸 내용' })).toBeVisible();
   const sessionRequestPromise = page.waitForRequest((request) =>
     request.method() === 'POST' && request.url().endsWith('/api/v1/playbook-sessions')
   );
@@ -313,11 +321,12 @@ test('document workflow separates draft editing, editable final settings, and lo
   test.skip(process.env.E2E_EXPECT_DATA !== 'true', 'requires the curated Black Route draft');
   await page.goto('/documents');
   await page.getByLabel('현재 프로젝트').selectOption({ label: '검은 항로 연대기' });
-  await expect(page.locator('.document-wizard-progress').getByRole('button', { name: /초안 편집/ })).toBeVisible();
-  await expect(page.locator('.document-wizard-progress').getByRole('button', { name: /완성 설정/ })).toBeVisible();
-  await expect(page.locator('.document-wizard-progress').getByRole('button', { name: /완성본 만들기/ })).toBeVisible();
+  await expect(page.locator('.document-wizard-progress .wizard-step-button').filter({ hasText: '초안 편집' })).toBeVisible();
+  await expect(page.locator('.document-wizard-progress .wizard-step-button').filter({ hasText: '완성 설정' })).toBeVisible();
+  await expect(page.locator('.document-wizard-progress .wizard-step-button').filter({ hasText: '완성본 만들기' })).toBeVisible();
+  await expect(page.locator('.wizard-heading')).toHaveCount(0);
   await page.getByRole('button', { name: /완성 설정으로 계속/ }).click();
-  await expect(page.getByRole('heading', { name: '완성본의 결과물 형태를 다시 정하세요.' })).toBeVisible();
+  await expectStepHelp(page, '완성 설정 단계 설명', '완성본의 결과물 형태를 다시 정하세요.');
   await expect(page.getByLabel('전개 방식')).toBeVisible();
   await expect(page.getByLabel('결과물 종류')).toHaveValue('video_narration');
   await page.getByLabel('시점').selectOption('first_observer');
@@ -370,7 +379,7 @@ test('draft edits and a new paragraph are saved before moving to final settings'
     const saveRequest = await saveRequestPromise;
     expect(saveRequest.postDataJSON().blocks).toHaveLength(originalBlocks.length + 1);
     expect((await saveRequest.response()).status()).toBe(200);
-    await expect(page.getByRole('heading', { name: '완성본의 결과물 형태를 다시 정하세요.' })).toBeVisible();
+    await expectStepHelp(page, '완성 설정 단계 설명', '완성본의 결과물 형태를 다시 정하세요.');
 
     await page.reload();
     await expect(page.getByLabel('초안 제목')).toHaveValue(`${originalDocument.title} · ${marker}`);

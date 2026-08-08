@@ -242,16 +242,14 @@
   <section class="wizard-shell">
     <nav class="wizard-progress" aria-label="글 만들기 선택 단계">
       {#each wizardSteps as step, index}
-        <button class:active={wizardStep === index} class:complete={index < wizardStep || index <= furthestStep && index !== wizardStep} disabled={index > furthestStep} aria-current={wizardStep === index ? 'step' : undefined} on:click={() => setWizardStep(index)}>
-          <span>{index + 1}</span><div><strong>{step.short}</strong><small>{progressSummaries[index]}</small></div>
-        </button>
+        <div class="wizard-progress-item">
+          <button class="wizard-step-button" class:active={wizardStep === index} class:complete={index < wizardStep || index <= furthestStep && index !== wizardStep} disabled={index > furthestStep} aria-current={wizardStep === index ? 'step' : undefined} on:click={() => setWizardStep(index)}>
+            <span>{index + 1}</span><div><strong>{step.short}</strong><small>{progressSummaries[index]}</small></div>
+          </button>
+          <HelpTip label={`${step.short} 단계 설명`} text={`${step.title} ${step.copy}`} />
+        </div>
       {/each}
     </nav>
-
-    <header class="wizard-heading">
-      <div><p class="eyebrow">{wizardStep + 1} / {wizardSteps.length}</p><h2>{activeStep.title}</h2><p>{activeStep.copy}</p></div>
-      {#if activeSlot}<span class="wizard-count">{activeIds.length}개 선택</span>{/if}
-    </header>
 
     {#if activeSlot}
       <div class="wizard-layout">

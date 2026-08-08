@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import TiptapEditor from '$lib/components/TiptapEditor.svelte';
   import ProjectCreator from '$lib/components/ProjectCreator.svelte';
+  import HelpTip from '$lib/components/HelpTip.svelte';
   import { api } from '$lib/api';
   import { relationLabel, relationLabels } from '$lib/labels';
   import { initialProjectId, rememberProject } from '$lib/project';
@@ -486,18 +487,19 @@
       </div>
     {:else if activeTab === 'directions'}
       <section class="directions-layout">
-        <div class="direction-intro">
-          <p class="eyebrow">프로젝트 집필 지침</p>
-          <h2>이 프로젝트의 글에서<br />강조할 것과 피할 것을 정합니다.</h2>
-          <p>세계관 사실도, 글의 전개 순서도 아닙니다. 글 만들기에서 선택하면 이번 원고가 지킬 강조점·금지 사항·결말 원칙을 Writer에게 전달합니다.</p>
-        </div>
-        <div class="card stack direction-create">
-          <h3>새 집필 지침</h3>
-          <label>지침 이름 <input bind:value={cardForm.title} placeholder="예: 제도의 효능과 대가를 함께 보여 준다" /></label>
-          <label>이 프로젝트의 글에서 무엇을 지킬까요? <textarea bind:value={cardForm.body} placeholder="강조할 내용, 반드시 보여 줄 과정, 피할 해석을 자연스럽게 적어 주세요."></textarea></label>
-          <label>찾기용 태그 <input bind:value={cardForm.tags} placeholder="제도, 의존, 대가" /></label>
-          <button class="primary" disabled={!cardForm.title.trim() || !cardForm.body.trim()} on:click={createCard}>지침 추가</button>
-        </div>
+        <header class="local-surface-header">
+          <div class="heading-with-help"><h2>집필 지침</h2><HelpTip label="집필 지침 설명" text="세계관 사실이나 전개 순서가 아니라, 이 프로젝트의 글에서 반복해 지킬 강조점·금지 사항·결말 원칙입니다. 글 만들기에서 원고별로 선택합니다." /></div>
+          <span>{cards.length}개</span>
+        </header>
+        <details class="editor-create-disclosure direction-create">
+          <summary>새 집필 지침 만들기</summary>
+          <div class="stack disclosure-body">
+            <label>지침 이름 <input bind:value={cardForm.title} placeholder="예: 제도의 효능과 대가를 함께 보여 준다" /></label>
+            <label>이 프로젝트의 글에서 무엇을 지킬까요? <textarea bind:value={cardForm.body} placeholder="강조할 내용, 반드시 보여 줄 과정, 피할 해석을 자연스럽게 적어 주세요."></textarea></label>
+            <label>찾기용 태그 <input bind:value={cardForm.tags} placeholder="제도, 의존, 대가" /></label>
+            <button class="primary" disabled={!cardForm.title.trim() || !cardForm.body.trim()} on:click={createCard}>지침 추가</button>
+          </div>
+        </details>
         <div class="direction-list">
           {#each cards as card}
             <article class="direction-card">
@@ -535,38 +537,39 @@
       </section>
     {:else}
       <section class="category-manager">
-        <div class="category-intro">
-          <p class="eyebrow">프로젝트 자료 종류</p>
-          <h2>이 세계에 맞는 분류를<br />직접 정합니다.</h2>
-          <p>시작용 종류도 이 프로젝트의 소유입니다. 이름과 설명을 바꾸거나 새 종류를 더할 수 있습니다. 종류를 바꿔도 자료 본문은 그대로 유지됩니다.</p>
-        </div>
-        <div class="stack">
-          <div class="card stack category-create">
-            <h3>새 자료 종류</h3>
+        <header class="local-surface-header">
+          <div class="heading-with-help"><h2>자료 종류</h2><HelpTip label="자료 종류 설명" text="자료 종류는 프로젝트별 분류입니다. 이름과 기준, 글 만들기에서 먼저 추천할 단계를 바꿀 수 있고, 종류를 수정해도 기존 자료 본문은 유지됩니다." /></div>
+          <span>{categories.length}개</span>
+        </header>
+        <details class="editor-create-disclosure category-create">
+          <summary>새 자료 종류 만들기</summary>
+          <div class="stack disclosure-body">
             <label>이름 <input aria-label="새 자료 종류 이름" bind:value={categoryForm.name} placeholder="예: 세력, 마법 체계, 생물종" /></label>
             <label>설명 <textarea bind:value={categoryForm.description} placeholder="어떤 자료를 이 종류로 묶을지 짧게 적어 주세요."></textarea></label>
-            <p class="small">새 종류는 처음에 글 만들기의 모든 선택 단계에 추천됩니다. 만든 뒤 아래에서 추천 위치를 조정할 수 있습니다.</p>
             <button class="primary" disabled={!categoryForm.name.trim()} on:click={createCategory}>자료 종류 만들기</button>
           </div>
-          <div class="category-list">
-            {#each categories as category}
-              <article class="card stack category-card">
-                <div class="row spread"><strong>{categoryUsedCount(category)}개 자료 사용 중</strong><button class="ghost danger" on:click={() => deleteCategory(category)}>삭제</button></div>
-                <label>이름 <input bind:value={category.name} /></label>
-                <label>설명 <textarea bind:value={category.description} placeholder="이 종류에 들어갈 자료의 기준"></textarea></label>
-                <fieldset>
-                  <legend>글 만들기에서 먼저 추천할 위치</legend>
-                  <div class="category-slot-list">
-                    {#each categorySlotOptions as slot}
-                      <label><input type="checkbox" checked={categorySlots(category).includes(slot.key)} on:change={() => toggleCategorySlot(category, slot.key)} /> {slot.label}</label>
-                    {/each}
-                  </div>
-                </fieldset>
-                <button class="secondary" disabled={!category.name.trim()} on:click={() => saveCategory(category)}>이 종류 저장</button>
-              </article>
-            {/each}
+        </details>
+        <div class="category-settings-list">
+          {#each categories as category}
+            <article class="category-settings-row">
+              <div class="category-row-fields">
+                <label>이름 <input aria-label={`${category.name} 자료 종류 이름`} bind:value={category.name} /></label>
+                <label class="category-description">분류 기준 <input aria-label={`${category.name} 분류 기준`} bind:value={category.description} placeholder="이 종류에 들어갈 자료의 기준" /></label>
+                <span class="category-usage">{categoryUsedCount(category)}개 자료</span>
+              </div>
+              <fieldset class="category-recommendations">
+                <legend>글 만들기 추천 <HelpTip label={`${category.name} 추천 위치 설명`} text="이 종류의 자료를 글 만들기의 어느 선택 단계에서 먼저 보여 줄지 정합니다. 선택하지 않아도 전체 범위에서는 찾을 수 있습니다." /></legend>
+                <div class="category-slot-list">
+                  {#each categorySlotOptions as slot}
+                    <label><input type="checkbox" checked={categorySlots(category).includes(slot.key)} on:change={() => toggleCategorySlot(category, slot.key)} /> {slot.label}</label>
+                  {/each}
+                </div>
+              </fieldset>
+              <div class="category-row-actions"><button class="secondary" disabled={!category.name.trim()} on:click={() => saveCategory(category)}>저장</button><button class="ghost danger" on:click={() => deleteCategory(category)}>삭제</button></div>
+            </article>
+          {/each}
+          {#if !categories.length}<div class="empty-state">아직 자료 종류가 없습니다. 위에서 이 세계의 분류를 만드세요.</div>{/if}
           </div>
-        </div>
       </section>
     {/if}
   {/if}
