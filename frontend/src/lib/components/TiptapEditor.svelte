@@ -57,15 +57,18 @@
 <style>
   .editor-shell {
     min-height: 460px;
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
     border: 1px solid var(--line);
     border-radius: 7px;
     background: var(--paper);
     box-shadow: 0 10px 30px rgba(20, 43, 53, .06);
   }
-  .editor-toolbar { display:flex; gap:4px; padding:8px 10px; border-bottom:1px solid var(--line); background:var(--paper-deep); }
+  .editor-toolbar { flex:0 0 auto; display:flex; gap:4px; padding:8px 10px; border-bottom:1px solid var(--line); background:var(--paper-deep); }
   .editor-toolbar button { min-width:34px; min-height:32px; border:1px solid transparent; background:transparent; border-radius:3px; padding:5px 8px; color:var(--muted-text); font-size:12px; }
   .editor-toolbar button:hover { background:#fff; border-color:var(--line); color:var(--ink); }
+  .editor-content { min-height: 0; flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
   .editor-content :global(.ProseMirror) {
     min-height: 430px;
     padding: clamp(24px, 4vw, 48px);
@@ -96,6 +99,10 @@
   }
   .editor-content :global(section[data-lore-block]) { position:relative; margin:14px 0; padding:10px 18px; border-left:3px solid var(--signal); background:#f6f8f6; }
   .editor-content :global(section[data-lore-block][locked="true"]) { border-left-color:var(--lichen); }
+  @media (min-width: 821px) {
+    .editor-shell { height: 100%; min-height: 0; }
+    .editor-content :global(.ProseMirror) { min-height: 100%; }
+  }
   @media (max-width: 540px) {
     .editor-content :global(.ProseMirror) { min-height: 360px; padding: 22px 18px; font-size: 15px; }
   }

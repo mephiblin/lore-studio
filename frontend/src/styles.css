@@ -209,6 +209,9 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
 
 /* World material archive */
 .archive-header { align-items: center; }
+.editor-commandbar { justify-content: space-between; gap: 10px; padding-block: 5px; }
+.editor-commandbar .section-tabs { flex: 0 0 auto; margin: 0; padding: 0; border: 0; background: transparent; box-shadow: none; }
+.editor-commandbar .project-tools { margin-left: auto; }
 .project-tools { display: flex; align-items: end; gap: 9px; }
 .project-tools > label { min-width: 250px; }
 .page-tools .project-tools > label { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
@@ -231,8 +234,13 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
 .archive-page-list small { overflow: hidden; color: var(--muted-text); text-overflow: ellipsis; white-space: nowrap; }
 .manuscript-panel { min-width: 0; }
 .manuscript-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 15px 18px; }
-.manuscript-toolbar h2 { margin: 8px 0 2px; font: 600 24px/1.2 Georgia, "Noto Serif KR", serif; }
-.manuscript-toolbar p { margin: 0; color: var(--muted-text); font-size: 12px; }
+.manuscript-heading-fields { min-width: 0; flex: 1 1 auto; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 5px 10px; align-items: center; }
+.manuscript-heading-fields .badge { justify-self: start; }
+input.manuscript-title-input { min-width: 0; min-height: 34px; padding: 2px 4px; border: 0; border-bottom: 1px solid transparent; border-radius: 0; background: transparent; font: 600 24px/1.2 Georgia, "Noto Serif KR", serif; }
+input.manuscript-title-input:hover, input.manuscript-title-input:focus { border-bottom-color: var(--line-strong); box-shadow: none; }
+input.manuscript-summary-input { grid-column: 1 / -1; min-height: 30px; padding: 3px 4px; border: 0; border-radius: 0; background: transparent; color: var(--muted-text); font-size: 12px; }
+input.manuscript-summary-input:hover, input.manuscript-summary-input:focus { background: var(--paper-deep); box-shadow: none; }
+.manuscript-toolbar > .primary { flex: 0 0 auto; }
 .archive-inspector { max-height: calc(100vh - 52px); overflow: auto; }
 details { border-top: 1px solid var(--line); }
 details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-weight: 750; cursor: pointer; }
@@ -241,6 +249,7 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
 .relation-section h3 { margin: 0; font: 600 16px/1.2 Georgia, "Noto Serif KR", serif; }
 .relation-card { display: grid; grid-template-columns: minmax(0, 1fr) 40px; gap: 6px; align-items: start; padding: 9px; border: 1px solid var(--line); border-radius: 5px; background: #fff; }
 .relation-link { display: grid; gap: 2px; min-width: 0; text-align: left; border: 0; background: transparent; color: var(--ink); }
+.relation-link strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .relation-link small, .relation-link span { overflow: hidden; color: var(--muted-text); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .icon-button { min-width: 40px; width: 40px; height: 40px; display: inline-grid; place-items: center; border: 1px solid var(--line); border-radius: 4px; background: transparent; color: var(--muted-text); }
 .icon-button:hover { color: var(--danger); border-color: #d7aaa6; }
@@ -674,13 +683,13 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
   .workspace-page > .success-banner,
   .workspace-page > .success { flex: 0 0 auto; margin-block: 0 10px; }
 
-  .editor-page > .section-tabs { flex: 0 0 auto; margin-bottom: 10px; }
   .editor-page > .archive-layout,
   .editor-page > .directions-layout,
   .editor-page > .category-manager { flex: 1 1 auto; min-height: 0; }
   .archive-layout { height: 100%; overflow: auto; align-items: stretch; }
   .archive-list { position: static; top: auto; height: 100%; max-height: none; }
-  .manuscript-panel { min-height: 0; overflow-y: auto; padding-right: 3px; overscroll-behavior: contain; }
+  .manuscript-panel { height: 100%; min-height: 0; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; overscroll-behavior: contain; }
+  .manuscript-panel > .empty-state { grid-row: 1 / -1; height: 100%; }
   .archive-inspector { height: 100%; max-height: none; overflow-y: auto; overscroll-behavior: contain; }
   .directions-layout {
     height: 100%; grid-template-rows: auto minmax(0, 1fr) auto;
@@ -757,5 +766,9 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
   .nav-collapsed .nav-list a { padding: 6px 2px; border-left-width: 0; }
   .app-main, .app-main.workspace-main { height: auto; overflow: visible; }
   .workspace-page { height: auto; min-height: 0; display: block; overflow: visible; }
+  .editor-commandbar { display: flex; align-items: stretch; flex-direction: column; }
+  .editor-commandbar .project-tools { order: -1; margin-left: 0; }
+  .editor-commandbar .section-tabs { width: 100%; }
+  .editor-commandbar .section-tabs button { flex: 1; }
   .playbook-workspace { overflow: visible; }
 }

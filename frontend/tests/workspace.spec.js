@@ -58,6 +58,35 @@ test('desktop workspaces keep the browser page fixed and scroll inside their mai
   expect(shelf.y).toBe(reader.y);
 });
 
+test('world material editor keeps writing primary and metadata compact', async ({ page }, testInfo) => {
+  test.skip(process.env.E2E_EXPECT_DATA !== 'true', 'requires the curated Diablo project');
+  test.skip(testInfo.project.name !== 'desktop', 'desktop editor desk check only');
+  await page.goto('/editor');
+  await page.getByLabel('현재 프로젝트').selectOption({ label: 'Diablo' });
+
+  const commandbar = page.locator('.editor-commandbar');
+  await expect(commandbar.getByRole('navigation', { name: '세계관 자료 관리' })).toBeVisible();
+  await expect(commandbar.getByLabel('현재 프로젝트')).toBeVisible();
+  await expect(page.getByLabel('자료 제목')).toBeEditable();
+  await expect(page.getByLabel('한 줄 요약')).toBeEditable();
+  await expect(page.locator('.archive-inspector').getByLabel('시대')).toHaveCount(0);
+  await expect(page.locator('.archive-inspector').getByLabel('연속성')).toHaveCount(0);
+  await expect(page.locator('.archive-page-list .badge')).toHaveCount(0);
+
+  const bodyScroll = await page.locator('.editor-content').evaluate((element) => ({
+    client: element.clientHeight,
+    scroll: element.scrollHeight,
+    overflow: getComputedStyle(element).overflowY,
+  }));
+  expect(bodyScroll.scroll).toBeGreaterThan(bodyScroll.client);
+  expect(bodyScroll.overflow).toBe('auto');
+
+  const relation = page.locator('.relation-card').first();
+  await expect(relation).toBeVisible();
+  await expect(relation).not.toContainText('이 자료 —');
+  await expect(relation).not.toContainText(/HOME_OF|CULMINATES_IN|CONTAINS|INHABITS|SERVES/);
+});
+
 test('small mobile navigation and workflow steps stay inside the viewport', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'mobile', 'small-viewport check only');
   await page.setViewportSize({ width: 360, height: 844 });
@@ -193,8 +222,7 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
   await expect(page.locator('.editor-content')).toContainText('통과에는 대가가 필요하다');
   await memoryTaxPage.click();
   await expect(memoryTaxPage).toHaveClass(/active/);
-  await expect(page.locator('.manuscript-toolbar').getByRole('heading', { name: '기억세' })).toBeVisible();
-  await expect(page.locator('.archive-inspector').getByLabel('제목')).toHaveValue('기억세');
+  await expect(page.locator('.manuscript-toolbar').getByLabel('자료 제목')).toHaveValue('기억세');
   await expect(page.locator('.editor-content')).toContainText('기억세는 돈이 아니라 손실 가능성을 시민에게 배분하는 제도다');
   await expect(page.locator('.editor-content')).not.toContainText('통과에는 대가가 필요하다');
   if (testInfo.project.name === 'mobile') {

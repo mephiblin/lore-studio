@@ -28,7 +28,12 @@ export const relationLabels = {
   REGULATES: '규율함',
   CONTEXT_FOR: '배경이 됨',
   CONFLICTS_WITH: '충돌함',
-  LOCATED_IN: '소재함'
+  LOCATED_IN: '소재함',
+  CONTAINS: '포함함',
+  CULMINATES_IN: '귀결됨',
+  HOME_OF: '거점이 됨',
+  INHABITS: '거주함',
+  SERVES: '섬김'
 };
 
 export const modelRoleLabels = {

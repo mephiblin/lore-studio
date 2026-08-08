@@ -3,7 +3,7 @@
   import TiptapEditor from '$lib/components/TiptapEditor.svelte';
   import ProjectCreator from '$lib/components/ProjectCreator.svelte';
   import { api } from '$lib/api';
-  import { relationLabel, roleLabel, relationLabels } from '$lib/labels';
+  import { relationLabel, relationLabels } from '$lib/labels';
   import { initialProjectId, rememberProject } from '$lib/project';
 
   let projects = [];
@@ -133,8 +133,6 @@
         category_key: selectedPage.category_key,
         tags: typeof selectedPage.tagsText === 'string' ? selectedPage.tagsText.split(',').map((item) => item.trim()).filter(Boolean) : selectedPage.tags,
         namespace: selectedPage.namespace,
-        era: selectedPage.era,
-        continuity: selectedPage.continuity,
         summary: selectedPage.summary,
         body_json: selectedPage.body_json,
         locked_facts: lines(selectedPage.lockedFactsText, selectedPage.locked_facts),
@@ -361,7 +359,14 @@
 </script>
 
 <div class="page workspace-page editor-page">
-  <div class="page-tools">
+  <div class="page-tools editor-commandbar">
+    {#if projects.length}
+      <nav class="section-tabs" aria-label="세계관 자료 관리">
+        <button class:active={activeTab === 'pages'} on:click={() => activeTab = 'pages'}>세계관 자료 <span>{pages.length}</span></button>
+        <button class:active={activeTab === 'categories'} on:click={() => activeTab = 'categories'}>자료 종류 <span>{categories.length}</span></button>
+        <button class:active={activeTab === 'directions'} on:click={() => activeTab = 'directions'}>집필 지침 <span>{cards.length}</span></button>
+      </nav>
+    {/if}
     <div class="project-tools">
       <label>현재 프로젝트<select bind:value={projectId} on:change={changeProject}><option value="">프로젝트 선택</option>{#each projects as project}<option value={project.id}>{project.name}</option>{/each}</select></label>
       <ProjectCreator onCreated={projectCreated} />
@@ -375,12 +380,6 @@
   {#if !projects.length}
     <section class="empty-state"><strong>먼저 프로젝트를 만들어 주세요.</strong><p>프로젝트는 하나의 세계관과 그 원고를 서로 섞이지 않게 보관합니다.</p></section>
   {:else}
-    <nav class="section-tabs" aria-label="세계관 자료 관리">
-      <button class:active={activeTab === 'pages'} on:click={() => activeTab = 'pages'}>세계관 자료 <span>{pages.length}</span></button>
-      <button class:active={activeTab === 'categories'} on:click={() => activeTab = 'categories'}>자료 종류 <span>{categories.length}</span></button>
-      <button class:active={activeTab === 'directions'} on:click={() => activeTab = 'directions'}>집필 지침 <span>{cards.length}</span></button>
-    </nav>
-
     {#if activeTab === 'pages'}
       <div class="archive-layout">
         <aside class="card archive-list stack">
@@ -399,7 +398,7 @@
           <div class="archive-page-list">
             {#each visiblePages as page}
               <button class:active={selectedPage?.id === page.id} on:click={() => selectPage(page, { reveal: true })}>
-                <span class="row spread"><strong>{page.title}</strong><span class:canon={page.usage_role === 'PROJECT_CANON'} class="badge">{roleLabel(page.usage_role)}</span></span>
+                <strong>{page.title}</strong>
                 <small>{categoryName(page)}{page.summary ? ` · ${page.summary.slice(0, 48)}` : ''}</small>
               </button>
             {/each}
@@ -410,7 +409,11 @@
         <section class="stack manuscript-panel">
           {#if selectedPage}
             <div class="card manuscript-toolbar">
-              <div><span class="badge">{categoryName(selectedPage)}</span><h2>{selectedPage.title}</h2><p>{selectedPage.summary || '이 자료를 한 문장으로 설명해 보세요.'}</p></div>
+              <div class="manuscript-heading-fields">
+                <span class="badge">{categoryName(selectedPage)}</span>
+                <input class="manuscript-title-input" aria-label="자료 제목" bind:value={selectedPage.title} />
+                <input class="manuscript-summary-input" aria-label="한 줄 요약" bind:value={selectedPage.summary} placeholder="이 자료를 한 문장으로 설명해 보세요." />
+              </div>
               <button class="primary" on:click={savePage}>변경 저장</button>
             </div>
             {#key selectedPage.id}
@@ -421,13 +424,10 @@
 
         <aside class="card archive-inspector stack">
           {#if selectedPage}
-            <div class="row spread"><h2>핵심 정보</h2><span class:canon={selectedPage.usage_role === 'PROJECT_CANON'} class="badge">{roleLabel(selectedPage.usage_role)}</span></div>
-            <label>제목 <input bind:value={selectedPage.title} /></label>
+            <h2>핵심 정보</h2>
             <label>자료 종류<select bind:value={selectedPage.category_key}>{#each categories as category}<option value={category.key}>{category.name}</option>{/each}</select></label>
             <label>태그 <input bind:value={selectedPage.tagsText} list="known-tags" placeholder="쉼표로 구분" /></label>
             <datalist id="known-tags">{#each allTags as tag}<option value={tag}></option>{/each}</datalist>
-            <label>한 줄 요약 <textarea bind:value={selectedPage.summary} placeholder="이 자료가 무엇인지 짧게 설명하세요."></textarea></label>
-            <div class="grid-2"><label>시대 <input bind:value={selectedPage.era} /></label><label>연속성 <input bind:value={selectedPage.continuity} /></label></div>
 
             <details open>
               <summary>원고에서 지킬 것</summary>
@@ -443,8 +443,8 @@
               {#each relations as relation}
                 <div class="relation-card">
                   <button class="relation-link" on:click={() => selectPage(pages.find((page) => page.id === otherPage(relation)), { reveal: true })}>
-                    <small>{relation.source_page_id === selectedPage.id ? '나가는 연결' : '들어오는 연결'}</small>
-                    <strong>{relation.source_page_id === selectedPage.id ? `이 자료 — ${relationLabel(relation.relation_type)} → ${pageName(otherPage(relation))}` : `${pageName(otherPage(relation))} — ${relationLabel(relation.relation_type)} → 이 자료`}</strong>
+                    <small>{relation.source_page_id === selectedPage.id ? '나가는 연결' : '들어오는 연결'} · {relationLabel(relation.relation_type)}</small>
+                    <strong>{pageName(otherPage(relation))}</strong>
                     {#if relation.notes}<span>{relation.notes}</span>{/if}
                   </button>
                   <button class="icon-button" aria-label="연결 삭제" on:click={() => removeRelation(relation)}>×</button>
