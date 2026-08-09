@@ -304,6 +304,13 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
 .editor-create-disclosure[open] > summary { border-bottom: 1px solid var(--line); }
 .editor-create-disclosure .disclosure-body { padding: 13px; }
 .editor-create-disclosure .primary { justify-self: start; }
+.direction-rule-editor { border: 1px solid var(--line); border-radius: 5px; background: rgba(255,255,255,.55); }
+.direction-rule-editor > summary { display: flex; align-items: center; gap: 7px; padding: 10px 11px; font-size: 11px; }
+.direction-rule-editor > summary span { color: var(--muted-text); font-size: 9px; font-weight: 650; }
+.direction-rule-editor[open] > summary { border-bottom: 1px solid var(--line); }
+.direction-rule-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; padding: 11px; }
+.direction-rule-fields textarea { min-height: 78px; }
+.direction-ending-field { grid-column: 1 / -1; }
 .direction-list { min-height: 0; display: grid; gap: 8px; align-content: start; }
 .direction-empty { min-height: 220px; background: rgba(251, 250, 245, .45); }
 .direction-card { padding: 16px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); }
@@ -314,6 +321,7 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
 .rule-grid > div { display: grid; gap: 5px; padding: 11px; background: var(--paper-deep); }
 .rule-grid strong { color: var(--ink); font-size: 11px; }
 .rule-grid span { color: var(--muted-text); font-size: 12px; line-height: 1.55; }
+.direction-rule-grid { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
 .suggestion-review { position: sticky; bottom: 14px; z-index: 8; box-shadow: var(--shadow); }
 .suggestion-review h3 { margin: 0; }
 .category-settings-list { min-height: 0; display: grid; gap: 5px; align-content: start; }
@@ -691,6 +699,8 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
   .home-thesis { padding: 18px 20px 20px; }
   .home-thesis h1 { font-size: 28px; }
   .project-grid, .wizard-card-grid, .direction-option-grid, .recipe-option-grid, .concept-card-grid, .rule-grid { grid-template-columns: 1fr; }
+  .direction-rule-fields { grid-template-columns: 1fr; }
+  .direction-ending-field { grid-column: auto; }
   .category-settings-row { grid-template-columns: 1fr; align-items: stretch; }
   .category-row-fields { grid-template-columns: minmax(110px, .38fr) minmax(0, 1fr) auto; }
   .section-tabs { width: 100%; }

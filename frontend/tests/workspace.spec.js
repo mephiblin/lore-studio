@@ -284,8 +284,32 @@ test('a project can be added after projects already exist', async ({ page }, tes
     await expect(boundaryAiButton).toBeVisible();
     await expect.poll(() => boundaryAiButton.evaluate((element) => element.getBoundingClientRect().width === element.parentElement.getBoundingClientRect().width)).toBe(true);
 
+    await page.getByRole('navigation', { name: '세계관 자료 관리' }).getByRole('button', { name: /^집필 지침/ }).click();
+    await page.getByText('새 집필 지침 만들기', { exact: true }).click();
+    await page.getByLabel('지침 이름').fill('유용한 기술의 대가');
+    await page.getByLabel('이 프로젝트의 글에서 무엇을 지킬까요?').fill('효능은 유지하고 대가가 누적되는 과정을 보여 준다.');
+    await page.locator('.direction-create .direction-rule-editor > summary').click();
+    await page.getByLabel('새 집필 지침 목표').fill('기술의 실제 효능을 보여 준다');
+    await page.getByLabel('새 집필 지침 전개 순서').fill('도입\n성공\n의존\n대가');
+    await page.getByLabel('새 집필 지침 반드시 포함').fill('대체재가 없는 이유');
+    await page.getByLabel('새 집필 지침 피할 전개').fill('처음부터 모두 거짓이었다는 반전');
+    await page.getByLabel('새 집필 지침 선호 결말').fill('해결보다 선택의 비용을 남긴다');
+    const directionResponsePromise = page.waitForResponse((response) =>
+      response.request().method() === 'POST' && response.url().endsWith('/api/v1/direction-cards')
+    );
+    await page.getByRole('button', { name: '지침 추가', exact: true }).click();
+    const directionResponse = await directionResponsePromise;
+    expect(directionResponse.status()).toBe(201);
+    const directionPayload = await directionResponse.json();
+    expect(directionPayload.parsed_rules.sequence).toEqual(['도입', '성공', '의존', '대가']);
+    expect(directionPayload.parsed_rules.must_include).toEqual(['대체재가 없는 이유']);
+    const directionCard = page.locator('.direction-card').filter({ hasText: '유용한 기술의 대가' });
+    await expect(directionCard).toContainText('도입 → 성공 → 의존 → 대가');
+    await expect(directionCard).toContainText('해결보다 선택의 비용을 남긴다');
+
     await page.getByRole('navigation', { name: '세계관 자료 관리' }).getByRole('button', { name: /^전개 방식/ }).click();
-    await expectStepHelp(page, '전개 방식 설명', '프로젝트 전용 흐름');
+    await expectStepHelp(page, '전개 방식 설명', '공용 기본 방식은 프로젝트와 관계없이');
+    await expect(page.locator('.recipe-settings-card').filter({ hasText: '모든 프로젝트에서 사용' }).first()).toBeVisible();
     await page.getByText('새 전개 방식 만들기', { exact: true }).click();
     await page.getByLabel('새 전개 방식 이름').fill('징후에서 결론으로');
     await page.getByRole('button', { name: '전개 방식 만들기', exact: true }).click();
@@ -424,7 +448,7 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
   await expect(page.locator('.wizard-review-grid')).toContainText('원인에서 파급으로');
   await expect(page.getByRole('button', { name: '초안 작성', exact: true })).toBeDisabled();
   await page.getByRole('button', { name: '사용할 설정 확인 설명' }).click();
-  await expect(page.getByRole('tooltip').filter({ hasText: 'AI가 사실로 쓸 내용' })).toBeVisible();
+  await expect(page.getByRole('tooltip').filter({ hasText: '유지할 사실, 공개 유보, 금지된 변경·전개' })).toBeVisible();
   const sessionRequestPromise = page.waitForRequest((request) =>
     request.method() === 'POST' && request.url().endsWith('/api/v1/playbook-sessions')
   );

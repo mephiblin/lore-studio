@@ -72,7 +72,7 @@ Lore Studio는 이 문제를 **데이터 층, 방향 층, 작문 층, 실행 층
 - 백야항 시민의 생활 비용을 반드시 보여 준다.
 - 확정되지 않은 범인의 정체를 단정하지 않는다.
 
-카드는 자유 텍스트로 작성하고, 보조 LLM이 선택적으로 `must_include`, `avoid`, `sequence`, `ending_preference`를 제안한다.
+카드는 자유 텍스트를 중심으로 작성하고, 사용자가 선택적으로 `goals`, `must_include`, `avoid`, `sequence`, `ending_preference`를 직접 입력할 수 있다. 보조 LLM은 같은 구조를 제안하되 사용자 원문을 바꾸지 않는다.
 
 ### 3.3 전개 방식(WritingRecipe)
 

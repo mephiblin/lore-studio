@@ -28,7 +28,7 @@
   let newPageOpen = false;
   let editingCardId = '';
   let editingRecipeId = '';
-  let cardDraft = { title: '', body: '', tags: '' };
+  let cardDraft = null;
   let categoryForm = { name: '', description: '' };
 
   const starterRecipeSteps = () => [
@@ -36,6 +36,10 @@
     { move: 'ANCHOR', label: '핵심', purpose: moveDescriptions.ANCHOR },
     { move: 'INTERPRET', label: '의미', purpose: moveDescriptions.INTERPRET }
   ];
+
+  const emptyCardForm = () => ({
+    title: '', body: '', tags: '', goals: '', sequence: '', mustInclude: '', avoid: '', endingPreference: ''
+  });
 
   const emptyRecipeForm = () => ({
     name: '', description: '', bestFor: '', steps: starterRecipeSteps(),
@@ -49,12 +53,13 @@
   $: allTags = [...new Set(pages.flatMap((page) => page.tags || []))].sort();
 
   let pageForm = { title: '', category_key: '', purpose: 'setting' };
-  let cardForm = { title: '', body: '', tags: '' };
+  let cardForm = emptyCardForm();
   let recipeForm = emptyRecipeForm();
   let recipeDraft = emptyRecipeForm();
   let relationForm = { target_page_id: '', relation_type: 'RELATED_TO', notes: '' };
 
   $: projectRecipes = recipes.filter((recipe) => recipe.project_id === projectId);
+  $: sharedRecipes = recipes.filter((recipe) => !recipe.project_id);
 
   const purposeRoles = {
     setting: 'DRAFT_SETTING',
@@ -205,6 +210,34 @@
 
   function lines(text, fallback) {
     return typeof text === 'string' ? text.split('\n').map((item) => item.trim()).filter(Boolean) : fallback;
+  }
+
+  function cardRulesToForm(card) {
+    const rules = card?.parsed_rules || {};
+    return {
+      goals: (rules.goals || []).join('\n'),
+      sequence: (rules.sequence || []).join('\n'),
+      mustInclude: (rules.must_include || []).join('\n'),
+      avoid: (rules.avoid || []).join('\n'),
+      endingPreference: rules.ending_preference || ''
+    };
+  }
+
+  function cardRulesFromForm(form, existing = {}) {
+    return {
+      ...existing,
+      goals: lines(form.goals, []),
+      sequence: lines(form.sequence, []),
+      must_include: lines(form.mustInclude, []),
+      avoid: lines(form.avoid, []),
+      ending_preference: form.endingPreference.trim()
+    };
+  }
+
+  function hasCardRules(card) {
+    const rules = card?.parsed_rules || {};
+    return ['goals', 'sequence', 'must_include', 'avoid'].some((key) => rules[key]?.length)
+      || !!rules.ending_preference;
   }
 
   function recipeToForm(recipe) {
@@ -428,24 +461,30 @@
         title: cardForm.title.trim(),
         body: cardForm.body.trim(),
         tags: cardForm.tags.split(',').map((item) => item.trim()).filter(Boolean),
-        parsed_rules: {}, weight: 1, enabled: true
+        parsed_rules: cardRulesFromForm(cardForm), weight: 1, enabled: true
       });
       cards = [card, ...cards];
-      cardForm = { title: '', body: '', tags: '' };
+      cardForm = emptyCardForm();
       message = '집필 지침을 추가했습니다.';
     } catch (e) { error = e.message; }
   }
 
   function editCard(card) {
     editingCardId = card.id;
-    cardDraft = { title: card.title, body: card.body, tags: (card.tags || []).join(', ') };
+    cardDraft = {
+      title: card.title,
+      body: card.body,
+      tags: (card.tags || []).join(', '),
+      ...cardRulesToForm(card)
+    };
   }
 
   async function saveCard(card) {
     try {
       const updated = await api.patch(`/direction-cards/${card.id}`, {
         title: cardDraft.title.trim(), body: cardDraft.body.trim(),
-        tags: cardDraft.tags.split(',').map((item) => item.trim()).filter(Boolean)
+        tags: cardDraft.tags.split(',').map((item) => item.trim()).filter(Boolean),
+        parsed_rules: cardRulesFromForm(cardDraft, card.parsed_rules)
       });
       cards = cards.map((item) => item.id === updated.id ? updated : item);
       editingCardId = '';
@@ -514,7 +553,7 @@
         <button class:active={activeTab === 'pages'} on:click={() => activeTab = 'pages'}>세계관 자료 <span>{pages.length}</span></button>
         <button class:active={activeTab === 'categories'} on:click={() => activeTab = 'categories'}>자료 종류 <span>{categories.length}</span></button>
         <button class:active={activeTab === 'directions'} on:click={() => activeTab = 'directions'}>집필 지침 <span>{cards.length}</span></button>
-        <button class:active={activeTab === 'recipes'} on:click={() => activeTab = 'recipes'}>전개 방식 <span>{projectRecipes.length}</span></button>
+        <button class:active={activeTab === 'recipes'} on:click={() => activeTab = 'recipes'}>전개 방식 <span>{recipes.length}</span></button>
       </nav>
     {/if}
     <div class="project-tools">
@@ -680,6 +719,16 @@
             <label>지침 이름 <input bind:value={cardForm.title} placeholder="예: 제도의 효능과 대가를 함께 보여 준다" /></label>
             <label>이 프로젝트의 글에서 무엇을 지킬까요? <textarea bind:value={cardForm.body} placeholder="강조할 내용, 반드시 보여 줄 과정, 피할 해석을 자연스럽게 적어 주세요."></textarea></label>
             <label>찾기용 태그 <input bind:value={cardForm.tags} placeholder="제도, 의존, 대가" /></label>
+            <details class="direction-rule-editor">
+              <summary>세부 규칙 직접 작성 <span>선택</span></summary>
+              <div class="direction-rule-fields">
+                <label>지침 목표 <textarea aria-label="새 집필 지침 목표" bind:value={cardForm.goals} placeholder="한 줄에 하나씩"></textarea></label>
+                <label>전개 순서 <textarea aria-label="새 집필 지침 전개 순서" bind:value={cardForm.sequence} placeholder="도입→성공→의존 순서를 한 줄에 하나씩"></textarea></label>
+                <label>반드시 포함 <textarea aria-label="새 집필 지침 반드시 포함" bind:value={cardForm.mustInclude} placeholder="한 줄에 하나씩"></textarea></label>
+                <label>피할 전개 <textarea aria-label="새 집필 지침 피할 전개" bind:value={cardForm.avoid} placeholder="한 줄에 하나씩"></textarea></label>
+                <label class="direction-ending-field">선호 결말 <input aria-label="새 집필 지침 선호 결말" bind:value={cardForm.endingPreference} placeholder="예: 해결보다 선택의 비용을 남긴다" /></label>
+              </div>
+            </details>
             <button class="primary" disabled={!cardForm.title.trim() || !cardForm.body.trim()} on:click={createCard}>지침 추가</button>
           </div>
         </details>
@@ -687,15 +736,32 @@
           {#each cards as card}
             <article class="direction-card">
               {#if editingCardId === card.id}
-                <div class="stack"><label>지침 이름 <input bind:value={cardDraft.title} /></label><label>지침 설명 <textarea bind:value={cardDraft.body}></textarea></label><label>태그 <input bind:value={cardDraft.tags} /></label><div class="row"><button class="primary" on:click={() => saveCard(card)}>저장</button><button class="ghost" on:click={() => editingCardId = ''}>취소</button></div></div>
+                <div class="stack">
+                  <label>지침 이름 <input bind:value={cardDraft.title} /></label>
+                  <label>지침 설명 <textarea bind:value={cardDraft.body}></textarea></label>
+                  <label>태그 <input bind:value={cardDraft.tags} /></label>
+                  <details class="direction-rule-editor" open={hasCardRules(card)}>
+                    <summary>세부 규칙 직접 작성 <span>선택</span></summary>
+                    <div class="direction-rule-fields">
+                      <label>지침 목표 <textarea aria-label={`${card.title} 지침 목표`} bind:value={cardDraft.goals}></textarea></label>
+                      <label>전개 순서 <textarea aria-label={`${card.title} 전개 순서`} bind:value={cardDraft.sequence}></textarea></label>
+                      <label>반드시 포함 <textarea aria-label={`${card.title} 반드시 포함`} bind:value={cardDraft.mustInclude}></textarea></label>
+                      <label>피할 전개 <textarea aria-label={`${card.title} 피할 전개`} bind:value={cardDraft.avoid}></textarea></label>
+                      <label class="direction-ending-field">선호 결말 <input aria-label={`${card.title} 선호 결말`} bind:value={cardDraft.endingPreference} /></label>
+                    </div>
+                  </details>
+                  <div class="row"><button class="primary" on:click={() => saveCard(card)}>저장</button><button class="ghost" on:click={() => editingCardId = ''}>취소</button></div>
+                </div>
               {:else}
                 <div class="row spread"><div><div class="tag-row">{#each card.tags || [] as tag}<span class="badge">{tag}</span>{/each}</div><h3>{card.title}</h3></div><span class="badge canon">선택 가능</span></div>
                 <p>{card.body}</p>
-                {#if Object.keys(card.parsed_rules || {}).length}
-                  <div class="rule-grid">
-                    <div><strong>반드시 포함</strong><span>{(card.parsed_rules.must_include || []).join(' · ') || '없음'}</span></div>
-                    <div><strong>피할 전개</strong><span>{(card.parsed_rules.avoid || []).join(' · ') || '없음'}</span></div>
-                    <div><strong>선호 결말</strong><span>{card.parsed_rules.ending_preference || '지정 안 함'}</span></div>
+                {#if hasCardRules(card)}
+                  <div class="rule-grid direction-rule-grid">
+                    {#if card.parsed_rules.goals?.length}<div><strong>지침 목표</strong><span>{card.parsed_rules.goals.join(' · ')}</span></div>{/if}
+                    {#if card.parsed_rules.sequence?.length}<div><strong>전개 순서</strong><span>{card.parsed_rules.sequence.join(' → ')}</span></div>{/if}
+                    {#if card.parsed_rules.must_include?.length}<div><strong>반드시 포함</strong><span>{card.parsed_rules.must_include.join(' · ')}</span></div>{/if}
+                    {#if card.parsed_rules.avoid?.length}<div><strong>피할 전개</strong><span>{card.parsed_rules.avoid.join(' · ')}</span></div>{/if}
+                    {#if card.parsed_rules.ending_preference}<div><strong>선호 결말</strong><span>{card.parsed_rules.ending_preference}</span></div>{/if}
                   </div>
                 {/if}
                 <div class="row wrap"><button class="secondary" on:click={() => editCard(card)}>내용 수정</button><button class="ghost" on:click={() => suggestCard(card)}>AI로 세부 규칙 정리</button><button class="danger-button" on:click={() => deleteCard(card)}>삭제</button></div>
@@ -721,8 +787,8 @@
     {:else if activeTab === 'recipes'}
       <section class="recipe-manager">
         <header class="local-surface-header">
-          <div class="heading-with-help"><h2>전개 방식</h2><HelpTip label="전개 방식 설명" text="정보를 어떤 순서로 공개할지 정하는 프로젝트 전용 흐름입니다. 공용 기본 방식과 함께 글 만들기에서 하나를 선택하며, 원고의 소재나 사실을 대신하지 않습니다." /></div>
-          <span>{projectRecipes.length}개</span>
+          <div class="heading-with-help"><h2>전개 방식</h2><HelpTip label="전개 방식 설명" text="정보를 어떤 순서로 공개할지 정합니다. 공용 기본 방식은 프로젝트와 관계없이 항상 보이고, 현재 프로젝트에서 만든 방식은 같은 목록에 함께 보입니다." /></div>
+          <span>공용 {sharedRecipes.length}개 · 프로젝트 {projectRecipes.length}개</span>
         </header>
         <details class="editor-create-disclosure recipe-create">
           <summary>새 전개 방식 만들기</summary>
@@ -753,7 +819,7 @@
           </div>
         </details>
         <div class="recipe-settings-list">
-          {#each projectRecipes as recipe}
+          {#each recipes as recipe}
             <article class="recipe-settings-card">
               {#if editingRecipeId === recipe.id}
                 <div class="stack recipe-edit-form">
@@ -776,7 +842,7 @@
                   <div class="row"><button class="primary" disabled={!recipeDraft.name.trim() || recipeDraft.steps.some((step) => !step.label.trim())} on:click={() => saveRecipe(recipe)}>저장</button><button class="ghost" on:click={() => editingRecipeId = ''}>취소</button></div>
                 </div>
               {:else}
-                <div class="row spread"><div><span class="recipe-origin">이 프로젝트에서 사용</span><h3>{recipe.name}</h3></div><span class="badge canon">{(recipe.recipe_json?.required_moves || []).length}단계</span></div>
+                <div class="row spread"><div><span class="recipe-origin">{recipe.project_id ? '이 프로젝트에서 사용' : '모든 프로젝트에서 사용'}</span><h3>{recipe.name}</h3></div><span class="badge canon">{(recipe.recipe_json?.required_moves || []).length}단계</span></div>
                 <p>{recipe.description || '설명이 없습니다.'}</p>
                 <div class="recipe-flow recipe-settings-flow" aria-label={`${recipe.name} 순서`}>
                   {#each recipe.recipe_json?.pattern_preview || [] as part, index}
@@ -784,11 +850,11 @@
                   {/each}
                 </div>
                 {#if recipe.recipe_json?.best_for}<small><b>잘 맞는 글</b> {recipe.recipe_json.best_for}</small>{/if}
-                <div class="row wrap recipe-settings-actions"><button class="secondary" on:click={() => editRecipe(recipe)}>내용 수정</button><button class="danger-button" on:click={() => deleteRecipe(recipe)}>삭제</button></div>
+                {#if recipe.project_id}<div class="row wrap recipe-settings-actions"><button class="secondary" on:click={() => editRecipe(recipe)}>내용 수정</button><button class="danger-button" on:click={() => deleteRecipe(recipe)}>삭제</button></div>{/if}
               {/if}
             </article>
           {/each}
-          {#if !projectRecipes.length}<div class="empty-state direction-empty"><strong>이 프로젝트만의 전개 방식이 없습니다.</strong><p>위에서 새로 만들거나, 문체 참고 자료의 구성·문체 분석 결과를 승인하세요. 공용 기본 방식은 글 만들기에서 계속 사용할 수 있습니다.</p></div>{/if}
+          {#if !recipes.length}<div class="empty-state direction-empty"><strong>사용할 수 있는 전개 방식이 없습니다.</strong></div>{/if}
         </div>
       </section>
     {:else}
