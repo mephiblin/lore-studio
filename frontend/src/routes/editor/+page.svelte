@@ -56,7 +56,7 @@
   });
   $: allTags = [...new Set(pages.flatMap((page) => page.tags || []))].sort();
 
-  let pageForm = { title: '', category_key: '', purpose: 'setting' };
+  let pageForm = { title: '', category_key: '' };
   let cardForm = emptyCardForm();
   let recipeForm = emptyRecipeForm();
   let recipeDraft = emptyRecipeForm();
@@ -77,13 +77,6 @@
       role_label: roleLabel(page.usage_role),
       linked: linkedSourceIds.includes(page.id)
     }));
-
-  const purposeRoles = {
-    setting: 'DRAFT_SETTING',
-    evidence: 'CANON_EVIDENCE',
-    inspiration: 'INSPIRATION',
-    style: 'DISCOURSE_REFERENCE'
-  };
 
   onMount(loadInitial);
 
@@ -141,7 +134,6 @@
         title: pageForm.title.trim(),
         category_key: pageForm.category_key,
         tags: [],
-        usage_role: purposeRoles[pageForm.purpose],
         status: 'active',
         namespace: project?.universe_namespace || 'default',
         summary: '',
@@ -152,7 +144,7 @@
         forbidden_changes: []
       });
       pages = [page, ...pages];
-      pageForm = { title: '', category_key: categories[0]?.key || '', purpose: 'setting' };
+      pageForm = { title: '', category_key: categories[0]?.key || '' };
       newPageOpen = false;
       await selectPage(page, { reveal: true });
       message = '새 자료를 만들었습니다. 본문과 핵심 사실을 채워 보세요.';
@@ -595,10 +587,7 @@
           {#if newPageOpen}
             <div class="inline-create stack">
               <label>자료 이름 <input bind:value={pageForm.title} placeholder="예: 황혼 시장" /></label>
-              <div class="grid-2">
-                <label>자료 종류<select bind:value={pageForm.category_key}>{#each categories as category}<option value={category.key}>{category.name}</option>{/each}</select></label>
-                <label>용도<select bind:value={pageForm.purpose}><option value="setting">세계관 설정</option><option value="evidence">정식 설정 근거</option><option value="inspiration">영감 자료</option><option value="style">문체 참고</option></select></label>
-              </div>
+              <label>자료 종류<select bind:value={pageForm.category_key}>{#each categories as category}<option value={category.key}>{category.name}</option>{/each}</select></label>
               <button class="primary" disabled={!pageForm.title.trim() || !pageForm.category_key} on:click={createPage}>자료 만들기</button>
             </div>
           {/if}

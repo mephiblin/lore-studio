@@ -361,9 +361,16 @@ test('a project can be added after projects already exist', async ({ page }, tes
     await page.getByRole('button', { name: /세계관 자료/ }).click();
     await page.getByRole('button', { name: '+ 새 자료' }).click();
     await expect(page.getByLabel('자료 종류')).toContainText('세력');
+    await expect(page.getByText('용도', { exact: true })).toHaveCount(0);
     await page.getByLabel('자료 이름').fill('경계 관측소');
     await page.getByLabel('자료 종류').selectOption({ label: '세력' });
+    const conceptResponsePromise = page.waitForResponse((response) =>
+      response.request().method() === 'POST' && response.url().endsWith('/api/v1/concept-pages')
+    );
     await page.getByRole('button', { name: '자료 만들기' }).click();
+    const conceptResponse = await conceptResponsePromise;
+    expect(conceptResponse.status()).toBe(201);
+    expect((await conceptResponse.json()).usage_role).toBe('DRAFT_SETTING');
     const writingBoundaries = page.locator('.writing-boundaries');
     await expect(writingBoundaries).toContainText('원고 작성 경계');
     await expect(writingBoundaries).toContainText('유지할 사실');
