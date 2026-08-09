@@ -214,6 +214,33 @@ class ImageAnalysisRequest(BaseModel):
     instruction: str = ""
 
 
+class ConceptBoundarySuggestionRequest(BaseModel):
+    body_json: dict[str, Any] | None = Field(
+        default=None,
+        description="저장 전 편집 본문. 생략하면 저장된 본문을 사용한다.",
+    )
+    locked_facts: list[str] | None = None
+    open_questions: list[str] | None = None
+    forbidden_changes: list[str] | None = None
+
+
+class WritingBoundarySuggestionItem(BaseModel):
+    text: str = Field(min_length=1)
+    source_excerpt: str = Field(min_length=1)
+
+
+class WritingBoundarySuggestion(BaseModel):
+    locked_facts: list[WritingBoundarySuggestionItem]
+    open_questions: list[WritingBoundarySuggestionItem]
+    forbidden_changes: list[WritingBoundarySuggestionItem]
+
+
+class ConceptBoundarySuggestionRead(BaseModel):
+    concept_page_id: str
+    suggestion: WritingBoundarySuggestion
+    persisted: bool = False
+
+
 class WritingRecipeRead(ORMModel):
     id: str
     project_id: str | None

@@ -90,6 +90,27 @@ VISION_SCHEMA: dict[str, Any] = {
     },
 }
 
+WRITING_BOUNDARY_ITEM_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["text", "source_excerpt"],
+    "properties": {
+        "text": {"type": "string", "minLength": 1},
+        "source_excerpt": {"type": "string", "minLength": 1},
+    },
+}
+
+WRITING_BOUNDARY_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["locked_facts", "open_questions", "forbidden_changes"],
+    "properties": {
+        "locked_facts": {"type": "array", "items": WRITING_BOUNDARY_ITEM_SCHEMA},
+        "open_questions": {"type": "array", "items": WRITING_BOUNDARY_ITEM_SCHEMA},
+        "forbidden_changes": {"type": "array", "items": WRITING_BOUNDARY_ITEM_SCHEMA},
+    },
+}
+
 
 def parse_object(value: str) -> dict[str, Any]:
     try:
@@ -119,6 +140,48 @@ async def suggest_direction(gateway: ModelGateway, body: str) -> tuple[dict[str,
         response_mode="json_schema",
         json_schema=DIRECTION_SCHEMA,
         schema_name="direction_card_rules",
+    )
+    return parse_object(result.content), result
+
+
+async def suggest_writing_boundaries(
+    gateway: ModelGateway,
+    *,
+    title: str,
+    body: str,
+    existing_boundaries: dict[str, list[str]],
+) -> tuple[dict[str, Any], ModelCallResult]:
+    payload = {
+        "title": title,
+        "body": body,
+        "existing_boundaries": existing_boundaries,
+        "rules": [
+            "본문에 명시되거나 직접 뒷받침되는 내용만 제안한다.",
+            "locked_facts에는 원고에서 반드시 참으로 유지해야 하는 사실을 간결한 평서문으로 적는다.",
+            "open_questions에는 아직 정답이나 정체를 공개하지 않아야 하는 의문만 적는다.",
+            "forbidden_changes에는 본문을 무너뜨리는 금지된 변경이나 전개만 적고 locked_facts를 반복하지 않는다.",
+            "근거가 불충분하면 해당 목록을 비워 둔다.",
+            "각 항목의 source_excerpt에는 판단 근거가 된 본문의 짧은 구절을 그대로 적는다.",
+            "기존 항목과 같은 뜻의 제안은 반복하지 않는다.",
+        ],
+    }
+    result = await gateway.complete(
+        [
+            {
+                "role": "system",
+                "content": (
+                    "세계관 자료 본문에서 원고 작성 경계를 추출한다. 새로운 설정을 창작하거나 "
+                    "모호한 부분을 사실로 확정하지 않는다. 출력은 사용자가 검토할 제안이며 자동 저장되지 않는다."
+                ),
+            },
+            {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+        ],
+        role="utility",
+        temperature=0.1,
+        max_tokens=1800,
+        response_mode="json_schema",
+        json_schema=WRITING_BOUNDARY_SCHEMA,
+        schema_name="writing_boundary_suggestion",
     )
     return parse_object(result.content), result
 

@@ -22,6 +22,7 @@
   let relations = [];
   let indexStats = null;
   let cardSuggestion = null;
+  let boundarySuggestion = null;
   let referenceAnalysis = null;
   let busy = '';
   let newPageOpen = false;
@@ -160,6 +161,48 @@
     finally { busy = ''; }
   }
 
+  function selectableBoundarySuggestion(suggestion) {
+    return Object.fromEntries(
+      ['locked_facts', 'open_questions', 'forbidden_changes'].map((key) => [
+        key,
+        (suggestion?.[key] || []).map((item) => ({ ...item, selected: true }))
+      ])
+    );
+  }
+
+  async function suggestWritingBoundaries() {
+    if (!selectedPage) return;
+    error = ''; message = ''; busy = 'AI가 본문에서 작성 경계를 찾는 중';
+    try {
+      const result = await api.post(`/concept-pages/${selectedPage.id}/suggest-writing-boundaries`, {
+        body_json: selectedPage.body_json,
+        locked_facts: lines(selectedPage.lockedFactsText, selectedPage.locked_facts),
+        open_questions: lines(selectedPage.openQuestionsText, selectedPage.open_questions),
+        forbidden_changes: lines(selectedPage.forbiddenChangesText, selectedPage.forbidden_changes)
+      });
+      boundarySuggestion = selectableBoundarySuggestion(result.suggestion);
+    } catch (e) { error = e.message; }
+    finally { busy = ''; }
+  }
+
+  function mergeBoundaryText(currentText, items) {
+    const current = lines(currentText, []);
+    const additions = items.filter((item) => item.selected).map((item) => item.text.trim()).filter(Boolean);
+    return [...new Set([...current, ...additions])].join('\n');
+  }
+
+  function applyBoundarySuggestion() {
+    if (!selectedPage || !boundarySuggestion) return;
+    selectedPage = {
+      ...selectedPage,
+      lockedFactsText: mergeBoundaryText(selectedPage.lockedFactsText, boundarySuggestion.locked_facts),
+      openQuestionsText: mergeBoundaryText(selectedPage.openQuestionsText, boundarySuggestion.open_questions),
+      forbiddenChangesText: mergeBoundaryText(selectedPage.forbiddenChangesText, boundarySuggestion.forbidden_changes)
+    };
+    boundarySuggestion = null;
+    message = 'AI 제안을 입력했습니다. 확인한 뒤 변경 저장을 눌러 주세요.';
+  }
+
   function lines(text, fallback) {
     return typeof text === 'string' ? text.split('\n').map((item) => item.trim()).filter(Boolean) : fallback;
   }
@@ -281,6 +324,7 @@
 
   async function selectPage(page, { reveal = false } = {}) {
     selectedPage = decoratePage(page);
+    boundarySuggestion = null;
     relations = [];
     relationForm = { target_page_id: '', relation_type: 'RELATED_TO', notes: '' };
     if (reveal && typeof window !== 'undefined' && window.matchMedia('(max-width: 820px)').matches) {
@@ -535,12 +579,52 @@
             <label>태그 <input bind:value={selectedPage.tagsText} list="known-tags" placeholder="쉼표로 구분" /></label>
             <datalist id="known-tags">{#each allTags as tag}<option value={tag}></option>{/each}</datalist>
 
-            <details open>
-              <summary>원고에서 지킬 것</summary>
+            <details open class="writing-boundaries">
+              <summary>원고 작성 경계</summary>
               <div class="stack details-body">
-                <label>확정된 사실 <textarea bind:value={selectedPage.lockedFactsText} placeholder="한 줄에 하나씩"></textarea></label>
-                <label>아직 답하지 않을 질문 <textarea bind:value={selectedPage.openQuestionsText} placeholder="한 줄에 하나씩"></textarea></label>
-                <label>바꾸면 안 되는 것 <textarea bind:value={selectedPage.forbiddenChangesText} placeholder="한 줄에 하나씩"></textarea></label>
+                <div class="boundary-actions">
+                  <div class="heading-with-help">
+                    <span>AI가 현재 본문의 근거만 읽고 제안합니다.</span>
+                    <HelpTip label="원고 작성 경계 설명" text="유지할 사실은 참으로 지키고, 공개 유보는 답을 만들지 않으며, 금지된 변경은 전개에서 발생시키지 않습니다." />
+                  </div>
+                  <button class="secondary compact" disabled={!!busy} on:click={suggestWritingBoundaries}>본문에서 AI 제안</button>
+                </div>
+
+                {#if boundarySuggestion}
+                  <section class="boundary-review" aria-label="AI 작성 경계 제안">
+                    <div class="boundary-review-heading"><strong>저장 전 검토</strong><small>체크한 항목만 기존 내용에 추가됩니다.</small></div>
+                    {#each [
+                      ['locked_facts', '유지할 사실'],
+                      ['open_questions', '공개 유보'],
+                      ['forbidden_changes', '금지된 변경·전개']
+                    ] as [key, label]}
+                      <div class="boundary-review-group">
+                        <strong>{label}</strong>
+                        {#each boundarySuggestion[key] as item}
+                          <label class="boundary-suggestion-item">
+                            <input type="checkbox" bind:checked={item.selected} />
+                            <span><b>{item.text}</b><small>근거: {item.source_excerpt}</small></span>
+                          </label>
+                        {/each}
+                        {#if !boundarySuggestion[key].length}<small class="empty-mini">제안 없음</small>{/if}
+                      </div>
+                    {/each}
+                    <div class="row"><button class="primary" on:click={applyBoundarySuggestion}>선택 항목 입력</button><button class="ghost" on:click={() => boundarySuggestion = null}>닫기</button></div>
+                  </section>
+                {/if}
+
+                <label>
+                  <span class="heading-with-help">유지할 사실 <HelpTip label="유지할 사실 설명" text="원고에서 반드시 참으로 유지할 설정입니다." /></span>
+                  <textarea bind:value={selectedPage.lockedFactsText} placeholder="예: 왕은 이미 죽었다. 한 줄에 하나씩"></textarea>
+                </label>
+                <label>
+                  <span class="heading-with-help">공개 유보 <HelpTip label="공개 유보 설명" text="아직 정답이나 정체를 만들거나 독자에게 공개하지 않을 정보입니다." /></span>
+                  <textarea bind:value={selectedPage.openQuestionsText} placeholder="예: 범인의 정체는 아직 밝히지 않는다. 한 줄에 하나씩"></textarea>
+                </label>
+                <label>
+                  <span class="heading-with-help">금지된 변경·전개 <HelpTip label="금지된 변경 설명" text="흥미를 위해서도 발생시키거나 뒤집으면 안 되는 변경입니다." /></span>
+                  <textarea bind:value={selectedPage.forbiddenChangesText} placeholder="예: 왕을 다시 살리지 않는다. 한 줄에 하나씩"></textarea>
+                </label>
               </div>
             </details>
 

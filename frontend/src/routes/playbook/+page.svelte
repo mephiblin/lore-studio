@@ -343,7 +343,7 @@
       <section class="wizard-run-panel">
         <div class="run-summary"><strong>{subject?.title}</strong><span>보조 자료 {totalSupporting}개 · 집필 지침 {directionCardIds.length}개 · {selectedRecipe?.name}</span><small>세 단계를 차례로 진행합니다. 작성된 초안은 원고 작업 화면에서 바로 열립니다.</small></div>
         <div class="run-actions">
-          <div class="run-action"><div><span>1</span><HelpTip label="사용할 설정 확인 설명" text="선택한 자료에서 AI가 사실로 쓸 내용과 임의로 바꾸면 안 되는 내용을 먼저 보여 줍니다." /></div><button class="secondary" disabled={!!busy || !subject} on:click={() => runAction('context-preview')}>{preview ? '✓ 사용할 설정 확인됨' : '사용할 설정 확인'}</button></div>
+          <div class="run-action"><div><span>1</span><HelpTip label="사용할 설정 확인 설명" text="선택한 자료의 유지할 사실, 공개 유보, 금지된 변경·전개를 먼저 보여 줍니다." /></div><button class="secondary" disabled={!!busy || !subject} on:click={() => runAction('context-preview')}>{preview ? '✓ 사용할 설정 확인됨' : '사용할 설정 확인'}</button></div>
           <div class="run-action"><div><span>2</span><HelpTip label="글의 흐름 만들기 설명" text="원고를 쓰기 전에 각 문단이 어떤 순서로 무엇을 설명할지 목록으로 만듭니다." /></div><button class="secondary" disabled={!!busy || !subject || !preview} on:click={() => runAction('plan')}>{plan ? '✓ 글의 흐름 준비됨' : '글의 흐름 만들기'}</button></div>
           <div class="run-action"><div><span>3</span><HelpTip label="초안 작성 설명" text="확인한 세계관과 글의 흐름을 바탕으로 초안을 쓰고, 원고 작업 화면으로 이동합니다." /></div><button class="primary" disabled={!!busy || !plan || cardConflicts.length} on:click={() => runAction('generate')}>초안 작성</button></div>
         </div>
@@ -360,11 +360,11 @@
 
   {#if wizardStep === wizardSteps.length - 1 && preview}
     <section class="playbook-section evidence-review">
-      <div class="section-copy"><span class="step-number">✓</span><div><div class="heading-with-help"><h2>이 글이 참고할 세계관</h2><HelpTip label="참고할 세계관 설명" text="AI가 원고를 쓸 때 사실로 사용할 내용과 지켜야 할 경계를 모아 보여 주는 단계입니다." /></div><p>AI가 사실로 사용할 내용, 답을 정하지 않을 내용, 변경하면 안 되는 설정을 확인하세요.</p></div></div>
+      <div class="section-copy"><span class="step-number">✓</span><div><div class="heading-with-help"><h2>이 글이 참고할 세계관</h2><HelpTip label="참고할 세계관 설명" text="AI가 원고를 쓸 때 사실로 사용할 내용과 지켜야 할 경계를 모아 보여 주는 단계입니다." /></div><p>유지할 사실, 공개를 유보할 정보, 금지된 변경·전개를 확인하세요.</p></div></div>
       <div class="evidence-columns">
-        <div><div class="heading-with-help"><h3>사실로 사용할 내용</h3><HelpTip label="사실로 사용할 내용 설명" text="원고가 이미 확정된 세계관 사실로 다루는 내용입니다." /></div>{#each preview.locked_facts as item}<div class="evidence-item"><strong>{item.page_title}</strong><small>{item.fact}</small></div>{/each}{#if !preview.locked_facts.length}<p class="empty-mini">사실로 확인된 내용이 없습니다.</p>{/if}</div>
-        <div><div class="heading-with-help"><h3>답을 정하지 않을 내용</h3><HelpTip label="답을 정하지 않을 내용 설명" text="세계관에서 아직 정하지 않은 질문입니다. AI가 임의로 결론 내리지 않습니다." /></div>{#each preview.open_questions as item}<div class="evidence-item"><strong>{item.page_title}</strong><small>{item.question}</small></div>{/each}{#if !preview.open_questions.length}<p class="empty-mini">열어 둘 질문이 없습니다.</p>{/if}</div>
-        <div><div class="heading-with-help"><h3>변경 금지 설정</h3><HelpTip label="변경 금지 설정 설명" text="원고를 흥미롭게 만들기 위해서도 바꾸면 안 되는 설정입니다." /></div>{#each preview.forbidden_material as item}<div class="evidence-item"><strong>지켜야 할 설정</strong><small>{item.rule}</small></div>{/each}{#if !preview.forbidden_material.length}<p class="empty-mini">지정된 변경 금지 설정이 없습니다.</p>{/if}</div>
+        <div><div class="heading-with-help"><h3>유지할 사실</h3><HelpTip label="유지할 사실 설명" text="원고가 반드시 참으로 유지할 세계관 사실입니다." /></div>{#each preview.locked_facts as item}<div class="evidence-item"><strong>{item.page_title}</strong><small>{item.fact}</small></div>{/each}{#if !preview.locked_facts.length}<p class="empty-mini">유지할 사실이 없습니다.</p>{/if}</div>
+        <div><div class="heading-with-help"><h3>공개 유보</h3><HelpTip label="공개 유보 설명" text="아직 정답이나 정체를 만들거나 독자에게 공개하지 않을 정보입니다." /></div>{#each preview.open_questions as item}<div class="evidence-item"><strong>{item.page_title}</strong><small>{item.question}</small></div>{/each}{#if !preview.open_questions.length}<p class="empty-mini">공개를 유보할 정보가 없습니다.</p>{/if}</div>
+        <div><div class="heading-with-help"><h3>금지된 변경·전개</h3><HelpTip label="금지된 변경 설명" text="원고를 흥미롭게 만들기 위해서도 발생시키거나 뒤집으면 안 되는 변경입니다." /></div>{#each preview.forbidden_material as item}<div class="evidence-item"><strong>{item.page_title || '작성 경계'}</strong><small>{item.rule}</small></div>{/each}{#if !preview.forbidden_material.length}<p class="empty-mini">금지된 변경·전개가 없습니다.</p>{/if}</div>
       </div>
       {#each preview.warnings || [] as warning}<p class="notice-error">{warning}</p>{/each}
     </section>

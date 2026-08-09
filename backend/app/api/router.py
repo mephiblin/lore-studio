@@ -42,6 +42,8 @@ from app.schemas import (
     CategoryDefinitionCreate,
     CategoryDefinitionRead,
     CategoryDefinitionUpdate,
+    ConceptBoundarySuggestionRead,
+    ConceptBoundarySuggestionRequest,
     ConceptPageCreate,
     ConceptPageRead,
     ConceptPageUpdate,
@@ -89,7 +91,13 @@ from app.services.harness import LoreHarness
 from app.services.model_gateway import ModelGatewayError
 from app.services.revisions import add_concept_revision, add_lore_revision
 from app.services.search import hybrid_search, index_stats, run_index_job
-from app.services.utility_tools import analyze_image, analyze_reference, extract_candidates, suggest_direction
+from app.services.utility_tools import (
+    analyze_image,
+    analyze_reference,
+    extract_candidates,
+    suggest_direction,
+    suggest_writing_boundaries,
+)
 
 router = APIRouter()
 harness = LoreHarness()
@@ -481,6 +489,70 @@ def list_concept_pages(
 @router.get("/concept-pages/{page_id}", response_model=ConceptPageRead)
 def get_concept_page(page_id: str, db: Session = Depends(get_db)) -> ConceptPage:
     return _get_or_404(db, ConceptPage, page_id, "컨셉 페이지")
+
+
+@router.post(
+    "/concept-pages/{page_id}/suggest-writing-boundaries",
+    response_model=ConceptBoundarySuggestionRead,
+)
+async def suggest_concept_writing_boundaries(
+    page_id: str,
+    payload: ConceptBoundarySuggestionRequest,
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    page = _get_or_404(db, ConceptPage, page_id, "컨셉 페이지")
+    body_json = page.body_json if payload.body_json is None else payload.body_json
+    body = tiptap_to_text(body_json).strip()
+    if not body:
+        raise _error(422, "CONCEPT_BODY_REQUIRED", "먼저 자료 본문을 작성해 주세요.")
+    if len(body) > 50_000:
+        raise _error(422, "CONCEPT_BODY_TOO_LONG", "AI 제안에 사용할 본문은 5만 자 이하여야 합니다.")
+    existing_boundaries = {
+        "locked_facts": list(page.locked_facts or [])
+        if payload.locked_facts is None
+        else payload.locked_facts,
+        "open_questions": list(page.open_questions or [])
+        if payload.open_questions is None
+        else payload.open_questions,
+        "forbidden_changes": list(page.forbidden_changes or [])
+        if payload.forbidden_changes is None
+        else payload.forbidden_changes,
+    }
+    try:
+        suggestion, result = await suggest_writing_boundaries(
+            harness.gateway,
+            title=page.title,
+            body=body,
+            existing_boundaries=existing_boundaries,
+        )
+    except (ModelGatewayError, ValueError) as exc:
+        raise _error(
+            502,
+            getattr(exc, "code", "WRITING_BOUNDARY_SUGGESTION_FAILED"),
+            str(exc),
+        ) from exc
+    db.add(
+        GenerationRun(
+            project_id=page.project_id,
+            task="writing_boundary_suggestion",
+            model_role="utility",
+            model=result.model,
+            endpoint=result.endpoint,
+            params_json=result.params,
+            usage_json=result.usage,
+            input_json={
+                "concept_page_id": page.id,
+                "title": page.title,
+                "body": body,
+                "existing_boundaries": existing_boundaries,
+            },
+            prompt_components={"utility": "writing_boundary_extraction_v1"},
+            selected_concept_ids=[page.id],
+            output_text=result.content,
+        )
+    )
+    db.commit()
+    return {"concept_page_id": page.id, "suggestion": suggestion, "persisted": False}
 
 
 @router.patch("/concept-pages/{page_id}", response_model=ConceptPageRead)

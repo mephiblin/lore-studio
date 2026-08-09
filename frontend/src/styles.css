@@ -271,6 +271,21 @@ input.manuscript-summary-input:hover, input.manuscript-summary-input:focus { bac
 details { border-top: 1px solid var(--line); }
 details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-weight: 750; cursor: pointer; }
 .details-body { padding: 2px 0 12px; }
+.boundary-actions { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.boundary-actions > .heading-with-help { min-width: 0; color: var(--muted-text); font-size: 10px; line-height: 1.5; }
+.boundary-actions .secondary { flex: 0 0 auto; }
+.writing-boundaries label > .heading-with-help { min-height: 20px; justify-content: flex-start; color: var(--ink-soft); font-size: 11px; font-weight: 720; }
+.boundary-review { display: grid; gap: 10px; padding: 11px; border: 1px solid #8faea3; border-radius: 6px; background: #f1f6f4; }
+.boundary-review-heading { display: grid; gap: 2px; }
+.boundary-review-heading strong { color: var(--ink); font-size: 12px; }
+.boundary-review-heading small { color: var(--muted-text); font-size: 10px; line-height: 1.45; }
+.boundary-review-group { display: grid; gap: 5px; }
+.boundary-review-group > strong { color: var(--ink-soft); font-size: 10px; }
+.boundary-suggestion-item { min-height: 0; display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 7px; align-items: start; padding: 7px; border: 1px solid rgba(104, 139, 127, .28); border-radius: 4px; background: rgba(255, 255, 255, .76); }
+.boundary-suggestion-item input { width: 14px; height: 14px; margin-top: 2px; }
+.boundary-suggestion-item span { min-width: 0; display: grid; gap: 3px; }
+.boundary-suggestion-item b { color: var(--ink); font-size: 11px; line-height: 1.45; }
+.boundary-suggestion-item small { color: var(--muted-text); font-size: 9px; font-weight: 450; line-height: 1.45; }
 .relation-section { padding-top: 14px; border-top: 1px solid var(--line); }
 .relation-section h3 { margin: 0; font: 600 16px/1.2 Georgia, "Noto Serif KR", serif; }
 .relation-card { display: grid; grid-template-columns: minmax(0, 1fr) 40px; gap: 6px; align-items: start; padding: 9px; border: 1px solid var(--line); border-radius: 5px; background: #fff; }
