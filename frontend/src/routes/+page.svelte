@@ -33,7 +33,7 @@
   }
 
   function projectInitial(project) {
-    return project.name.trim().slice(0, 2).toUpperCase() || 'LS';
+    return project.name.trim().slice(0, 5).toUpperCase() || 'LS';
   }
 
   function loadImage(file) {

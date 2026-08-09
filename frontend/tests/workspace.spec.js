@@ -157,9 +157,14 @@ test('dense Diablo materials stay bounded and use its project taxonomy', async (
     expect(cardBox.width).toBeLessThanOrEqual(305);
     expect(Math.abs(coverBox.width / coverBox.height - 16 / 9)).toBeLessThan(0.02);
     expect(metaBox.y).toBeGreaterThan(copyBox.y);
+    const cardTitle = (await firstCard.locator('.wizard-card-copy strong').textContent()).trim();
+    const placeholder = firstCard.locator('.project-cover-placeholder > span');
+    if (await placeholder.count()) await expect(placeholder).toHaveText(cardTitle.slice(0, 5).toUpperCase());
   }
   await page.getByLabel('자료 종류').selectOption({ label: '일반 몬스터 종족' });
   await expect(page.locator('.wizard-choice-card').first()).toContainText('일반 몬스터 종족');
+  await expect(page.locator('.wizard-choice-card').first().locator('.wizard-card-authority small')).toHaveText('사용');
+  await expect(page.getByText('정식 설정 근거', { exact: true })).toHaveCount(0);
   await page.locator('.wizard-choice-card').first().click();
   await page.getByRole('button', { name: /배경으로 계속/ }).click();
   await expectStepHelp(page, '배경 단계 설명', '어디서, 어떤 상황에서');
@@ -203,6 +208,7 @@ test('a project can be added after projects already exist', async ({ page }, tes
     apiOrigin = new URL(createdRequest.url()).origin;
     const projectCard = page.locator('.project-card').filter({ has: page.getByRole('heading', { name: projectName }) });
     await expect(projectCard).toBeVisible();
+    await expect(projectCard.locator('.project-cover-placeholder > span')).toHaveText(projectName.trim().slice(0, 5).toUpperCase());
     if (testInfo.project.name === 'desktop') {
       expect((await projectCard.boundingBox()).width).toBeLessThanOrEqual(305);
     }
@@ -285,7 +291,7 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
   await expectStepHelp(page, '주제 단계 설명', '무엇에 관한 글인가요?');
   await expect(page.getByRole('button', { name: /배경으로 계속/ })).toBeDisabled();
   const lighthouse = page.locator('.wizard-choice-card').filter({
-    has: page.getByText('검은 등대', { exact: true }),
+    has: page.locator('.wizard-card-copy strong', { hasText: /^검은 등대$/ }),
   });
   await lighthouse.click();
   await expect(lighthouse).toHaveAttribute('aria-pressed', 'true');
@@ -299,15 +305,15 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
   await expectStepHelp(page, '배경 단계 설명', '어디서, 어떤 상황에서');
   await expect(page.getByRole('button', { name: /주제 검은 등대/ })).toBeVisible();
   await expect(page.getByText('지금까지 선택')).toHaveCount(0);
-  await expect(page.locator('.wizard-choice-card').filter({ has: page.getByText('검은 등대', { exact: true }) })).toHaveCount(0);
-  const recoveryRoom = page.locator('.wizard-choice-card').filter({ has: page.getByText('회수실', { exact: true }) });
+  await expect(page.locator('.wizard-choice-card').filter({ has: page.locator('.wizard-card-copy strong', { hasText: /^검은 등대$/ }) })).toHaveCount(0);
+  const recoveryRoom = page.locator('.wizard-choice-card').filter({ has: page.locator('.wizard-card-copy strong', { hasText: /^회수실$/ }) });
   await recoveryRoom.click();
   await page.getByRole('button', { name: /주요 요소로 계속/ }).click();
 
   await expectStepHelp(page, '주요 요소 단계 설명', '꼭 함께 다룰 것은');
   await expect(page.getByRole('button', { name: /배경 회수실/ })).toBeVisible();
-  await expect(page.locator('.wizard-choice-card').filter({ has: page.getByText('회수실', { exact: true }) })).toHaveCount(0);
-  const leah = page.locator('.wizard-choice-card').filter({ has: page.getByText('레아 벨', { exact: true }) });
+  await expect(page.locator('.wizard-choice-card').filter({ has: page.locator('.wizard-card-copy strong', { hasText: /^회수실$/ }) })).toHaveCount(0);
+  const leah = page.locator('.wizard-choice-card').filter({ has: page.locator('.wizard-card-copy strong', { hasText: /^레아 벨$/ }) });
   await leah.click();
   await page.getByRole('button', { name: /갈등·변수로 계속/ }).click();
 

@@ -114,7 +114,11 @@
   }
 
   function conceptInitial(page) {
-    return page.title.trim().slice(0, 2).toUpperCase() || '자료';
+    return page.title.trim().slice(0, 5).toUpperCase() || '자료';
+  }
+
+  function cardRoleLabel(page) {
+    return page.usage_role === 'CANON_EVIDENCE' ? '사용' : roleLabel(page.usage_role);
   }
 
   function slotFor(pageId) {
@@ -276,7 +280,7 @@
                 <span class="wizard-card-copy"><strong>{page.title}</strong><span class="wizard-card-summary">{page.summary || '요약이 없습니다.'}</span></span>
                 <span class="row spread wizard-card-meta">
                   <span class="badge">{categoryName(page)}</span>
-                  <span class="wizard-card-authority"><small>{roleLabel(page.usage_role)}</small><span class="selection-mark">{activeIds.includes(page.id) ? '✓' : activeSlot === 'subject' ? '○' : '+'}</span></span>
+                  <span class="wizard-card-authority"><small>{cardRoleLabel(page)}</small><span class="selection-mark">{activeIds.includes(page.id) ? '✓' : activeSlot === 'subject' ? '○' : '+'}</span></span>
                 </span>
               </button>
             {/each}
