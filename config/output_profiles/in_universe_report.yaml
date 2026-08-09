@@ -1,6 +1,7 @@
 key: in_universe_report
 version: "1.0.0"
 name: 세계 내부 문서
+description: 세계 안의 작성자가 남긴 기록이나 보고처럼 표현합니다.
 rules:
   paragraph_density: medium
   sentence_length: medium

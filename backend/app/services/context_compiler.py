@@ -17,6 +17,7 @@ from app.models import (
     VoiceProfileExample,
     WritingRecipe,
 )
+from app.services.config_loader import load_output_profiles
 
 ROLE_FACT = {"PROJECT_CANON", "DRAFT_SETTING", "CANON_EVIDENCE", "SECONDARY_INTERPRETATION"}
 ROLE_REFERENCE = {"DISCOURSE_REFERENCE", "INSPIRATION"}
@@ -242,7 +243,11 @@ def compile_context(
         by_id = {card.id: card for card in rows}
         cards = [by_id[card_id] for card_id in session.direction_card_ids if card_id in by_id]
 
-    effective_settings = session.settings_json if settings_json is None else settings_json
+    effective_settings = dict(
+        (session.settings_json if settings_json is None else settings_json) or {}
+    )
+    if not selected_ids:
+        effective_settings["context_depth"] = "core"
     context_depth = str((effective_settings or {}).get("context_depth", "balanced"))
     body_limit = _body_limit(context_depth)
 
@@ -341,6 +346,21 @@ def compile_context(
     )
     warnings.extend(voice_warnings)
 
+    profile_key = output_profile or session.output_profile
+    output_profiles = load_output_profiles()
+    selected_output_profile = next(
+        (item for item in output_profiles if str(item.get("key")) == profile_key),
+        None,
+    )
+    if not selected_output_profile and output_profiles:
+        raise ValueError("선택한 결과물 종류를 찾을 수 없습니다.")
+    selected_output_profile = selected_output_profile or {
+        "key": profile_key,
+        "name": profile_key,
+        "rules": {},
+        "length_presets": {},
+    }
+
     pack = {
         "project": {
             "id": project.id,
@@ -371,7 +391,12 @@ def compile_context(
         "style_examples": style_examples,
         "excluded_style_examples": excluded_style_examples,
         "voice_selection_mode": effective_voice_mode,
-        "output_profile": output_profile or session.output_profile,
+        "output_profile": {
+            "key": profile_key,
+            "name": selected_output_profile.get("name", profile_key),
+            "rules": selected_output_profile.get("rules", {}),
+            "length_presets": selected_output_profile.get("length_presets", {}),
+        },
         "generation_settings": effective_settings,
         "seed": session.seed,
         "warnings": warnings,

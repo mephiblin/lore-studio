@@ -1,5 +1,9 @@
 from pathlib import Path
 
+from conftest import isolated_session
+from sqlalchemy import select
+
+from app.models import VoiceProfile
 from app.services import config_loader
 from app.services.writing_moves import canonicalize_recipe_json
 
@@ -31,3 +35,23 @@ def test_builtin_recipes_are_shared_progression_patterns() -> None:
         assert [move["id"] for move in canonical["moves"][: len(recipe["required_moves"])]] == recipe[
             "required_moves"
         ]
+
+    assert {"reflective_essay", "analytical_report"}.issubset(
+        {recipe["key"] for recipe in recipes}
+    )
+
+
+def test_builtin_voice_profiles_are_shared_approved_and_idempotent() -> None:
+    db = isolated_session()
+    config_loader.seed_builtin_voice_profiles(db)
+    config_loader.seed_builtin_voice_profiles(db)
+
+    profiles = list(db.scalars(select(VoiceProfile).order_by(VoiceProfile.key)).all())
+    assert {profile.key for profile in profiles} >= {
+        "fiction_scene",
+        "reflective_essay",
+        "analytical_report",
+    }
+    assert all(profile.project_id is None for profile in profiles)
+    assert all(profile.status == "APPROVED" and profile.is_builtin for profile in profiles)
+    assert len(profiles) == len({(profile.key, profile.version) for profile in profiles})

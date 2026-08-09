@@ -5,7 +5,7 @@
 - 컴파일된 컨텍스트 팩
 - 프로젝트 집필 지침(`direction_cards`)
 - 공유 전개 방식(`writing_recipe`)
-- 출력 프로필
+- 출력 프로필(`output_profile`: 결과물 이름·형식 규칙·분량 범위)
 - 생성 설정
 - 문체 프로필과 예시는 표현 참고 정보이며 정보 공개 순서를 바꾸는 근거가 아니다.
 
@@ -17,6 +17,7 @@
 5. 자료가 없는 사실을 구성안에서 확정하지 않는다.
 6. `locked_facts`는 반드시 유지하고, `open_questions`의 답은 공개하지 않으며, `forbidden_material`의 변경·전개는 계획하지 않는다.
 7. 각 블록에 장면 유형(`scene_mode`)과 표현 초점(`expression_focus`)만 추천할 수 있다. 문체 프로필 때문에 전개 방식의 필수 Move 순서를 바꾸지 않는다.
+8. `generation_settings.length`와 `custom_length`를 전체 한국어 글자 수 목표로 사용하고, 각 블록의 `word_budget` 합이 그 목표와 맞도록 배분한다.
 
 # 출력
 JSON 객체만 출력한다.

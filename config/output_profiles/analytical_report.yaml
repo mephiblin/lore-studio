@@ -1,0 +1,17 @@
+key: analytical_report
+version: "1.0.0"
+name: 분석 보고서
+description: 조사 질문, 근거, 한계, 결론을 추적 가능한 순서로 정리합니다.
+rules:
+  paragraph_density: high
+  sentence_length: medium
+  narrator_scope: analytical
+  headings: structured
+  evidence_display: explicit
+  certainty_visible: true
+  target_units: korean_characters
+length_presets:
+  short: [1500, 3000]
+  normal: [3500, 7000]
+  long: [8000, 15000]
+  very_long: [15000, 26000]

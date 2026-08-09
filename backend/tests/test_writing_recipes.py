@@ -1,5 +1,6 @@
 import pytest
 
+from app.services.harness import _normalize_plan
 from app.services.writing_moves import canonicalize_recipe_json
 
 
@@ -14,10 +15,10 @@ def test_recipe_sequence_derives_labels_and_purposes_from_moves() -> None:
         }
     )
 
-    assert normalized["pattern_preview"] == ["배경 설명", "핵심 사실 제시", "의미 해설"]
+    assert normalized["pattern_preview"] == ["맥락 열기", "핵심 근거·장면", "의미·분석"]
     assert normalized["moves"][0] == {
         "id": "ORIENT",
-        "purpose": "독자가 상황을 이해하도록 장소·시대·배경부터 설명합니다.",
+        "purpose": "독자가 글의 질문과 상황을 이해하도록 필요한 맥락을 엽니다.",
     }
 
 
@@ -26,3 +27,38 @@ def test_recipe_sequence_rejects_unknown_move() -> None:
         canonicalize_recipe_json(
             {"required_moves": ["ORIENT", "UNKNOWN", "INTERPRET"]}
         )
+
+
+@pytest.mark.parametrize(
+    ("settings", "expected"),
+    [
+        ({"length": "short"}, 1200),
+        ({"length": "long"}, 6500),
+        ({"length": "custom", "custom_length": 5555}, 5555),
+    ],
+)
+def test_plan_budgets_are_scaled_to_selected_length(settings: dict, expected: int) -> None:
+    plan = _normalize_plan(
+        {
+            "title": "분량 검증",
+            "angle": "선택한 길이를 지킨다.",
+            "blocks": [
+                {"move": "ORIENT", "purpose": "맥락", "word_budget": 100},
+                {"move": "ANCHOR", "purpose": "근거", "word_budget": 200},
+                {"move": "INTERPRET", "purpose": "결론", "word_budget": 100},
+            ],
+        },
+        {
+            "generation_settings": settings,
+            "selected_concepts": [],
+            "writing_recipe": {
+                "required_moves": ["ORIENT", "ANCHOR", "INTERPRET"],
+                "optional_moves": [],
+            },
+        },
+    )
+
+    assert plan["target_length"] == expected
+    assert plan["planned_length"] == expected
+    assert sum(block["word_budget"] for block in plan["blocks"]) == expected
+    assert plan["blocks"][1]["word_budget"] > plan["blocks"][0]["word_budget"]

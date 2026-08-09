@@ -11,6 +11,7 @@
   let projectId = '';
   let pages = [];
   let cards = [];
+  let directionPresets = [];
   let recipes = [];
   let voiceProfiles = [];
   let voiceExamples = [];
@@ -114,7 +115,10 @@
 
   async function loadInitial() {
     try {
-      projects = await api.get('/projects');
+      [projects, directionPresets] = await Promise.all([
+        api.get('/projects'),
+        api.get('/presets/direction-cards')
+      ]);
       projectId = initialProjectId(projects);
       if (projectId) await loadProjectData();
     } catch (e) { error = e.message; }
@@ -713,6 +717,20 @@
     } catch (e) { error = e.message; }
   }
 
+  function useDirectionPreset(preset) {
+    const rules = preset.parsed_rules || {};
+    cardForm = {
+      title: preset.title || '',
+      body: preset.body || '',
+      tags: (preset.tags || []).join(', '),
+      goals: (rules.goals || []).join('\n'),
+      sequence: (rules.sequence || []).join('\n'),
+      mustInclude: (rules.must_include || []).join('\n'),
+      avoid: (rules.avoid || []).join('\n'),
+      endingPreference: rules.ending_preference || ''
+    };
+  }
+
   function editCard(card) {
     editingCardId = card.id;
     cardDraft = {
@@ -1172,6 +1190,12 @@
       {:else if settingsModal === 'direction-create'}
         <form class="settings-modal-form direction-create" on:submit|preventDefault={createCard}>
           <div class="settings-modal-body stack">
+            {#if directionPresets.length}
+              <section class="direction-preset-picker" aria-label="집필 지침 프리셋">
+                <div><strong>프리셋으로 시작</strong><small>선택하면 아래 입력에 복사되며 저장 전 자유롭게 바꿀 수 있습니다.</small></div>
+                <div>{#each directionPresets as preset}<button type="button" class="ghost" on:click={() => useDirectionPreset(preset)}>{preset.title}</button>{/each}</div>
+              </section>
+            {/if}
             <label>지침 이름 <input bind:value={cardForm.title} placeholder="예: 제도의 효능과 대가를 함께 보여 준다" /></label>
             <label>이 프로젝트의 글에서 무엇을 지킬까요? <textarea bind:value={cardForm.body} placeholder="강조할 내용, 반드시 보여 줄 과정, 피할 해석을 자연스럽게 적어 주세요."></textarea></label>
             <label>찾기용 태그 <input bind:value={cardForm.tags} placeholder="제도, 의존, 대가" /></label>
@@ -1281,17 +1305,19 @@
         <form class="settings-modal-form voice-form" on:submit|preventDefault={() => saveVoiceProfile(editingVoice)}>
           <div class="settings-modal-body stack">
             <div class="row spread"><span class="badge" class:canon={editingVoice.status === 'APPROVED'}>{voiceStatusLabel(editingVoice.status)} · v{editingVoice.version}</span><small>{editingVoice.project_id ? '이 프로젝트' : '모든 프로젝트'}</small></div>
-            <div class="grid-2"><label>이름 <input bind:value={voiceDraft.name} /></label><label>독자에게 남길 인상 <input bind:value={voiceDraft.readerEffect} /></label></div>
-            <div class="voice-rule-grid">
-              <label>문장 호흡 <textarea bind:value={voiceDraft.sentenceRhythm}></textarea></label>
-              <label>묘사 원칙 <textarea bind:value={voiceDraft.descriptionRules}></textarea></label>
-              <label>대화 원칙 <textarea bind:value={voiceDraft.dialogueRules}></textarea></label>
-              <label>비유 원칙 <textarea bind:value={voiceDraft.figurativeLanguage}></textarea></label>
-              <label>문단 원칙 <textarea bind:value={voiceDraft.paragraphRules}></textarea></label>
-              <label>피할 표현 <textarea bind:value={voiceDraft.avoidPatterns}></textarea></label>
-            </div>
-            <div class="grid-2"><label>잘 맞는 글 <input bind:value={voiceDraft.bestFor} /></label><label>점검 기준 <textarea bind:value={voiceDraft.auditRules}></textarea></label></div>
-            <div class="grid-2"><label>호환 시점 <input bind:value={voiceDraft.viewpoints} /></label><label>호환 시제 <input bind:value={voiceDraft.tenses} /></label></div>
+            <fieldset class="voice-readonly-fields" disabled={editingVoice.is_builtin}>
+              <div class="grid-2"><label>이름 <input bind:value={voiceDraft.name} /></label><label>독자에게 남길 인상 <input bind:value={voiceDraft.readerEffect} /></label></div>
+              <div class="voice-rule-grid">
+                <label>문장 호흡 <textarea bind:value={voiceDraft.sentenceRhythm}></textarea></label>
+                <label>묘사 원칙 <textarea bind:value={voiceDraft.descriptionRules}></textarea></label>
+                <label>대화 원칙 <textarea bind:value={voiceDraft.dialogueRules}></textarea></label>
+                <label>비유 원칙 <textarea bind:value={voiceDraft.figurativeLanguage}></textarea></label>
+                <label>문단 원칙 <textarea bind:value={voiceDraft.paragraphRules}></textarea></label>
+                <label>피할 표현 <textarea bind:value={voiceDraft.avoidPatterns}></textarea></label>
+              </div>
+              <div class="grid-2"><label>잘 맞는 글 <input bind:value={voiceDraft.bestFor} /></label><label>점검 기준 <textarea bind:value={voiceDraft.auditRules}></textarea></label></div>
+              <div class="grid-2"><label>호환 시점 <input bind:value={voiceDraft.viewpoints} /></label><label>호환 시제 <input bind:value={voiceDraft.tenses} /></label></div>
+            </fieldset>
 
             <section class="voice-example-section stack">
               <div><h3>짧은 문체 예시</h3><p>사실 참고가 아닌 표현 참고로만 전달됩니다. 직접 쓴 글이 아니면 권리와 사용 범위를 확인하세요.</p></div>
@@ -1311,7 +1337,7 @@
               {/if}
             </section>
           </div>
-          <footer><small>{editingVoice.status === 'DRAFT' ? '승인하면 다음 글 만들기부터 선택할 수 있습니다.' : '수정 시 사용 기록을 보존한 새 검토 버전을 만듭니다.'}</small><div>{#if editingVoice.status === 'DRAFT' && !editingVoice.is_builtin}<button type="button" class="danger-button" on:click={() => deleteVoiceProfile(editingVoice)}>삭제</button>{/if}<button type="button" class="ghost" on:click={closeSettingsModal}>닫기</button><button type="submit" class="secondary" disabled={!voiceDraft.name.trim() || !voiceDraft.readerEffect.trim()}>변경 저장</button>{#if editingVoice.status === 'DRAFT'}<button type="button" class="primary" on:click={() => approveVoiceProfile(editingVoice)}>사용 가능으로 승인</button>{/if}</div></footer>
+          <footer><small>{editingVoice.is_builtin ? '공용 기본 프로필은 읽기 전용입니다. 카드의 복제로 프로젝트용 검토본을 만들 수 있습니다.' : editingVoice.status === 'DRAFT' ? '승인하면 다음 글 만들기부터 선택할 수 있습니다.' : '수정 시 사용 기록을 보존한 새 검토 버전을 만듭니다.'}</small><div>{#if editingVoice.status === 'DRAFT' && !editingVoice.is_builtin}<button type="button" class="danger-button" on:click={() => deleteVoiceProfile(editingVoice)}>삭제</button>{/if}<button type="button" class="ghost" on:click={closeSettingsModal}>닫기</button>{#if !editingVoice.is_builtin}<button type="submit" class="secondary" disabled={!voiceDraft.name.trim() || !voiceDraft.readerEffect.trim()}>변경 저장</button>{/if}{#if editingVoice.status === 'DRAFT' && !editingVoice.is_builtin}<button type="button" class="primary" on:click={() => approveVoiceProfile(editingVoice)}>사용 가능으로 승인</button>{/if}</div></footer>
         </form>
       {/if}
     </div>

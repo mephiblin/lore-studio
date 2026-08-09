@@ -1,0 +1,17 @@
+key: personal_essay
+version: "1.0.0"
+name: 수필·에세이
+description: 구체적인 경험과 관찰에서 생각이 움직이는 과정을 보여 줍니다.
+rules:
+  paragraph_density: medium
+  sentence_length: varied
+  narrator_scope: reflective
+  headings: optional
+  evidence_display: natural
+  concrete_before_abstract: true
+  target_units: korean_characters
+length_presets:
+  short: [1200, 2500]
+  normal: [3000, 6000]
+  long: [7000, 12000]
+  very_long: [12000, 20000]

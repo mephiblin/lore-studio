@@ -12,7 +12,7 @@
 make seed
 ```
 
-실제 모델로 사용할 설정 확인·글의 흐름·초안 작성까지 함께 실행하려면 앱과 모델 상태를 확인한 뒤 `python scripts/seed_world.py --generate`를 사용합니다.
+실제 모델로 자료 경계 자동 컴파일·글의 흐름·초안 작성까지 함께 실행하려면 앱과 모델 상태를 확인한 뒤 `python scripts/seed_world.py --generate`를 사용합니다.
 
 ## Diablo II 조사 자료
 

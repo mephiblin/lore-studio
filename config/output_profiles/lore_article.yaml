@@ -1,6 +1,7 @@
 key: lore_article
 version: "1.0.0"
 name: 세계관 설명 글
+description: 사실과 맥락을 차분하게 정리하는 설명형 원고입니다.
 rules:
   paragraph_density: high
   sentence_length: medium_to_long

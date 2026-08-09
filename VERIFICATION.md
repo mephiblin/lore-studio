@@ -8,19 +8,21 @@
 
 - 프로젝트 로컬 `$lore-studio-ui-safety`: skill package 형식 검증 PASS, 기준 문서·5개 route·Alembic head·manifest·API 경유·충돌/디버그 표식 정적 preflight `7 passed, 0 failures`
 - Ruff: `All checks passed`
-- pytest: `23 passed, 3 skipped` (Writer/Utility, Embedding, Vision 실제 endpoint tests는 기본 suite에서 의도적으로 skip)
+- pytest: `28 passed, 3 skipped` (Writer/Utility, Embedding, Vision 실제 endpoint tests는 기본 suite에서 의도적으로 skip)
 - 실제 모델 opt-in: `3 passed` (Writer/Utility structured output, BGE-M3 1024차원, Vision data URL)
 - SvelteKit adapter-node production build: PASS
 - Playwright Chromium desktop 1600×900/mobile 390×844 실제 인수 자료 포함 회귀: `33 passed, 7 skipped`
 - 문체·필력: DRAFT 명시 승인·사용 후 새 버전·공용/프로젝트 범위·권리별 짧은 예시 격리 API, 다섯 번째 로컬 탭과 내부 스크롤·고정 footer 모달, 글 만들기 `모델 기본 문체`/승인 프로필 명시 선택, profile/version/example GenerationRun snapshot, 원고 필력 점검과 승인형 수정 제안 PASS
 - 프로젝트 전개 방식 생성·수정·글 만들기 선택·삭제 desktop/mobile 집중 회귀: `2 passed`
-- 세계관 자료의 전개 방식 목록: 검은 항로/신규 프로젝트 모두 공용 기본 6개 노출, 프로젝트 전용 항목과 출처 구분 PASS
+- 세계관 자료의 전개 방식 목록: 검은 항로/신규 프로젝트 모두 세계관·소설·수필·보고서를 포괄하는 공용 기본 8개 노출, 프로젝트 전용 항목과 출처 구분 PASS
 - 전개 방식·자료 종류 카드 갤러리: desktop 카드 폭 305px 이하, mobile 1열, 실제 `required_moves` 순서 표시, 별도 카드 표시·분류 기준 입력 제거, 단계 목적 자동 파생, 생성·수정 모달 접근과 저장 후 자동 닫힘 desktop/mobile PASS
 - 새 세계관 자료 생성: 이름·자료 종류만 노출하고 `용도` 선택은 제거, API 기본값 `DRAFT_SETTING` 적용 desktop/mobile PASS
 - 집필 지침 세부 규칙 직접 작성: 목표·전개 순서·반드시 포함·피할 전개·선호 결말의 API 저장·카드 표시 desktop/mobile `2 passed`
 - 자료 종류·집필 지침·전개 방식 편집: 생성·수정 6개 흐름이 viewport 안의 모달로 열리고 내부 폼만 스크롤되며 고정 footer가 보이는지 desktop/mobile `2 passed`; 집필 지침 세부 규칙은 접기 요소 없이 상시 노출, 도움말은 `position:fixed` 최상위 오버레이로 viewport 안에 표시됨을 확인
 - 글 만들기 하단 이동 바: `.playbook-workspace` 밖의 형제 영역이며 desktop viewport 안에 유지되고 mobile에서는 전역 하단 메뉴 위에 고정됨을 확인; 본문·브라우저를 끝까지 스크롤하기 전후 y 좌표가 동일한 desktop/mobile route 회귀 `2 passed`
-- 글 만들기 결과물 형태·최종 확인 개편: 결과물 종류·시점·시제·분량 의미 카드와 실시간 원고 견본, 주제·소재·집필 원칙·표현 설계 카드, `설정 경계 정리 → 글의 흐름 설계 → 초안 작성` 경로를 desktop/mobile 실제 데이터에서 확인. 별도 ‘이 글이 참고할 세계관’ 패널 제거, 설정 경계 완료 요약, 최종 단계 고정 하단 동작, 선택 시점·시제의 세션 요청 반영 집중 회귀 `2 passed`
+- 글 만들기 결과물 형태·최종 확인 개편: 세계관·영상·소설·수필·보고서·세계 내부 문서 카드와 실시간 원고 견본, 주제·소재·집필 원칙·표현 설계 카드, `글의 흐름 설계 → 초안 작성` 2단계 경로를 desktop/mobile 실제 데이터에서 확인. 자료 경계는 흐름 요청 안에서 자동 컴파일하고, 별도 ‘이 글이 참고할 세계관’ 패널과 중복 실행 버튼을 두지 않으며 최종 단계 고정 하단 동작과 선택 시점·시제의 세션 요청 반영 집중 회귀 `2 passed`
+- 선택 자료 본문 반영·분량 계약: 직접 고른 자료가 없으면 UI를 비활성화하고 세션·Context compiler 모두 `core`로 강제함을 확인. Planner의 짧게 1,200자·길게 6,500자·직접 지정 5,555자 문단 예산 합계가 목표와 정확히 일치하고, 브라우저 확인 화면에 `총 6,500자 / 목표 6,500자`가 표시됨을 확인
+- 범용 집필 자산: 소설·수필·보고서 집필 지침 시작 프리셋 3개, 공용 전개 방식 2개 추가, 예시 원문 없는 승인·읽기 전용 문체·필력 3개, 수필·분석 보고서 결과물 형태가 프로젝트와 무관하게 보이고 공용 문체 편집은 복제로만 시작됨을 확인
 - 결과물 견본의 `형식 / 시점 / 시제 / 분량` 즉시 요약과 1600×900 viewport 내 전체 노출, 확인 카드의 `수정 → 확인·작성으로 돌아가기`, `수정 취소` 시 기존 선택 복원, 실행 전 완료 녹색 0개·실행 후 순차 완료 상태 PASS
 - 저장된 세계관 자료의 기본 읽기 모드·명시적 `글 편집`·저장/취소 복귀, 프로젝트·세계관 자료·로어북 삭제 동작, 로어북 삭제 시 출처 초안 보존·AuditLog PASS
 - 73개 자료의 카드 행 비겹침 없음, 독립 스크롤, `자료 더 보기`가 전역 하단 이동 바와 겹치지 않음을 desktop/mobile 숫자·스크린샷으로 확인

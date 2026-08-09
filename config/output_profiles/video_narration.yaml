@@ -1,6 +1,7 @@
 key: video_narration
 version: "1.0.0"
 name: 영상 내레이션
+description: 소리 내어 읽기 좋고 시각 비트가 분명한 원고입니다.
 rules:
   paragraph_density: medium
   sentence_length: short_to_medium

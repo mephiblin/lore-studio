@@ -80,3 +80,31 @@ def test_context_separates_facts_and_discourse_references() -> None:
     assert "외부 IP 사실" not in str(pack)
     assert pack["locked_facts"][0]["fact"] == "북부 항로에 존재한다"
     assert pack["policy"]["reference_facts_are_forbidden"] is True
+    assert pack["output_profile"]["key"] == "lore_article"
+    assert pack["output_profile"]["rules"]["target_units"] == "korean_characters"
+
+
+def test_context_depth_is_disabled_without_selected_materials() -> None:
+    db = make_db()
+    project = Project(name="빈 자료", slug="empty-materials")
+    recipe = WritingRecipe(
+        key="report",
+        version="1.0.0",
+        name="보고서",
+        recipe_json={"key": "report", "required_moves": ["ORIENT", "ANCHOR", "INTERPRET"]},
+        is_builtin=True,
+    )
+    db.add_all([project, recipe])
+    db.flush()
+    session = PlaybookSession(
+        project_id=project.id,
+        writing_recipe_id=recipe.id,
+        concept_slots={},
+        settings_json={"context_depth": "max"},
+    )
+    db.add(session)
+    db.commit()
+
+    pack = compile_context(db, session)
+    assert pack["selected_concepts"] == []
+    assert pack["generation_settings"]["context_depth"] == "core"

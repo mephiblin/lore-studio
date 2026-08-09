@@ -409,6 +409,13 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
 .settings-modal-form { min-height: 0; display: flex; flex: 1 1 auto; flex-direction: column; overflow: hidden; }
 .settings-modal-body { min-height: 0; flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; padding: 18px 20px; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
 .settings-modal-body > label > textarea { min-height: 100px; }
+.direction-preset-picker { display: grid; gap: 9px; padding: 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper-deep); }
+.direction-preset-picker > div:first-child { display: grid; gap: 3px; }
+.direction-preset-picker strong { color: var(--ink); font-size: 12px; }
+.direction-preset-picker small { color: var(--muted-text); font-size: 10px; }
+.direction-preset-picker > div:last-child { display: flex; flex-wrap: wrap; gap: 6px; }
+.direction-preset-picker button { min-height: 32px; padding: 6px 9px; font-size: 10px; }
+.voice-readonly-fields { min-width: 0; display: grid; gap: 12px; margin: 0; padding: 0; border: 0; }
 .settings-modal-form > footer { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px 20px; border-top: 1px solid var(--line); background: var(--paper-deep); }
 .settings-modal-form > footer small { color: var(--muted-text); font-size: 10px; line-height: 1.45; }
 .settings-modal-form > footer > div { display: flex; gap: 7px; }
@@ -647,7 +654,7 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
 .generation-route > header span { color: var(--nav-accent); font-size: 9px; font-weight: 850; letter-spacing: .08em; }
 .generation-route > header h2 { margin: 4px 0 0; color: #fff; font: 600 22px/1.2 Georgia, "Noto Serif KR", serif; }
 .generation-route > header p { max-width: 420px; margin: 0; color: #abc0ba; font-size: 10px; line-height: 1.5; }
-.generation-route ol { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin: 0; padding: 0; list-style: none; }
+.generation-route ol { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; margin: 0; padding: 0; list-style: none; }
 .generation-route li { position: relative; min-width: 0; display: grid; align-content: start; gap: 7px; min-height: 150px; padding: 17px 20px; border-right: 1px solid #36505a; }
 .generation-route li:last-child { border-right: 0; }
 .generation-route li.active { background: #293b41; box-shadow: inset 0 3px var(--nav-accent); }

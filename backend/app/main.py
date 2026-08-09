@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.router import router
 from app.config import settings
 from app.db import Base, SessionLocal, engine
-from app.services.config_loader import seed_builtin_recipes
+from app.services.config_loader import seed_builtin_recipes, seed_builtin_voice_profiles
 
 
 @asynccontextmanager
@@ -18,6 +18,7 @@ async def lifespan(_: FastAPI):
         Base.metadata.create_all(bind=engine)
     with SessionLocal() as db:
         seed_builtin_recipes(db)
+        seed_builtin_voice_profiles(db)
     yield
 
 

@@ -29,7 +29,6 @@ LENGTH_BUDGETS = {
     "normal": 3000,
     "long": 6500,
     "very_long": 12000,
-    "custom": 4000,
 }
 
 PLAN_SCHEMA: dict[str, Any] = {
@@ -104,6 +103,35 @@ def _json_from_text(text: str) -> dict[str, Any]:
     return data
 
 
+def _target_length(pack: dict[str, Any]) -> int:
+    settings = pack.get("generation_settings", {})
+    length = str(settings.get("length", "normal"))
+    if length == "custom":
+        try:
+            return max(500, int(settings.get("custom_length") or 4000))
+        except (TypeError, ValueError):
+            return 4000
+    return LENGTH_BUDGETS.get(length, 3000)
+
+
+def _fit_block_budgets(raw_budgets: list[int], target: int) -> list[int]:
+    """Scale planner ratios to an exact Korean-character target with a 50-char floor."""
+    if not raw_budgets:
+        return []
+    minimum = 50
+    target = max(target, minimum * len(raw_budgets))
+    weights = [max(1, int(value)) for value in raw_budgets]
+    weight_total = sum(weights)
+    available = target - minimum * len(weights)
+    exact = [available * weight / weight_total for weight in weights]
+    budgets = [minimum + int(value) for value in exact]
+    remainder = target - sum(budgets)
+    order = sorted(range(len(weights)), key=lambda index: exact[index] % 1, reverse=True)
+    for index in order[:remainder]:
+        budgets[index] += 1
+    return budgets
+
+
 def _normalize_plan(data: dict[str, Any], pack: dict[str, Any]) -> dict[str, Any]:
     raw = data.get("structure_plan", data)
     if not isinstance(raw, dict):
@@ -111,7 +139,7 @@ def _normalize_plan(data: dict[str, Any], pack: dict[str, Any]) -> dict[str, Any
     raw_blocks = raw.get("blocks", [])
     if not isinstance(raw_blocks, list) or not raw_blocks:
         raise ValueError("Planner 출력에 하나 이상의 blocks가 필요합니다.")
-    target = LENGTH_BUDGETS.get(str(pack.get("generation_settings", {}).get("length", "normal")), 3000)
+    target = _target_length(pack)
     selected_ids = [str(item.get("id")) for item in pack.get("selected_concepts", []) if item.get("id")]
     recipe = pack.get("writing_recipe", {}) if isinstance(pack.get("writing_recipe"), dict) else {}
     required_moves = [str(move).strip().upper() for move in recipe.get("required_moves", []) if str(move).strip()]
@@ -173,6 +201,9 @@ def _normalize_plan(data: dict[str, Any], pack: dict[str, Any]) -> dict[str, Any
         )
     if not blocks:
         raise ValueError("Planner 출력에서 유효한 block을 복구하지 못했습니다.")
+    fitted_budgets = _fit_block_budgets([block["word_budget"] for block in blocks], target)
+    for block, fitted_budget in zip(blocks, fitted_budgets, strict=True):
+        block["word_budget"] = fitted_budget
     concept_role = raw.get("concept_role", {}) if isinstance(raw.get("concept_role"), dict) else {}
     title = raw.get("title") or concept_role.get("title")
     if not title:
@@ -184,6 +215,8 @@ def _normalize_plan(data: dict[str, Any], pack: dict[str, Any]) -> dict[str, Any
         "title": str(title),
         "angle": str(raw.get("angle") or pack.get("user_direction") or "선택 자료의 의미를 단계적으로 드러낸다."),
         "blocks": blocks,
+        "target_length": target,
+        "planned_length": sum(fitted_budgets),
         "warnings": warnings,
         "planner_metadata": {
             key: raw[key]
@@ -553,6 +586,14 @@ class LoreHarness:
 
     async def plan(self, db: Session, session: PlaybookSession) -> dict[str, Any]:
         pack = compile_context(db, session)
+        session.evidence_pack_json = pack
+        _record_stage(
+            db,
+            session,
+            "COMPILE_CONTEXT",
+            input_json={"concept_slots": session.concept_slots},
+            output_json=pack,
+        )
         system_prompt = load_prompt("planner.md")
         user_prompt = json.dumps(pack, ensure_ascii=False, indent=2)
         call_result = await self.gateway.complete(
@@ -680,7 +721,11 @@ class LoreHarness:
                     "version": pack.get("writing_recipe", {}).get("version"),
                     "name": pack.get("writing_recipe", {}).get("name"),
                 },
-                "output_profile": {"key": session.output_profile},
+                "output_profile": {
+                    "key": session.output_profile,
+                    "name": pack.get("output_profile", {}).get("name", session.output_profile),
+                    "rules": pack.get("output_profile", {}).get("rules", {}),
+                },
                 "generation_settings": session.settings_json,
                 "voice_profile": pack.get("voice_profile"),
                 "voice_selection_mode": pack.get("voice_selection_mode", "model_default"),

@@ -8,7 +8,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.models import CategoryDefinition, Project, WritingRecipe
+from app.models import CategoryDefinition, Project, VoiceProfile, WritingRecipe
+from app.schemas import canonicalize_voice_profile_json
 from app.services.writing_moves import canonicalize_recipe_json
 
 
@@ -63,6 +64,10 @@ def load_direction_card_presets() -> list[dict[str, Any]]:
     return _load_yaml_files(settings.app_config_root / "direction_card_presets")
 
 
+def load_voice_profiles() -> list[dict[str, Any]]:
+    return _load_yaml_files(settings.app_config_root / "voice_profiles")
+
+
 def load_prompt(name: str) -> str:
     path = settings.app_config_root / "prompts" / name
     return path.read_text(encoding="utf-8") if path.exists() else ""
@@ -107,4 +112,41 @@ def seed_builtin_recipes(db: Session) -> None:
             continue
         if normalized != recipe.recipe_json:
             recipe.recipe_json = normalized
+    db.commit()
+
+
+def seed_builtin_voice_profiles(db: Session) -> None:
+    """Upsert shared, example-free expression contracts shipped with the app."""
+    for data in load_voice_profiles():
+        key = str(data.get("key", "")).strip()
+        version = str(data.get("version", "1.0.0")).strip()
+        if not key:
+            continue
+        profile_json = canonicalize_voice_profile_json(data.get("profile_json") or {})
+        existing = db.scalar(
+            select(VoiceProfile).where(
+                VoiceProfile.key == key,
+                VoiceProfile.version == version,
+                VoiceProfile.project_id.is_(None),
+            )
+        )
+        if existing:
+            existing.name = str(data.get("name", key))
+            existing.description = str(data.get("description", ""))
+            existing.profile_json = profile_json
+            existing.is_builtin = True
+            existing.status = "APPROVED"
+        else:
+            db.add(
+                VoiceProfile(
+                    project_id=None,
+                    key=key,
+                    version=version,
+                    name=str(data.get("name", key)),
+                    description=str(data.get("description", "")),
+                    profile_json=profile_json,
+                    is_builtin=True,
+                    status="APPROVED",
+                )
+            )
     db.commit()

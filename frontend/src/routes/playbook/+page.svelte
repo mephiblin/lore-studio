@@ -13,7 +13,7 @@
   let length = 'normal', customLength = 4000, detailLevel = 3, contextDepth = 'balanced', creativity = 'conservative', mystery = 4, seed = 42;
   let viewpoint = 'omniscient', tense = 'present';
   let conceptSearch = '', categoryFilter = 'all', pageLimit = 18;
-  let session = null, preview = null, plan = null, generatedDocument = null;
+  let session = null, plan = null, generatedDocument = null;
   let busy = '', error = '', planDirty = false;
   let wizardStep = 0, furthestStep = 0;
   let editingFromReview = false;
@@ -35,6 +35,8 @@
     { value: 'lore_article', mark: '설정집', title: '세계관 설명 글', copy: '사실과 맥락을 차분하게 정리합니다.' },
     { value: 'video_narration', mark: '영상', title: '영상 내레이션', copy: '소리 내어 읽기 좋은 호흡으로 씁니다.' },
     { value: 'novel_prose', mark: '장면', title: '소설 장면', copy: '인물의 행동과 감각이 보이게 씁니다.' },
+    { value: 'personal_essay', mark: '수필', title: '수필·에세이', copy: '구체적인 경험에서 생각의 변화를 끌어냅니다.' },
+    { value: 'analytical_report', mark: '보고', title: '분석 보고서', copy: '근거와 한계를 분리해 판단 과정을 보여 줍니다.' },
     { value: 'in_universe_report', mark: '기록', title: '세계 내부 문서', copy: '세계 안의 작성자가 남긴 기록처럼 씁니다.' }
   ];
   const viewpointOptions = [
@@ -57,7 +59,8 @@
   $: selectedRecipe = recipes.find((recipe) => recipe.id === recipeId);
   $: selectedVoiceProfile = voiceProfiles.find((profile) => profile.id === voiceProfileId);
   $: cardConflicts = selectedCards.flatMap((card) => selectedCards.filter((other) => other.id !== card.id && (card.incompatible_tags || []).some((tag) => (other.tags || []).includes(tag))).map((other) => `${card.title} ↔ ${other.title}`));
-  $: estimatedTokens = Math.ceil((length === 'custom' ? customLength : ({ short: 1200, normal: 3000, long: 6500, very_long: 12000 }[length] || 3000)) * 1.8);
+  $: targetCharacters = Number(length === 'custom' ? customLength : ({ short: 1200, normal: 3000, long: 6500, very_long: 12000 }[length] || 3000));
+  $: estimatedTokens = Math.ceil(targetCharacters * 1.8);
   $: visiblePages = pages.filter((page) => {
     const text = `${page.title} ${page.summary} ${(page.tags || []).join(' ')}`.toLowerCase();
     return (!conceptSearch || text.includes(conceptSearch.toLowerCase())) && (categoryFilter === 'all' || page.category_key === categoryFilter) && !['DISCOURSE_REFERENCE', 'REJECTED'].includes(page.usage_role);
@@ -70,11 +73,13 @@
     .filter((page) => !slotFor(page.id) || slotFor(page.id) === activeSlot);
   $: wizardPages = wizardCandidates.slice(0, pageLimit);
   $: totalSupporting = backgroundIds.length + elementIds.length + conflictIds.length;
+  $: selectedConceptCount = subjectIds.length + totalSupporting;
   $: selectedOutputProfile = outputProfiles.find((item) => item.value === outputProfile) || outputProfiles[0];
   $: selectedViewpoint = viewpointOptions.find((item) => item.value === viewpoint) || viewpointOptions[0];
   $: selectedTense = tenseOptions.find((item) => item.value === tense) || tenseOptions[0];
   $: selectedLength = lengthOptions.find((item) => item.value === length) || lengthOptions[1];
   $: selectedLengthCopy = length === 'custom' ? `${Number(customLength || 0).toLocaleString()}자` : selectedLength.copy;
+  $: planBudgetTotal = (plan?.blocks || []).reduce((total, block) => total + Number(block.word_budget || 0), 0);
   $: hasCurrentSelection = activeIds.length || ['settings', 'voice'].includes(activeStep?.key) || activeStep?.key === 'guidance' && directionCardIds.length || activeStep?.key === 'recipe' && !!recipeId;
   $: nextButtonLabel = activeStep?.next ? `${hasCurrentSelection ? '' : '선택 없이 '}${activeStep.next}` : '';
   $: progressSummaries = [
@@ -85,8 +90,8 @@
     selectedCards.length ? selectedCards.length === 1 ? selectedCards[0].title : `${selectedCards[0].title} 외 ${selectedCards.length - 1}개` : '선택 안 함',
     selectedRecipe?.name || '선택 필요',
     selectedVoiceProfile?.name || '모델 기본 문체',
-    outputProfile === 'lore_article' ? '세계관 설명 글' : outputProfile === 'video_narration' ? '영상 내레이션' : outputProfile === 'novel_prose' ? '소설 장면' : '세계 내부 문서',
-    generatedDocument ? '원고 완성' : plan ? '글의 흐름 준비됨' : preview ? '사용할 설정 확인됨' : '작성 전'
+    selectedOutputProfile.title,
+    generatedDocument ? '원고 완성' : plan ? '글의 흐름 준비됨' : '작성 전'
   ];
 
   onMount(loadInitial);
@@ -132,7 +137,7 @@
     } catch (e) { error = e.message; }
   }
 
-  function resetRun() { session = preview = plan = generatedDocument = null; planDirty = false; }
+  function resetRun() { session = plan = generatedDocument = null; planDirty = false; }
 
   function categoryName(page) {
     return categories.find((item) => item.key === page?.category_key)?.name || page?.custom_category || page?.category_key || '종류 없음';
@@ -204,7 +209,7 @@
       subjectIds: [...subjectIds], backgroundIds: [...backgroundIds], elementIds: [...elementIds], conflictIds: [...conflictIds],
       directionCardIds: [...directionCardIds], recipeId, voiceProfileId, outputProfile, userDirection,
       length, customLength, detailLevel, contextDepth, creativity, mystery, seed, viewpoint, tense,
-      session, preview, plan, generatedDocument, planDirty
+      session, plan, generatedDocument, planDirty
     };
     setWizardStep(index);
     editingFromReview = true;
@@ -221,7 +226,7 @@
       ({
         subjectIds, backgroundIds, elementIds, conflictIds, directionCardIds, recipeId, voiceProfileId,
         outputProfile, userDirection, length, customLength, detailLevel, contextDepth, creativity,
-        mystery, seed, viewpoint, tense, session, preview, plan, generatedDocument, planDirty
+        mystery, seed, viewpoint, tense, session, plan, generatedDocument, planDirty
       } = reviewEditSnapshot);
     }
     returnToReview();
@@ -253,7 +258,6 @@
   function selectLength(value) { length = value; resetRun(); }
 
   function runReviewNext() {
-    if (!preview) return runAction('context-preview');
     if (!plan) return runAction('plan');
     return runAction('generate');
   }
@@ -270,7 +274,7 @@
       voice_example_ids: [],
       settings_json: {
         length, custom_length: length === 'custom' ? Number(customLength) : null,
-        detail_level: Number(detailLevel), context_depth: contextDepth, creativity,
+        detail_level: Number(detailLevel), context_depth: selectedConceptCount ? contextDepth : 'core', creativity,
         mystery_preservation: Number(mystery), viewpoint, tense
       },
       seed: Number(seed) || 0
@@ -286,7 +290,7 @@
 
   async function runAction(kind) {
     error = '';
-    busy = kind === 'context-preview' ? '선택한 세계관을 정리하는 중' : kind === 'plan' ? 'AI가 글의 흐름을 만드는 중' : 'Writer가 초안을 작성하는 중';
+    busy = kind === 'plan' ? '자료 경계를 확인하고 글의 흐름을 만드는 중' : 'Writer가 초안을 작성하는 중';
     try {
       const current = await ensureSession();
       if (kind === 'generate' && planDirty) await savePlan();
@@ -305,7 +309,6 @@
       }
       const result = await api.post(`/playbook-sessions/${current.id}/${kind}`, {});
       session = result.session;
-      if (kind === 'context-preview') preview = result.context_preview;
       if (kind === 'plan') {
         plan = result.plan;
         planDirty = false;
@@ -480,7 +483,7 @@
           </section>
 
           <section class="output-tuning-card">
-            <div class="output-selectors"><label>자료 반영 범위<select bind:value={contextDepth} on:change={resetRun}><option value="core">선택한 핵심만</option><option value="balanced">관련 자료까지 균형 있게</option><option value="wide">세계 맥락을 넓게</option><option value="max">가능한 자료를 최대로</option></select></label><label>새 설정 제안<select bind:value={creativity} on:change={resetRun}><option value="strict">하지 않음</option><option value="conservative">최소한</option><option value="balanced">필요할 때</option><option value="free">적극적</option></select></label></div>
+            <div class="output-selectors"><label>선택 자료 본문 반영<select bind:value={contextDepth} disabled={!selectedConceptCount} on:change={resetRun}><option value="core">요약과 작성 경계만</option><option value="balanced">선택 자료 본문 일부</option><option value="wide">선택 자료 본문 넓게</option><option value="max">선택 자료 본문 최대</option></select><small>{selectedConceptCount ? `주제를 포함해 선택한 ${selectedConceptCount}개 자료에 적용됩니다.` : '자료가 없으면 자동으로 꺼집니다.'}</small></label><label>새 설정 제안<select bind:value={creativity} on:change={resetRun}><option value="strict">하지 않음</option><option value="conservative">최소한</option><option value="balanced">필요할 때</option><option value="free">적극적</option></select></label></div>
             <div class="output-ranges"><label><span>설명의 자세함 <b>{detailLevel}/5</b></span><input type="range" min="1" max="5" bind:value={detailLevel} on:change={resetRun} /></label><label><span>미스터리 보존 <b>{mystery}/5</b></span><input type="range" min="1" max="5" bind:value={mystery} on:change={resetRun} /></label></div>
             <details><summary>재현용 시드</summary><div class="details-body"><label>같은 선택과 이 번호는 같은 조합을 만듭니다.<input type="number" bind:value={seed} on:change={resetRun} /></label></div></details>
           </section>
@@ -512,28 +515,24 @@
         </div>
 
         <section class="generation-route" aria-label="초안 작성 경로">
-          <header><div><span>작성 경로</span><h2>확인에서 초안까지</h2></div><p>하단의 버튼으로 한 단계씩 진행합니다. 글의 흐름이 준비되면 바로 아래에 펼쳐집니다.</p></header>
+          <header><div><span>작성 경로</span><h2>확인에서 초안까지</h2></div><p>설정 경계는 글의 흐름을 만들 때 자동으로 적용됩니다. 사용자는 흐름을 확인한 뒤 초안을 작성합니다.</p></header>
           <ol>
-            <li class:complete={!!preview} class:active={!preview}>
-              <div><span>1</span><HelpTip label="사용할 설정 확인 설명" text="선택한 자료의 유지할 사실, 공개 유보, 금지된 변경·전개를 AI 입력으로 정리합니다." /></div>
-              <strong>설정 경계 정리</strong><p>사실을 더 보여 주지 않고, 원고가 지킬 경계만 준비합니다.</p><small>{preview ? `완료 · 사실 ${preview.locked_facts.length} · 유보 ${preview.open_questions.length} · 금지 ${preview.forbidden_material.length}` : '다음 작업'}</small>
-            </li>
-            <li class:complete={!!plan} class:active={!!preview && !plan}>
-              <div><span>2</span><HelpTip label="글의 흐름 만들기 설명" text="원고를 쓰기 전에 각 문단이 어떤 순서로 무엇을 설명할지 편집 가능한 흐름으로 만듭니다." /></div>
-              <strong>글의 흐름 설계</strong><p>선택한 전개 방식을 실제 문단 순서로 바꾸고 직접 편집합니다.</p><small>{plan ? `완료 · ${plan.blocks.length}개 문단` : preview ? '다음 작업' : '설정 경계 뒤 진행'}</small>
+            <li class:complete={!!plan} class:active={!plan}>
+              <div><span>1</span><HelpTip label="글의 흐름 만들기 설명" text="원고를 쓰기 전에 각 문단이 어떤 순서로 무엇을 설명할지 편집 가능한 흐름으로 만듭니다." /></div>
+              <strong>글의 흐름 설계</strong><p>자료의 사실 경계를 자동 적용하고 전개 방식을 실제 문단 순서로 바꿉니다.</p><small>{plan ? `완료 · ${plan.blocks.length}개 문단 · ${planBudgetTotal.toLocaleString()}자` : '다음 작업'}</small>
             </li>
             <li class:complete={!!generatedDocument} class:active={!!plan && !generatedDocument}>
-              <div><span>3</span><HelpTip label="초안 작성 설명" text="확인한 설정 경계와 편집한 글의 흐름을 바탕으로 초안을 쓰고 원고 작업으로 이동합니다." /></div>
+              <div><span>2</span><HelpTip label="초안 작성 설명" text="자동 적용된 자료 경계와 편집한 글의 흐름을 바탕으로 초안을 쓰고 원고 작업으로 이동합니다." /></div>
               <strong>초안 작성</strong><p>확정한 설계표로 원고를 쓰고 원고 작업 화면에서 이어갑니다.</p><small>{generatedDocument ? '완료' : plan ? '다음 작업' : '글의 흐름 뒤 진행'}</small>
             </li>
           </ol>
         </section>
 
-        {#each preview?.warnings || [] as warning}<p class="notice-error">{warning}</p>{/each}
+        {#each plan?.warnings || [] as warning}<p class="notice-error">{warning}</p>{/each}
 
         {#if plan}
           <section class="review-plan-editor plan-editor">
-            <header class="plan-heading"><div><p class="eyebrow">글의 흐름 · {plan.blocks.length}개 문단</p><div class="heading-with-help"><h2>{plan.title}</h2><HelpTip label="글의 흐름 설명" text="완성 원고가 아니라 AI에게 줄 문단별 작업 순서입니다. 설명할 내용과 순서를 바꿀 수 있습니다." /></div><p>{plan.angle}</p><small>각 줄은 원고의 한 문단입니다. 위에서 아래 순서로 작성됩니다.</small></div><button class="secondary" disabled={!planDirty} on:click={savePlan}>{planDirty ? '바꾼 흐름 저장' : '저장됨'}</button></header>
+            <header class="plan-heading"><div><p class="eyebrow">글의 흐름 · {plan.blocks.length}개 문단 · 총 {planBudgetTotal.toLocaleString()}자 / 목표 {Number(plan.target_length || targetCharacters).toLocaleString()}자</p><div class="heading-with-help"><h2>{plan.title}</h2><HelpTip label="글의 흐름 설명" text="완성 원고가 아니라 AI에게 줄 문단별 작업 순서입니다. 설명할 내용과 순서, 문단별 글자 수를 바꿀 수 있습니다." /></div><p>{plan.angle}</p><small>각 줄은 원고의 한 문단입니다. 위에서 아래 순서로 작성됩니다.</small></div><button class="secondary" disabled={!planDirty} on:click={savePlan}>{planDirty ? '바꾼 흐름 저장' : '저장됨'}</button></header>
             <div class="flow-list">
               {#each plan.blocks as block, index}
                 <article class="flow-row">
@@ -563,7 +562,7 @@
     {:else}
     <button class="ghost" disabled={wizardStep === 0 || !!busy} on:click={() => setWizardStep(wizardStep - 1)}>← 이전</button>
     {#if activeStep.key === 'review'}
-      <button class="primary" disabled={!!busy || !subject || !!plan && cardConflicts.length} on:click={runReviewNext}>{!preview ? '사용할 설정 확인' : !plan ? '글의 흐름 만들기' : '초안 작성'} →</button>
+      <button class="primary" disabled={!!busy || !subject || !!plan && cardConflicts.length} on:click={runReviewNext}>{!plan ? '글의 흐름 만들기' : '초안 작성'} →</button>
     {:else}
       <button class="primary" disabled={wizardStep === 0 && !subject || activeStep.key === 'guidance' && cardConflicts.length || activeStep.key === 'recipe' && !recipeId} on:click={nextStep}>{nextButtonLabel} →</button>
     {/if}

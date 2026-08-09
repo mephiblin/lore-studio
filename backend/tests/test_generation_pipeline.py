@@ -94,7 +94,6 @@ def test_generation_persists_required_stages_and_lore_blocks(monkeypatch) -> Non
     db.commit()
 
     harness = LoreHarness(ModelGateway(transport=HandlerTransport(model_handler)))
-    harness.context_preview(db, session)
     plan = asyncio.run(harness.plan(db, session))
     assert [block["move"] for block in plan["blocks"]] == ["ORIENT", "ANCHOR", "WITHHOLD"]
     assert "필수 순서" in " ".join(plan["warnings"])

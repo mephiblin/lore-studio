@@ -625,9 +625,9 @@ test('a project can be added after projects already exist', async ({ page }, tes
     await page.getByRole('button', { name: '전개 방식 만들기', exact: true }).click();
     await expect(page.getByText("'징후에서 결론으로' 전개 방식을 만들었습니다.")).toBeVisible();
     const recipeCard = page.locator('.recipe-settings-card').filter({ hasText: '징후에서 결론으로' });
-    await expect(recipeCard).toContainText('배경 설명');
-    await expect(recipeCard).toContainText('핵심 사실 제시');
-    await expect(recipeCard).toContainText('의미 해설');
+    await expect(recipeCard).toContainText('맥락 열기');
+    await expect(recipeCard).toContainText('핵심 근거·장면');
+    await expect(recipeCard).toContainText('의미·분석');
     await expect(recipeCard.locator('.recipe-card-route li')).toHaveCount(3);
     if (testInfo.project.name === 'desktop') {
       expect((await recipeCard.boundingBox()).width).toBeLessThanOrEqual(305);
@@ -709,6 +709,14 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
   await expect(page.locator('.direction-intro')).toHaveCount(0);
   await expectStepHelp(page, '집필 지침 설명', '반복해 지킬 강조점');
   await expect(page.getByRole('button', { name: 'AI로 세부 규칙 정리' }).first()).toBeVisible();
+  await page.getByRole('button', { name: '+ 새 집필 지침' }).click();
+  const directionDialog = await expectWorkspaceDialog(page, '새 집필 지침');
+  await expect(directionDialog.getByRole('button', { name: '인물의 욕망과 선택을 장면으로 보여 준다' })).toBeVisible();
+  await expect(directionDialog.getByRole('button', { name: '구체적 경험에서 생각을 확장한다' })).toBeVisible();
+  await expect(directionDialog.getByRole('button', { name: '근거와 한계를 분리해 판단한다' })).toBeVisible();
+  await directionDialog.getByRole('button', { name: '구체적 경험에서 생각을 확장한다' }).click();
+  await expect(directionDialog.getByLabel('새 집필 지침 목표')).toHaveValue(/경험과 성찰/);
+  await directionDialog.getByRole('button', { name: '취소' }).click();
 
   await page.goto('/playbook');
   await expect(page.locator('select[multiple]')).toHaveCount(0);
@@ -757,23 +765,30 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
     expect((await page.locator('.recipe-option').first().boundingBox()).width).toBeLessThanOrEqual(305);
   }
   const causalPattern = page.locator('.recipe-option').filter({ hasText: '원인에서 파급으로' });
+  await expect(page.locator('.recipe-option').filter({ hasText: '경험에서 통찰로' })).toBeVisible();
+  await expect(page.locator('.recipe-option').filter({ hasText: '질문에서 결론으로' })).toBeVisible();
   await causalPattern.click();
   await expect(causalPattern).toHaveAttribute('aria-pressed', 'true');
-  await expect(causalPattern).toContainText('배경 설명');
-  await expect(causalPattern).toContainText('핵심 사실 제시');
-  await expect(causalPattern).toContainText('사례 제시');
-  await expect(causalPattern).toContainText('긴장 고조');
-  await expect(causalPattern).toContainText('의미 해설');
+  await expect(causalPattern).toContainText('맥락 열기');
+  await expect(causalPattern).toContainText('핵심 근거·장면');
+  await expect(causalPattern).toContainText('사례·장면');
+  await expect(causalPattern).toContainText('긴장·중요도 높이기');
+  await expect(causalPattern).toContainText('의미·분석');
   await expect(causalPattern).not.toContainText('시작 원인');
   await page.getByRole('button', { name: /문체·필력으로 계속/ }).click();
 
   await expectStepHelp(page, '문체·필력 단계 설명', '어떤 문장 감각으로 전달할까요');
   const modelDefaultVoice = page.locator('.voice-option.model-default');
   await expect(modelDefaultVoice).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.voice-option').filter({ hasText: '장면 중심 소설 문체' })).toBeVisible();
+  await expect(page.locator('.voice-option').filter({ hasText: '구체적 성찰 문체' })).toBeVisible();
+  await expect(page.locator('.voice-option').filter({ hasText: '근거 중심 보고서 문체' })).toBeVisible();
   await page.getByRole('button', { name: /결과물 형태로 계속/ }).click();
 
   await expectStepHelp(page, '결과물 형태 단계 설명', '어떤 결과물로 만들까요');
   await expect(page.locator('.output-specimen')).toContainText('세계관 설명 글');
+  await expect(page.getByRole('group', { name: '결과물 종류' }).getByRole('button', { name: /수필·에세이/ })).toBeVisible();
+  await expect(page.getByRole('group', { name: '결과물 종류' }).getByRole('button', { name: /분석 보고서/ })).toBeVisible();
   const viewpointGroup = page.getByRole('group', { name: '시점' });
   const tenseGroup = page.getByRole('group', { name: '시제' });
   await expect(viewpointGroup.getByRole('button', { name: /전지적 설명자/ })).toHaveAttribute('aria-pressed', 'true');
@@ -786,6 +801,8 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
   await expect(page.locator('.specimen-selection-summary')).toContainText('형식');
   await expect(page.locator('.specimen-selection-summary')).toContainText('분량');
   await expect(page.locator('.specimen-selection-summary')).toContainText('길게 · 약 6,500자');
+  await expect(page.getByLabel('선택 자료 본문 반영')).toHaveValue('balanced');
+  await expect(page.locator('.output-tuning-card')).toContainText('주제를 포함해 선택한 3개 자료에 적용됩니다.');
   await page.getByRole('button', { name: /확인·작성으로 계속/ }).click();
 
   await expectStepHelp(page, '확인·작성 단계 설명', '선택을 확인하고 초안을 만드세요');
@@ -796,6 +813,8 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
   await expect(reviewStudio).toContainText('원인에서 파급으로');
   await expect(reviewStudio.getByRole('heading', { name: '확인에서 초안까지' })).toBeVisible();
   await expect(reviewStudio).toContainText('글의 흐름 설계');
+  await expect(reviewStudio).not.toContainText('설정 경계 정리');
+  await expect(page.locator('.generation-route li')).toHaveCount(2);
   await expect(page.getByRole('heading', { name: '이 글이 참고할 세계관' })).toHaveCount(0);
   await expect(page.locator('.playbook-page > .playbook-navigation')).toBeVisible();
   await expect(page.locator('.generation-route li.complete')).toHaveCount(0);
@@ -810,17 +829,39 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
   await reviewStudio.locator('.review-manifest-card.material').getByRole('button', { name: '수정' }).click();
   await page.locator('.playbook-page > .playbook-navigation').getByRole('button', { name: /확인·작성으로 돌아가기/ }).click();
   await expect(reviewStudio).toBeVisible();
-  await page.getByRole('button', { name: '사용할 설정 확인 설명' }).click();
-  await expect(page.getByRole('tooltip').filter({ hasText: 'AI 입력으로 정리' })).toBeVisible();
+  await page.getByRole('button', { name: '글의 흐름 만들기 설명' }).click();
+  await expect(page.getByRole('tooltip').filter({ hasText: '편집 가능한 흐름' })).toBeVisible();
+  await page.route('**/api/v1/playbook-sessions/*/plan', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        session: { id: 'e2e-plan-session' },
+        plan: {
+          title: '검은 등대 흐름', angle: '대가가 항로를 유지하는 방식을 설명한다.',
+          target_length: 6500, planned_length: 6500, warnings: [],
+          blocks: [
+            { move: 'ORIENT', purpose: '맥락', evidence_ids: [], word_budget: 1300, must_include: [], avoid: [], scene_mode: '설명', expression_focus: '', locked: false },
+            { move: 'ANCHOR', purpose: '근거', evidence_ids: [], word_budget: 1300, must_include: [], avoid: [], scene_mode: '설명', expression_focus: '', locked: false },
+            { move: 'EXEMPLIFY', purpose: '사례', evidence_ids: [], word_budget: 1300, must_include: [], avoid: [], scene_mode: '설명', expression_focus: '', locked: false },
+            { move: 'ESCALATE', purpose: '파급', evidence_ids: [], word_budget: 1300, must_include: [], avoid: [], scene_mode: '설명', expression_focus: '', locked: false },
+            { move: 'INTERPRET', purpose: '의미', evidence_ids: [], word_budget: 1300, must_include: [], avoid: [], scene_mode: '설명', expression_focus: '', locked: false }
+          ]
+        }
+      })
+    });
+  });
   const sessionRequestPromise = page.waitForRequest((request) =>
     request.method() === 'POST' && request.url().endsWith('/api/v1/playbook-sessions')
   );
   const playbookNavigation = page.locator('.playbook-page > .playbook-navigation');
-  await playbookNavigation.getByRole('button', { name: /사용할 설정 확인/ }).click();
+  await playbookNavigation.getByRole('button', { name: /글의 흐름 만들기/ }).click();
   const sessionRequest = await sessionRequestPromise;
   expect(sessionRequest.postDataJSON().settings_json).toMatchObject({
+    length: 'long',
     viewpoint: 'third_limited',
     tense: 'past',
+    context_depth: 'balanced',
   });
   expect(sessionRequest.postDataJSON().writing_recipe_id).toBeTruthy();
   expect(sessionRequest.postDataJSON()).toMatchObject({
@@ -831,8 +872,9 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
   const sessionResponse = await sessionRequest.response();
   const session = await sessionResponse.json();
   await expect(page.locator('.generation-route li').first()).toHaveClass(/complete/);
-  await expect(page.locator('.generation-route li').first()).toContainText('완료 · 사실');
-  await expect(playbookNavigation.getByRole('button', { name: /글의 흐름 만들기/ })).toBeEnabled();
+  await expect(page.locator('.generation-route li').first()).toContainText('완료 · 5개 문단 · 6,500자');
+  await expect(page.locator('.plan-heading')).toContainText('총 6,500자 / 목표 6,500자');
+  await expect(playbookNavigation.getByRole('button', { name: /초안 작성/ })).toBeEnabled();
   await expect(page.getByRole('heading', { name: '이 글이 참고할 세계관' })).toHaveCount(0);
   await page.request.delete(`${new URL(sessionRequest.url()).origin}/api/v1/playbook-sessions/${session.id}`);
 });

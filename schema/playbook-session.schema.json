@@ -91,12 +91,18 @@
             "custom"
           ]
         },
+        "custom_length": {
+          "description": "length가 custom일 때 사용하는 목표 한국어 글자 수",
+          "type": ["integer", "null"],
+          "minimum": 500
+        },
         "detail_level": {
           "type": "integer",
           "minimum": 1,
           "maximum": 5
         },
         "context_depth": {
+          "description": "자동 관련 자료 검색 범위가 아니라 사용자가 선택한 자료의 본문 포함량. 선택 자료가 없으면 core로 비활성화",
           "enum": [
             "core",
             "balanced",
