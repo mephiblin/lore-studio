@@ -23,13 +23,20 @@
   onMount(() => {
     const storedTheme = localStorage.getItem(LOREBOOK_THEME_KEY);
     if (lorebookThemes.some((theme) => theme.id === storedTheme)) lorebookTheme = storedTheme;
+    syncWorkspaceTheme();
     loadInitial();
+    return () => document.documentElement.removeAttribute('data-lorebook-theme');
   });
 
   function selectTheme(themeId) {
     if (!lorebookThemes.some((theme) => theme.id === themeId)) return;
     lorebookTheme = themeId;
     localStorage.setItem(LOREBOOK_THEME_KEY, themeId);
+    syncWorkspaceTheme();
+  }
+
+  function syncWorkspaceTheme() {
+    document.documentElement.dataset.lorebookTheme = lorebookTheme;
   }
 
   async function loadInitial() {
@@ -147,7 +154,7 @@
           {/each}
         </div>
       </div>
-      <div class="row spread"><div><p class="eyebrow">완성된 글</p><h3 style="margin:0">책장</h3></div><span class="badge">{entries.length}</span></div>
+      <div class="row spread"><div><p class="eyebrow">완성된 글</p><h3 class="lorebook-shelf-title">책장</h3></div><span class="badge">{entries.length}</span></div>
       <label class="mobile-document-picker">읽을 글<select value={selected?.id || ''} on:change={(event) => selectEntry(entries.find((entry) => entry.id === event.currentTarget.value) || null)}>{#each entries as entry}<option value={entry.id}>{entry.title}</option>{/each}</select></label>
       <div class="list lorebook-list">
         {#each entries as entry}
@@ -167,7 +174,7 @@
               {#if editing}<input aria-label="로어북 글 제목" bind:value={selected.title} />{:else}<h2>{selected.title}</h2>{/if}
               <span>{statusLabel(selected.status)} · {selected.body_markdown.length.toLocaleString()}자 · {new Date(selected.published_at || selected.updated_at).toLocaleString('ko-KR')}</span>
             </div>
-            <div class="lorebook-heading-actions"><span class="lorebook-mark">LORE<br />BOOK</span>{#if !editing}<button class="secondary" on:click={() => editing = true}>글 편집</button>{/if}</div>
+            <div class="lorebook-heading-actions"><span class="lorebook-mark">LORE<br />BOOK</span>{#if !editing}<button class="secondary lorebook-edit-button" on:click={() => editing = true}>글 편집</button>{/if}</div>
           </header>
           {#if editing}
             <textarea class="lorebook-body lorebook-body-editor" aria-label="로어북 글 내용" bind:value={selected.body_markdown}></textarea>

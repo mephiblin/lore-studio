@@ -427,6 +427,17 @@ test('lorebook reading themes switch, persist, and leave content actions unchang
     ['메카니컬', 'mechanical', 'lorebook-mechanical.webp'],
     ['어반 판타지', 'urban', 'lorebook-urban.webp']
   ];
+  const workspaceColors = {
+    fantasia: 'rgb(60, 41, 34)',
+    mechanical: 'rgb(1, 8, 6)',
+    urban: 'rgb(8, 14, 32)'
+  };
+  const shelfTitleColors = {
+    normal: 'rgb(24, 48, 44)',
+    fantasia: 'rgb(123, 45, 37)',
+    mechanical: 'rgb(125, 255, 164)',
+    urban: 'rgb(238, 242, 255)'
+  };
 
   await expect(page.getByRole('group', { name: '로어북 열람 테마' })).toBeVisible();
   await expect(page.getByRole('button', { name: '로어북 테마: 노말' })).toHaveAttribute('aria-pressed', 'true');
@@ -434,9 +445,17 @@ test('lorebook reading themes switch, persist, and leave content actions unchang
     await page.getByRole('button', { name: `로어북 테마: ${name}` }).click();
     await expect(lorebookPage).toHaveAttribute('data-lorebook-theme', id);
     await expect(page.getByRole('button', { name: `로어북 테마: ${name}` })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('heading', { name: '책장' })).toHaveCSS('color', shelfTitleColors[id]);
+    await expect(page.getByRole('button', { name: '글 편집' })).toHaveCSS('background-color', 'rgb(20, 50, 46)');
+    await expect(page.getByRole('button', { name: '글 편집' })).toHaveCSS('color', 'rgb(240, 188, 101)');
     if (asset) {
       const backgroundImage = await page.locator('.lorebook-sheet').evaluate((node) => getComputedStyle(node).backgroundImage);
       expect(backgroundImage).toContain(asset);
+      await expect(page.locator('.workspace-main')).toHaveCSS('background-color', workspaceColors[id]);
+    }
+    if (id === 'mechanical') {
+      const glitchAnimation = await page.locator('.lorebook-sheet').evaluate((node) => getComputedStyle(node, '::after').animationName);
+      expect(glitchAnimation).toBe('lorebook-crt-glitch');
     }
   }
 
@@ -447,9 +466,10 @@ test('lorebook reading themes switch, persist, and leave content actions unchang
   await expect(page.getByRole('button', { name: '로어북 테마: 어반 판타지' })).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: '글 편집' }).click();
   await expect(page.getByLabel('로어북 글 내용')).toHaveJSProperty('tagName', 'TEXTAREA');
-  await expect(page.getByLabel('로어북 글 내용')).toHaveCSS('color', 'rgb(255, 213, 227)');
+  await expect(page.getByLabel('로어북 글 내용')).toHaveCSS('color', 'rgb(230, 237, 255)');
   await page.getByRole('button', { name: '취소' }).click();
-  await page.getByRole('button', { name: '로어북 테마: 노말' }).click();
+  await page.goto('/documents');
+  await expect(page.locator('html')).not.toHaveAttribute('data-lorebook-theme');
 });
 
 test('a project can be added after projects already exist', async ({ page }, testInfo) => {
