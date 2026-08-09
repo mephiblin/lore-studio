@@ -147,6 +147,8 @@ test('dense Diablo materials stay bounded and use its project taxonomy', async (
     const grid = await page.locator('.wizard-card-grid').boundingBox();
     expect(grid.height).toBeLessThanOrEqual(461);
     expect(await page.locator('.wizard-card-grid').evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
+  } else {
+    expect((await page.locator('.wizard-choice-card').first().boundingBox()).width).toBeLessThanOrEqual(305);
   }
   await page.getByRole('button', { name: '전체', exact: true }).click();
   await expect(page.getByText('모든 세계관 자료')).toBeVisible();
@@ -238,7 +240,7 @@ test('a project can be added after projects already exist', async ({ page }, tes
   }
 });
 
-test('project-first workflow exposes understandable controls', async ({ page }) => {
+test('project-first workflow exposes understandable controls', async ({ page }, testInfo) => {
   test.skip(process.env.E2E_EXPECT_DATA !== 'true', 'requires the curated Black Route world project');
   await page.goto('/');
   await expect(page.locator('.model-board')).toHaveCount(0);
@@ -299,9 +301,15 @@ test('project-first workflow exposes understandable controls', async ({ page }) 
   await expectStepHelp(page, '갈등·변수 단계 설명', '무엇이 긴장과 변화를');
   await page.getByRole('button', { name: /선택 없이 집필 지침으로/ }).click();
   await expectStepHelp(page, '집필 지침 단계 설명', '이번 글에서 무엇을 강조하거나 피할까요');
+  if (testInfo.project.name === 'desktop' && await page.locator('.direction-option').count()) {
+    expect((await page.locator('.direction-option').first().boundingBox()).width).toBeLessThanOrEqual(305);
+  }
   await page.getByRole('button', { name: /선택 없이 전개 방식으로/ }).click();
 
   await expectStepHelp(page, '전개 방식 단계 설명', '글을 어떤 방식으로 풀어갈까요');
+  if (testInfo.project.name === 'desktop') {
+    expect((await page.locator('.recipe-option').first().boundingBox()).width).toBeLessThanOrEqual(305);
+  }
   const causalPattern = page.locator('.recipe-option').filter({ hasText: '원인에서 파급으로' });
   await causalPattern.click();
   await expect(causalPattern).toHaveAttribute('aria-pressed', 'true');
