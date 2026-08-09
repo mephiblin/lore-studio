@@ -121,6 +121,7 @@ frontend/src/lib/api.js
 frontend/src/lib/components/HelpTip.svelte
 frontend/src/lib/components/ProjectCreator.svelte
 frontend/src/lib/components/TiptapEditor.svelte
+frontend/src/lib/components/WritingBriefSpecimen.svelte
 frontend/src/lib/extensions/LoreBlock.js
 frontend/src/lib/labels.js
 frontend/src/lib/project.js
@@ -147,6 +148,7 @@ schema/category-definition.schema.json
 schema/concept-ai-edit.schema.json
 schema/direction-card.schema.json
 schema/draft-save.schema.json
+schema/finalization-request.schema.json
 schema/lore-document.schema.json
 schema/playbook-session.schema.json
 schema/project.schema.json

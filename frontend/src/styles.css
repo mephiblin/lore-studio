@@ -513,9 +513,6 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
 .flow-meta input { width: auto; height: auto; }
 .flow-actions { align-self: center; display: flex; gap: 4px; }
 .flow-actions .ghost, .flow-actions .danger-button { padding: 6px 8px; }
-.completion-banner { display: flex; justify-content: space-between; align-items: center; gap: 18px; margin-top: 16px; padding: 20px; border-radius: 8px; background: #dfeee5; color: #315d47; }
-.completion-banner strong, .completion-banner span { display: block; }
-.completion-banner span { margin-top: 4px; font-size: 12px; }
 
 /* Survey-style playbook. The progress line reads like a route plotted across a chart. */
 .wizard-shell { overflow: hidden; border: 1px solid var(--line); border-radius: 9px; background: rgba(251, 252, 251, .86); box-shadow: 0 8px 30px rgba(20, 43, 53, .045); }
@@ -633,53 +630,36 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
 .output-ranges label > span { display: flex; justify-content: space-between; align-items: center; }
 .output-ranges b { color: var(--signal); }
 
-.review-studio { display: grid; gap: 14px; padding: clamp(18px, 3vw, 30px); }
-.review-brief-card { min-height: 132px; display: grid; grid-template-columns: 132px minmax(0, 1fr) auto; align-items: stretch; overflow: hidden; border-radius: 8px; color: #e8f0ed; background: var(--nav-deep); box-shadow: 0 14px 34px rgba(16,43,54,.13); }
-.review-brief-cover { display: grid; place-items: center; overflow: hidden; border-right: 1px solid rgba(218,232,227,.16); color: var(--nav-accent); background: #294c47; font: 600 24px/1 Georgia, "Noto Serif KR", serif; }
-.review-brief-cover img { width: 100%; height: 100%; object-fit: cover; }
-.review-brief-copy { align-self: center; min-width: 0; padding: 18px 20px; }
-.review-brief-copy > span { color: var(--nav-accent); font-size: 9px; font-weight: 850; letter-spacing: .08em; }
-.review-brief-copy h2 { margin: 5px 0 8px; overflow: hidden; color: #fff; font: 600 27px/1.15 Georgia, "Noto Serif KR", serif; text-overflow: ellipsis; white-space: nowrap; }
-.review-brief-copy p, .review-brief-copy small { display: block; margin: 0; color: #c0d1cc; font-size: 11px; }
-.review-brief-copy small { margin-top: 6px; color: #8facA4; }
-.review-brief-card > .ghost { align-self: center; margin-right: 18px; border-color: #6d8981; color: #fff; }
-.review-manifest-grid { display: grid; grid-template-columns: 1.15fr .95fr .9fr; gap: 10px; }
-.review-manifest-card { min-width: 0; padding: 15px; border: 1px solid var(--line); border-top: 3px solid var(--signal); border-radius: 6px; background: #fff; }
-.review-manifest-card.guidance { border-top-color: var(--lichen); }
-.review-manifest-card.expression { border-top-color: #806d42; }
-.review-manifest-card > header { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; }
-.review-manifest-card > header span { color: var(--ink); font: 600 17px/1.2 Georgia, "Noto Serif KR", serif; }
-.review-manifest-card > header .ghost { min-height: 28px; padding: 4px 7px; font-size: 9px; }
-.review-manifest-card dl, .review-manifest-card ul { display: grid; gap: 8px; margin: 0; padding: 0; }
-.review-manifest-card dl > div { display: grid; grid-template-columns: 65px minmax(0, 1fr); gap: 8px; }
-.review-manifest-card dt { color: var(--muted-text); font-size: 9px; font-weight: 760; }
-.review-manifest-card dd, .review-manifest-card p { margin: 0; color: var(--ink-soft); font-size: 11px; line-height: 1.55; }
-.review-manifest-card li { display: grid; gap: 3px; padding-bottom: 7px; border-bottom: 1px solid var(--line); list-style: none; }
-.review-manifest-card li:last-child { padding-bottom: 0; border-bottom: 0; }
-.review-manifest-card li strong { font-size: 11px; }
-.review-manifest-card li small { overflow: hidden; color: var(--muted-text); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
-.review-manifest-card.expression > strong { display: block; color: var(--ink); font: 600 16px/1.25 Georgia, "Noto Serif KR", serif; }
-.review-manifest-card.expression > div { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 12px; }
-.review-manifest-card.expression > div span { padding: 4px 6px; border: 1px solid var(--line); border-radius: 3px; color: var(--muted-text); font-size: 9px; }
-.generation-route { overflow: hidden; border-radius: 8px; color: #e8f0ed; background: #223138; }
-.generation-route > header { display: flex; justify-content: space-between; align-items: end; gap: 18px; padding: 18px 20px; border-bottom: 1px solid #36505a; }
-.generation-route > header span { color: var(--nav-accent); font-size: 9px; font-weight: 850; letter-spacing: .08em; }
-.generation-route > header h2 { margin: 4px 0 0; color: #fff; font: 600 22px/1.2 Georgia, "Noto Serif KR", serif; }
-.generation-route > header p { max-width: 420px; margin: 0; color: #abc0ba; font-size: 10px; line-height: 1.5; }
-.generation-route ol { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; margin: 0; padding: 0; list-style: none; }
-.generation-route li { position: relative; min-width: 0; display: grid; align-content: start; gap: 7px; min-height: 150px; padding: 17px 20px; border-right: 1px solid #36505a; }
-.generation-route li:last-child { border-right: 0; }
-.generation-route li.active { background: #293b41; box-shadow: inset 0 3px var(--nav-accent); }
-.generation-route li.complete { background: #285347; }
-.generation-route li > div { display: flex; align-items: center; gap: 7px; }
-.generation-route li > div > span { width: 23px; height: 23px; display: grid; place-items: center; border: 1px solid #708a83; border-radius: 50%; color: #c8d8d3; font: 600 11px Georgia, serif; }
-.generation-route li.complete > div > span { color: var(--nav-deep); border-color: var(--nav-accent); background: var(--nav-accent); }
-.generation-route .help-tip-button { width: 17px; height: 17px; border-color: #708a83; color: #d9e7e3; background: transparent; }
-.generation-route li > strong { color: #fff; font-size: 12px; }
-.generation-route li > p { margin: 0; color: #abc0ba; font-size: 10px; line-height: 1.5; }
-.generation-route li > small { margin-top: auto; color: #9eb2ad; font-size: 9px; font-weight: 760; }
-.generation-route li.active > small, .generation-route li.complete > small { color: var(--nav-accent); }
-.review-plan-editor { scroll-margin-top: 12px; padding: 20px; border: 1px solid var(--line); border-top: 3px solid var(--nav-accent); border-radius: 7px; background: #fff; }
+.review-workbench { display: grid; grid-template-columns: minmax(260px, .38fr) minmax(0, 1fr); align-items: start; gap: 16px; padding: clamp(18px, 3vw, 30px); }
+.review-generation-desk { min-width: 0; display: grid; gap: 12px; }
+.review-generation-heading { display: flex; align-items: end; justify-content: space-between; gap: 16px; padding: 16px; border: 1px solid var(--line); border-radius: 7px; background: #fff; }
+.review-generation-heading > div:first-child { min-width: 0; display: grid; gap: 4px; }
+.review-generation-heading > div:first-child > span { color: var(--signal); font-size: 9px; font-weight: 850; letter-spacing: .08em; }
+.review-generation-heading h2 { margin: 0; color: var(--ink); font: 600 20px/1.25 Georgia, "Noto Serif KR", serif; }
+.review-generation-heading p { margin: 0; color: var(--muted-text); font-size: 10px; }
+.review-edit-actions { display: flex; flex-wrap: wrap; justify-content: end; gap: 5px; }
+.review-edit-actions .ghost { min-height: 30px; padding: 5px 7px; font-size: 9px; }
+.review-stage-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.review-stage-cards > button { min-width: 0; min-height: 118px; display: grid; align-content: start; justify-items: start; gap: 6px; padding: 14px 16px; border: 1px solid var(--line); border-top: 3px solid var(--line-strong); border-radius: 7px; color: var(--ink); background: #fff; text-align: left; }
+.review-stage-cards > button:hover:not(:disabled) { transform: translateY(-1px); border-color: var(--signal); box-shadow: 0 8px 18px rgba(16,43,54,.09); }
+.review-stage-cards > button.active { border-color: var(--nav-accent); border-top-color: var(--nav-accent); background: var(--nav-deep); box-shadow: 0 10px 24px rgba(16,43,54,.13); }
+.review-stage-cards > button.complete:not(.active) { border-top-color: var(--lichen); background: #f1f7f3; }
+.review-stage-cards > button > span { color: var(--signal); font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.review-stage-cards > button > strong { font: 600 15px/1.25 Georgia, "Noto Serif KR", serif; }
+.review-stage-cards > button > p { margin: 0; color: var(--muted-text); font-size: 10px; line-height: 1.45; }
+.review-stage-cards > button > small { margin-top: auto; color: var(--ink-soft); font-size: 9px; font-weight: 780; }
+.review-stage-cards > button.active > span, .review-stage-cards > button.active > strong, .review-stage-cards > button.active > p, .review-stage-cards > button.active > small { color: var(--nav-accent); }
+.review-result-slot { min-width: 0; min-height: 430px; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.review-plan-editor { min-height: 430px; scroll-margin-top: 12px; padding: 18px; background: #fff; }
+.review-result-empty, .review-result-wait { min-height: 430px; display: grid; place-content: center; justify-items: center; gap: 9px; padding: 30px; text-align: center; }
+.review-result-empty > span { width: 42px; height: 42px; display: grid; place-items: center; border: 1px solid var(--line-strong); border-radius: 50%; color: var(--signal); font: 700 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.review-result-empty h2, .review-result-wait strong { margin: 0; color: var(--ink); font: 600 20px/1.25 Georgia, "Noto Serif KR", serif; }
+.review-result-empty p, .review-result-wait p { max-width: 450px; margin: 0; color: var(--muted-text); font-size: 11px; line-height: 1.6; }
+.review-result-wait > span { width: 26px; height: 26px; border: 3px solid var(--line); border-top-color: var(--signal); border-radius: 50%; animation: spin .8s linear infinite; }
+.review-draft-result { min-height: 430px; display: grid; grid-template-rows: auto minmax(0, 1fr); }
+.review-draft-result > header { display: flex; align-items: end; justify-content: space-between; gap: 16px; padding: 18px 20px; border-bottom: 1px solid var(--line); background: var(--paper-deep); }
+.review-draft-result h2 { margin: 3px 0 0; color: var(--ink); font: 600 23px/1.2 Georgia, "Noto Serif KR", serif; }
+.review-draft-body { max-height: 560px; overflow-y: auto; padding: 24px; white-space: pre-wrap; color: var(--ink); font: 15px/1.8 Georgia, "Noto Serif KR", serif; }
 .wizard-actions { display: flex; justify-content: space-between; gap: 10px; padding: 18px clamp(18px, 3vw, 30px); border-top: 1px solid var(--line); background: var(--paper-deep); }
 .wizard-actions .primary { min-width: 190px; }
 .playbook-page > .playbook-navigation { flex: 0 0 auto; z-index: 12; padding-block: 10px; box-shadow: 0 -8px 24px rgba(16,43,54,.08); }
@@ -737,10 +717,32 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
 .document-edit-stage .document-toolbar { padding: 4px 2px 9px; border-bottom: 1px solid var(--line); background: transparent; }
 .compact-status { min-width: 115px; }
 .compact-status select { padding-block: 6px; }
-.final-output-studio { align-items: start; }
 .final-output-specimen { min-height: 520px; }
-.final-output-tuning { background: #eef2ef; }
-.final-instruction-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.final-polish-studio { display: grid; grid-template-columns: minmax(250px, .34fr) minmax(0, 1fr); align-items: start; gap: 16px; padding: clamp(18px, 3vw, 30px); }
+.final-polish-source { min-height: 610px; }
+.final-polish-source .specimen-selection-summary { margin-top: 22px; }
+.final-polish-source .specimen-selection-summary > div { grid-template-columns: 70px minmax(0, 1fr); }
+.final-polish-deck { min-width: 0; display: grid; gap: 12px; }
+.final-polish-heading, .final-polish-section, .final-polish-instruction { padding: 16px; border: 1px solid var(--line); border-radius: 7px; background: #fff; }
+.final-polish-heading { display: grid; gap: 4px; }
+.final-polish-heading > span, .final-polish-section > header > span { color: var(--signal); font-size: 9px; font-weight: 850; letter-spacing: .08em; }
+.final-polish-heading h2 { margin: 0; color: var(--ink); font: 600 22px/1.25 Georgia, "Noto Serif KR", serif; }
+.final-polish-heading p { margin: 2px 0 0; color: var(--muted-text); font-size: 11px; line-height: 1.55; }
+.final-polish-section { display: grid; gap: 12px; }
+.final-polish-section > header { display: grid; gap: 3px; }
+.final-polish-section > header > strong { color: var(--ink); font: 600 16px/1.3 Georgia, "Noto Serif KR", serif; }
+.refinement-priority-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+.final-polish-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.refinement-choice-grid { display: grid; gap: 7px; }
+.refinement-priority-grid button, .refinement-choice-grid button { min-width: 0; display: grid; justify-items: start; align-content: start; gap: 5px; padding: 12px; border: 1px solid var(--line); border-radius: 5px; color: var(--ink); background: var(--paper-deep); text-align: left; }
+.refinement-priority-grid button { min-height: 94px; }
+.refinement-priority-grid button strong, .refinement-choice-grid button strong { font-size: 12px; }
+.refinement-priority-grid button small, .refinement-choice-grid button small { color: var(--muted-text); font-size: 9px; line-height: 1.45; }
+.refinement-priority-grid button.selected, .refinement-choice-grid button.selected { border-color: var(--nav-accent); color: var(--nav-accent); background: var(--nav-deep); box-shadow: 0 8px 20px rgba(16,43,54,.12); }
+.refinement-priority-grid button.selected small, .refinement-choice-grid button.selected small { color: var(--nav-accent); }
+.final-polish-instruction { display: grid; gap: 8px; background: var(--paper-deep); }
+.final-polish-instruction textarea { min-height: 96px; }
+.final-polish-instruction > small { color: var(--muted-text); font-size: 9px; }
 .finalization-review { padding: clamp(20px, 4vw, 42px); }
 .final-review-sheet { overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: #fff; box-shadow: 0 10px 28px rgba(20,43,53,.06); }
 .final-review-sheet > header { padding: 24px 26px 20px; color: #e8f0ed; background: var(--nav-deep); }
@@ -995,7 +997,6 @@ html[data-lorebook-theme] .app-main.workspace-main { transition: background-colo
   .review-dock { position: static; align-items: stretch; flex-direction: column; }
   .review-summary { flex-wrap: wrap; }
   .run-actions { display: grid; grid-template-columns: 1fr 1fr; }
-  .completion-banner { align-items: stretch; flex-direction: column; }
   .wizard-progress { grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: visible; }
   .workflow-commandbar .wizard-progress { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .workflow-commandbar .document-wizard-progress { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -1006,8 +1007,14 @@ html[data-lorebook-theme] .app-main.workspace-main { transition: background-colo
   .wizard-step-button > div { gap: 0; }
   .wizard-step-button small { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
   .output-studio { grid-template-columns: 1fr; }
+  .final-polish-studio { grid-template-columns: 1fr; }
+  .final-polish-source { position: static; min-height: 460px; }
+  .refinement-priority-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .final-polish-pair { grid-template-columns: 1fr; }
   .output-specimen { position: static; min-height: 280px; }
-  .review-manifest-grid { grid-template-columns: 1fr; }
+  .review-workbench { grid-template-columns: 1fr; }
+  .review-generation-heading { align-items: stretch; flex-direction: column; }
+  .review-edit-actions { justify-content: start; }
   .flow-row { grid-template-columns: 32px minmax(0, .45fr) minmax(0, 1fr); }
   .flow-budget { grid-column: 2; grid-row: 2; }
   .flow-meta { grid-column: 3; grid-row: 2; }
@@ -1065,13 +1072,10 @@ html[data-lorebook-theme] .app-main.workspace-main { transition: background-colo
   .voice-card-grid { grid-template-columns: 1fr; }
   .length-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .output-selectors, .output-ranges { grid-template-columns: 1fr; }
-  .review-brief-card { grid-template-columns: 1fr; }
-  .review-brief-cover { min-height: 150px; border-right: 0; border-bottom: 1px solid rgba(218,232,227,.16); }
-  .review-brief-card > .ghost { justify-self: start; margin: 0 18px 18px; }
-  .generation-route > header { align-items: start; flex-direction: column; }
-  .generation-route ol { grid-template-columns: 1fr; }
-  .generation-route li { min-height: 0; border-right: 0; border-bottom: 1px solid #36505a; }
-  .generation-route li:last-child { border-bottom: 0; }
+  .review-stage-cards { grid-template-columns: 1fr; }
+  .refinement-priority-grid { grid-template-columns: 1fr; }
+  .review-draft-result > header { align-items: stretch; flex-direction: column; }
+  .review-draft-result > header .primary { align-self: stretch; }
   .plan-heading { align-items: stretch; flex-direction: column; }
   .flow-row { grid-template-columns: 28px minmax(0, 1fr); align-items: start; }
   .flow-index { grid-row: 1 / 3; }
@@ -1094,7 +1098,6 @@ html[data-lorebook-theme] .app-main.workspace-main { transition: background-colo
   .workflow-document-select { width: 100%; min-width: 0; }
   .document-edit-stage { padding: 10px; }
   .finalization-review { padding: 12px; }
-  .final-instruction-grid { grid-template-columns: 1fr; }
   .final-review-sheet dl > div { grid-template-columns: 1fr; gap: 5px; padding: 13px 16px; }
   .lorebook-destination, .lorebook-actions, .lorebook-sheet-heading, .lorebook-source-link { align-items: stretch; flex-direction: column; }
   .lorebook-destination > span, .lorebook-mark { align-self: flex-start; }
@@ -1154,7 +1157,6 @@ html[data-lorebook-theme] .app-main.workspace-main { transition: background-colo
   .wizard-shell:has(.wizard-picker) .wizard-layout { height: 100%; min-height: 0; }
   .wizard-shell:has(.wizard-picker) .wizard-picker { height: 100%; min-height: 0; display: flex; flex-direction: column; }
   .wizard-shell:has(.wizard-picker) .wizard-card-grid { min-height: 0; flex: 1 1 auto; max-height: none; }
-  .playbook-workspace > .completion-banner { margin-bottom: 4px; }
 
   .documents-page > .document-workflow { flex: 1 1 auto; min-height: 0; }
   .document-workflow { display: flex; flex-direction: column; }
@@ -1162,13 +1164,13 @@ html[data-lorebook-theme] .app-main.workspace-main { transition: background-colo
   .document-workflow > .wizard-actions { flex: 0 0 auto; }
   .document-workflow > .workflow-empty,
   .document-workflow > .document-edit-stage,
-  .document-workflow > .final-output-studio,
+  .document-workflow > .final-polish-studio,
   .document-workflow > .finalization-review { flex: 1 1 auto; min-height: 0; }
   .document-edit-stage { overflow: hidden; align-items: stretch; }
   .document-edit-stage .document-main,
   .document-edit-stage .document-inspector { min-height: 0; overflow-y: auto; align-content: start; overscroll-behavior: contain; }
   .document-edit-stage .document-inspector { display: grid; grid-template-columns: 1fr; }
-  .document-workflow > .final-output-studio,
+  .document-workflow > .final-polish-studio,
   .document-workflow > .finalization-review { overflow-y: auto; overscroll-behavior: contain; }
 
   .lorebook-page > .lorebook-layout { flex: 1 1 auto; min-height: 0; }

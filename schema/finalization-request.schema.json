@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FinalizationRequest",
+  "description": "최신 편집 초안의 기존 생성 설계를 보존하면서 이번 최종 패스의 보강 범위만 지정한다.",
+  "type": "object",
+  "properties": {
+    "instruction": { "type": "string", "maxLength": 2000 },
+    "refinement": { "$ref": "#/$defs/refinement" },
+    "user_direction": { "type": ["string", "null"], "maxLength": 4000 },
+    "writing_recipe_id": { "type": ["string", "null"] },
+    "voice_profile_id": { "type": ["string", "null"] },
+    "voice_selection_mode": {
+      "type": ["string", "null"],
+      "enum": ["model_default", "profile_default", "manual", "retrieved", null]
+    },
+    "voice_example_ids": {
+      "type": ["array", "null"],
+      "maxItems": 5,
+      "items": { "type": "string" }
+    },
+    "output_profile": { "type": ["string", "null"] },
+    "settings_json": { "type": ["object", "null"] }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "refinement": {
+      "type": "object",
+      "required": ["priorities", "intensity", "length_policy"],
+      "properties": {
+        "priorities": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 6,
+          "uniqueItems": true,
+          "items": {
+            "enum": ["coherence", "causality", "imagery", "rhythm", "deduplicate", "ending"]
+          }
+        },
+        "intensity": { "enum": ["light", "balanced", "strong"] },
+        "length_policy": { "enum": ["preserve", "tighten", "expand"] }
+      },
+      "additionalProperties": false
+    }
+  }
+}

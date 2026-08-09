@@ -128,9 +128,11 @@ def test_generation_persists_required_stages_and_lore_blocks(monkeypatch) -> Non
             db,
             document,
             instruction="문단 사이의 시간 흐름을 연결한다.",
-            user_direction="완성본에서는 시민의 시선을 중심에 둔다.",
-            output_profile="novel_prose",
-            settings_json={"viewpoint": "first_observer", "tense": "present"},
+            refinement_json={
+                "priorities": ["coherence", "imagery", "ending"],
+                "intensity": "strong",
+                "length_policy": "expand",
+            },
         )
     )
     assert result["status"] == "ready"
@@ -152,11 +154,19 @@ def test_generation_persists_required_stages_and_lore_blocks(monkeypatch) -> Non
     )
     assert final_run is not None
     assert final_run.input_json["editable_draft"]
+    assert final_run.input_json["revision_brief"]["priorities"] == [
+        "coherence",
+        "imagery",
+        "ending",
+    ]
+    assert final_run.input_json["revision_brief"]["intensity"] == "strong"
+    assert final_run.input_json["revision_brief"]["length_policy"] == "expand"
     reused = final_run.input_json["original_writing_request"]
-    assert reused["user_direction"] == "완성본에서는 시민의 시선을 중심에 둔다."
-    assert reused["output_profile"]["key"] == "novel_prose"
-    assert reused["generation_settings"]["viewpoint"] == "first_observer"
-    assert reused["generation_settings"]["tense"] == "present"
+    assert reused["refinement"]["priority_instructions"]
+    assert reused["user_direction"] == "도시의 대가를 마지막까지 숨기지 않는다."
+    assert reused["output_profile"]["key"] == "lore_article"
+    assert reused["generation_settings"]["viewpoint"] == "third_limited"
+    assert reused["generation_settings"]["tense"] == "past"
     assert session.user_direction == "도시의 대가를 마지막까지 숨기지 않는다."
     assert db.scalar(
         select(GenerationStage).where(GenerationStage.step == "FINAL_COHERENCE_PASS")

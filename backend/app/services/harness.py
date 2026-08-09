@@ -31,6 +31,25 @@ LENGTH_BUDGETS = {
     "very_long": 12000,
 }
 
+REFINEMENT_PRIORITIES = {
+    "coherence": "문단 사이의 시간·관점·논리 연결을 자연스럽게 만든다.",
+    "causality": "사건과 주장 사이의 원인·결과 관계를 선명하게 만든다.",
+    "imagery": "초안의 사실을 바꾸지 않고 장면·감각·구체성을 보강한다.",
+    "rhythm": "문장 길이와 문단 호흡의 단조로움을 다듬는다.",
+    "deduplicate": "겹치는 도입과 설명을 합치고 반복을 제거한다.",
+    "ending": "초안의 결론을 유지하면서 마지막 문단의 수렴과 여운을 강화한다.",
+}
+REFINEMENT_INTENSITIES = {
+    "light": "문장 표현과 접속만 손보고 문단 구조는 유지한다.",
+    "balanced": "핵심 내용은 유지하면서 필요할 때 문단을 합치거나 나눈다.",
+    "strong": "핵심 사실과 사용자 의도를 보존하되 완성도를 위해 문단 순서를 재배열할 수 있다.",
+}
+REFINEMENT_LENGTH_POLICIES = {
+    "preserve": "초안 전체 분량을 대체로 유지한다.",
+    "tighten": "중복과 군더더기를 줄여 초안보다 간결하게 만든다.",
+    "expand": "새 사실을 만들지 않는 범위에서 연결·장면·근거 설명을 보강한다.",
+}
+
 PLAN_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
@@ -130,6 +149,30 @@ def _fit_block_budgets(raw_budgets: list[int], target: int) -> list[int]:
     for index in order[:remainder]:
         budgets[index] += 1
     return budgets
+
+
+def _normalize_refinement(value: dict[str, Any] | None) -> dict[str, Any]:
+    raw = value or {}
+    priorities = [
+        key for key in raw.get("priorities", []) if key in REFINEMENT_PRIORITIES
+    ]
+    if not priorities:
+        priorities = ["coherence", "deduplicate", "rhythm"]
+    priorities = list(dict.fromkeys(priorities))
+    intensity = str(raw.get("intensity", "balanced"))
+    if intensity not in REFINEMENT_INTENSITIES:
+        intensity = "balanced"
+    length_policy = str(raw.get("length_policy", "preserve"))
+    if length_policy not in REFINEMENT_LENGTH_POLICIES:
+        length_policy = "preserve"
+    return {
+        "priorities": priorities,
+        "priority_instructions": [REFINEMENT_PRIORITIES[key] for key in priorities],
+        "intensity": intensity,
+        "intensity_instruction": REFINEMENT_INTENSITIES[intensity],
+        "length_policy": length_policy,
+        "length_instruction": REFINEMENT_LENGTH_POLICIES[length_policy],
+    }
 
 
 def _normalize_plan(data: dict[str, Any], pack: dict[str, Any]) -> dict[str, Any]:
@@ -425,6 +468,7 @@ class LoreHarness:
         document: LoreDocument,
         *,
         instruction: str = "",
+        refinement_json: dict[str, Any] | None = None,
         user_direction: str | None = None,
         writing_recipe_id: str | None = None,
         voice_profile_id: str | None | object = UNSET,
@@ -446,6 +490,8 @@ class LoreHarness:
         )
         if not draft:
             raise ValueError("다듬을 초안 내용이 없습니다.")
+        refinement = _normalize_refinement(refinement_json)
+        inputs["refinement"] = refinement
         draft_hash = _stable_hash(draft)
         payload = {
             "title": document.title,
@@ -475,6 +521,7 @@ class LoreHarness:
                     for item in pack.get("selected_concepts", [])
                 ],
             },
+            "revision_brief": refinement,
             "final_pass_instruction": instruction,
             "instruction": "분석이나 작업 설명 없이 완성된 한국어 글 본문만 출력하라.",
         }
@@ -536,11 +583,13 @@ class LoreHarness:
                 "voice_profile_id": (inputs.get("voice_profile") or {}).get("id"),
                 "voice_profile_version": (inputs.get("voice_profile") or {}).get("version"),
                 "voice_example_ids": [item.get("id") for item in inputs.get("style_examples", [])],
+                "refinement_priorities": refinement["priorities"],
             },
             selected_concept_ids=_selected_ids(session),
             direction_card_ids=session.direction_card_ids,
             params_json={
                 **inputs["generation_settings"],
+                "refinement": refinement,
                 "final_pass_instruction": instruction,
                 "model_call": call_result.audit_metadata(),
             },

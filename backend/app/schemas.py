@@ -619,8 +619,17 @@ class LoreDocumentRead(ORMModel):
     updated_at: datetime
 
 
+class FinalizationRefinement(BaseModel):
+    priorities: list[
+        Literal["coherence", "causality", "imagery", "rhythm", "deduplicate", "ending"]
+    ] = Field(default_factory=lambda: ["coherence", "deduplicate", "rhythm"], min_length=1, max_length=6)
+    intensity: Literal["light", "balanced", "strong"] = "balanced"
+    length_policy: Literal["preserve", "tighten", "expand"] = "preserve"
+
+
 class FinalizationRequest(BaseModel):
     instruction: str = Field(default="", max_length=2000)
+    refinement: FinalizationRefinement = Field(default_factory=FinalizationRefinement)
     user_direction: str | None = Field(default=None, max_length=4000)
     writing_recipe_id: str | None = None
     voice_profile_id: str | None = None

@@ -1,8 +1,8 @@
 <script>
   import { onMount } from 'svelte';
-  import { goto } from '$app/navigation';
   import HelpTip from '$lib/components/HelpTip.svelte';
   import ProjectCreator from '$lib/components/ProjectCreator.svelte';
+  import WritingBriefSpecimen from '$lib/components/WritingBriefSpecimen.svelte';
   import { api } from '$lib/api';
   import { moveDescriptions, moveLabels, roleLabel } from '$lib/labels';
   import { initialProjectId, rememberProject } from '$lib/project';
@@ -18,6 +18,7 @@
   let wizardStep = 0, furthestStep = 0;
   let editingFromReview = false;
   let reviewEditSnapshot = null;
+  let reviewPane = 'plan';
 
   const slotLabels = { subject: '주제', background: '배경', elements: '주요 요소', conflicts: '갈등·변수' };
   const wizardSteps = [
@@ -137,7 +138,7 @@
     } catch (e) { error = e.message; }
   }
 
-  function resetRun() { session = plan = generatedDocument = null; planDirty = false; }
+  function resetRun() { session = plan = generatedDocument = null; planDirty = false; reviewPane = 'plan'; }
 
   function categoryName(page) {
     return categories.find((item) => item.key === page?.category_key)?.name || page?.custom_category || page?.category_key || '종류 없음';
@@ -213,7 +214,7 @@
       subjectIds: [...subjectIds], backgroundIds: [...backgroundIds], elementIds: [...elementIds], conflictIds: [...conflictIds],
       directionCardIds: [...directionCardIds], recipeId, voiceProfileId, outputProfile, userDirection,
       length, customLength, detailLevel, contextDepth, creativity, mystery, seed, viewpoint, tense,
-      session, plan, generatedDocument, planDirty
+      session, plan, generatedDocument, planDirty, reviewPane
     };
     setWizardStep(index);
     editingFromReview = true;
@@ -230,7 +231,7 @@
       ({
         subjectIds, backgroundIds, elementIds, conflictIds, directionCardIds, recipeId, voiceProfileId,
         outputProfile, userDirection, length, customLength, detailLevel, contextDepth, creativity,
-        mystery, seed, viewpoint, tense, session, plan, generatedDocument, planDirty
+        mystery, seed, viewpoint, tense, session, plan, generatedDocument, planDirty, reviewPane
       } = reviewEditSnapshot);
     }
     returnToReview();
@@ -262,6 +263,7 @@
   function selectLength(value) { length = value; resetRun(); }
 
   function runReviewNext() {
+    if (generatedDocument) { reviewPane = 'draft'; return; }
     if (!plan) return runAction('plan');
     return runAction('generate');
   }
@@ -305,18 +307,15 @@
           if (event === 'error') throw new Error(`${data.message} (${data.code})`);
           if (event === 'complete') { session = data.session; plan = data.plan; generatedDocument = data.document; completedDocument = data.document; }
         });
-        if (completedDocument) {
-          busy = '완성된 원고를 여는 중';
-          await goto(`/documents?document=${completedDocument.id}`);
-        }
+        if (completedDocument) reviewPane = 'draft';
         return;
       }
       const result = await api.post(`/playbook-sessions/${current.id}/${kind}`, {});
       session = result.session;
       if (kind === 'plan') {
         plan = result.plan;
+        reviewPane = 'plan';
         planDirty = false;
-        setTimeout(() => document.querySelector('.review-plan-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
       }
     } catch (e) { error = e.message; }
     finally { busy = ''; }
@@ -429,36 +428,22 @@
       </div>
     {:else if activeStep.key === 'settings'}
       <div class="output-studio">
-        <aside class="output-specimen playbook-output-specimen" aria-label="선택한 결과물 견본">
-          <span class="specimen-mark">{selectedOutputProfile.mark}</span>
-          <div class="specimen-title-block">
-            <p>{subject?.title || '새 원고'}</p>
-            <h2>{selectedOutputProfile.title}</h2>
-            <blockquote>{selectedOutputProfile.copy}</blockquote>
-          </div>
-          <section class="specimen-ledger specimen-input-ledger" aria-labelledby="specimen-input-title">
-            <header><h3 id="specimen-input-title">원고 설계</h3><small>앞 단계에서 고른 내용</small></header>
-            <dl aria-label="현재 원고 설계">
-              <div><dt>주제</dt><dd>{subject?.title || '선택 필요'}</dd></div>
-              <div><dt>배경</dt><dd>{selectionNames(backgroundIds)}</dd></div>
-              <div><dt>주요 요소</dt><dd>{selectionNames(elementIds)}</dd></div>
-              <div><dt>갈등·변수</dt><dd>{selectionNames(conflictIds)}</dd></div>
-              <div><dt>집필 지침</dt><dd>{selectedCards.length ? selectedCards.map((card) => card.title).join(' · ') : '선택 안 함'}</dd></div>
-              <div><dt>전개 방식</dt><dd>{selectedRecipe?.name || '선택 필요'}</dd></div>
-              <div><dt>문체·필력</dt><dd>{selectedVoiceProfile?.name || '모델 기본 문체'}</dd></div>
-            </dl>
-          </section>
-          <section class="specimen-ledger specimen-output-ledger" aria-labelledby="specimen-output-title">
-            <header><h3 id="specimen-output-title">출력 설정</h3><small>이 화면에서 정하는 내용</small></header>
-            <dl class="specimen-selection-summary" aria-label="현재 결과물 설정">
-              <div><dt>형식</dt><dd>{selectedOutputProfile.title}</dd></div>
-              <div><dt>시점</dt><dd>{selectedViewpoint.title}</dd></div>
-              <div><dt>시제</dt><dd>{selectedTense.title}</dd></div>
-              <div><dt>분량</dt><dd>{selectedLength.title} · {selectedLengthCopy}</dd></div>
-            </dl>
-          </section>
-          <footer><span>예상 {estimatedTokens.toLocaleString()} tokens</span><span>선택을 바꾸면 즉시 반영</span></footer>
-        </aside>
+        <WritingBriefSpecimen
+          mark={selectedOutputProfile.mark}
+          subject={subject?.title || '새 원고'}
+          outputTitle={selectedOutputProfile.title}
+          outputCopy={selectedOutputProfile.copy}
+          background={selectionNames(backgroundIds)}
+          elements={selectionNames(elementIds)}
+          conflicts={selectionNames(conflictIds)}
+          guidance={selectedCards.length ? selectedCards.map((card) => card.title).join(' · ') : '선택 안 함'}
+          recipe={selectedRecipe?.name || '선택 필요'}
+          voice={selectedVoiceProfile?.name || '모델 기본 문체'}
+          viewpoint={selectedViewpoint.title}
+          tense={selectedTense.title}
+          length={`${selectedLength.title} · ${selectedLengthCopy}`}
+          tokenEstimate={estimatedTokens}
+        />
 
         <div class="output-control-deck">
           <section class="output-choice-section">
@@ -509,69 +494,76 @@
         </div>
       </div>
     {:else if activeStep.key === 'review'}
-      <div class="review-studio">
-        <section class="review-brief-card">
-          <div class="review-brief-cover">
-            {#if conceptCover(subject)}<img src={conceptCover(subject)} alt={`${subject?.title} 자료 이미지`} />{:else}<span>{conceptInitial(subject)}</span>{/if}
+      <div class="review-workbench">
+        <WritingBriefSpecimen
+          ariaLabel="선택한 결과물 견본"
+          mark={selectedOutputProfile.mark}
+          subject={subject?.title || '새 원고'}
+          outputTitle={selectedOutputProfile.title}
+          outputCopy={selectedOutputProfile.copy}
+          background={selectionNames(backgroundIds)}
+          elements={selectionNames(elementIds)}
+          conflicts={selectionNames(conflictIds)}
+          guidance={selectedCards.length ? selectedCards.map((card) => card.title).join(' · ') : '선택 안 함'}
+          recipe={selectedRecipe?.name || '선택 필요'}
+          voice={selectedVoiceProfile?.name || '모델 기본 문체'}
+          viewpoint={selectedViewpoint.title}
+          tense={selectedTense.title}
+          length={`${selectedLength.title} · ${selectedLengthCopy}`}
+          tokenEstimate={estimatedTokens}
+        />
+
+        <section class="review-generation-desk" aria-label="확인에서 초안까지">
+          <header class="review-generation-heading">
+            <div><span>확인·작성</span><h2>설계를 흐름으로, 흐름을 초안으로</h2><p>왼쪽 설계는 유지되고 오른쪽 카드의 결과만 교체됩니다.</p></div>
+            <div class="review-edit-actions"><button class="ghost" on:click={() => editReviewSelection(0)}>주제·소재 수정</button><button class="ghost" on:click={() => editReviewSelection(4)}>집필 지침 수정</button><button class="ghost" on:click={() => editReviewSelection(5)}>전개·문체 수정</button><button class="ghost" on:click={() => editReviewSelection(7)}>출력 설정 수정</button></div>
+          </header>
+
+          <nav class="review-stage-cards" aria-label="초안 작성 단계">
+            <button class:active={reviewPane === 'plan'} class:complete={!!plan} disabled={!!busy} aria-pressed={reviewPane === 'plan'} on:click={() => plan ? reviewPane = 'plan' : runAction('plan')}>
+              <span>01</span><strong>글의 흐름 설계</strong><p>자료 경계를 적용해 편집 가능한 문단 순서를 만듭니다.</p><small>{plan ? `${plan.blocks.length}개 문단 · ${planBudgetTotal.toLocaleString()}자` : '클릭하여 흐름 만들기'}</small>
+            </button>
+            <button class:active={reviewPane === 'draft'} class:complete={!!generatedDocument} disabled={!plan || !!busy} aria-pressed={reviewPane === 'draft'} on:click={() => generatedDocument ? reviewPane = 'draft' : runAction('generate')}>
+              <span>02</span><strong>초안 작성</strong><p>확정한 흐름과 설계로 편집 가능한 초안을 만듭니다.</p><small>{generatedDocument ? `${generatedDocument.body_markdown.length.toLocaleString()}자 초안` : plan ? '클릭하여 초안 작성' : '글의 흐름 뒤 진행'}</small>
+            </button>
+          </nav>
+
+          {#each plan?.warnings || [] as warning}<p class="notice-error">{warning}</p>{/each}
+
+          <div class="review-result-slot" aria-live="polite">
+            {#if busy}
+              <div class="review-result-wait"><span></span><strong>{busy}</strong><p>현재 결과 카드는 완료되는 즉시 같은 자리에서 교체됩니다.</p></div>
+            {:else if reviewPane === 'draft' && generatedDocument}
+              <article class="review-draft-result">
+                <header><div><p class="eyebrow">초안 · {generatedDocument.body_markdown.length.toLocaleString()}자</p><h2>{generatedDocument.title}</h2></div><a class="primary" href={`/documents?document=${generatedDocument.id}`}>원고 작업에서 편집 →</a></header>
+                <div class="review-draft-body">{generatedDocument.body_markdown}</div>
+              </article>
+            {:else if plan}
+              <section class="review-plan-editor plan-editor">
+                <header class="plan-heading"><div><p class="eyebrow">글의 흐름 · {plan.blocks.length}개 문단 · 총 {planBudgetTotal.toLocaleString()}자 / 목표 {Number(plan.target_length || targetCharacters).toLocaleString()}자</p><div class="heading-with-help"><h2>{plan.title}</h2><HelpTip label="글의 흐름 설명" text="완성 원고가 아니라 AI에게 줄 문단별 작업 순서입니다. 설명할 내용과 순서, 문단별 글자 수를 바꿀 수 있습니다." /></div><p>{plan.angle}</p><small>각 줄은 원고의 한 문단입니다. 위에서 아래 순서로 작성됩니다.</small></div><button class="secondary" disabled={!planDirty} on:click={savePlan}>{planDirty ? '바꾼 흐름 저장' : '저장됨'}</button></header>
+                <div class="flow-list">
+                  {#each plan.blocks as block, index}
+                    <article class="flow-row">
+                      <div class="flow-index">{String(index + 1).padStart(2, '0')}</div>
+                      <label class="flow-move"><span class="compact-label">문단 방식 <HelpTip label={`${index + 1}번 문단 방식 설명`} text={moveDescriptions[block.move] || '이 문단이 글에서 맡을 설명 방식입니다.'} /></span><select aria-label={`${index + 1}번 문단 방식`} value={block.move} on:change={(e) => updateBlock(index, 'move', e.currentTarget.value)}>{#each Object.entries(moveLabels) as [value, label]}<option {value}>{label}</option>{/each}</select></label>
+                      <label class="flow-purpose"><span class="compact-label">이 문단에서 설명할 내용</span><input aria-label={`${index + 1}번 문단에서 설명할 내용`} value={block.purpose} on:input={(e) => updateBlock(index, 'purpose', e.currentTarget.value)} /></label>
+                      <label class="flow-budget"><span class="compact-label">분량</span><span class="input-suffix"><input aria-label={`${index + 1}번 문단 분량`} type="number" min="50" value={block.word_budget} on:input={(e) => updateBlock(index, 'word_budget', Number(e.currentTarget.value))} /><small>자</small></span></label>
+                      <div class="flow-meta"><span class="badge">설정 {block.evidence_ids.length}개</span><label><input type="checkbox" checked={block.locked} on:change={(e) => updateBlock(index, 'locked', e.currentTarget.checked)} /> 이 문단 고정</label></div>
+                      <div class="flow-actions"><button class="icon-button" aria-label={`${index + 1}번 문단 위로 이동`} on:click={() => moveBlock(index, -1)}>↑</button><button class="icon-button" aria-label={`${index + 1}번 문단 아래로 이동`} on:click={() => moveBlock(index, 1)}>↓</button><button class="ghost" on:click={() => duplicateBlock(index)}>복제</button><button class="danger-button" on:click={() => removeBlock(index)}>삭제</button></div>
+                    </article>
+                  {/each}
+                </div>
+              </section>
+            {:else}
+              <div class="review-result-empty"><span>01</span><h2>먼저 글의 흐름을 만드세요.</h2><p>전개 방식과 목표 분량을 문단별 작업 순서로 바꿉니다. 생성된 흐름은 이 자리에서 직접 수정할 수 있습니다.</p></div>
+            {/if}
           </div>
-          <div class="review-brief-copy"><span>원고 설계표</span><h2>{subject?.title}</h2><p>{selectedOutputProfile.title} · {selectedViewpoint.title} · {selectedTense.title}</p><small>보조 자료 {totalSupporting}개 · 집필 지침 {directionCardIds.length}개 · {selectedRecipe?.name} · {selectedVoiceProfile?.name || '모델 기본 문체'}</small></div>
-          <button class="ghost" on:click={() => editReviewSelection(0)}>주제 수정</button>
         </section>
-
-        <div class="review-manifest-grid">
-          <article class="review-manifest-card material">
-            <header><span>소재</span><button class="ghost" on:click={() => editReviewSelection(1)}>수정</button></header>
-            <dl><div><dt>배경</dt><dd>{selectedPages(backgroundIds).map((page) => page.title).join(', ') || '선택 안 함'}</dd></div><div><dt>주요 요소</dt><dd>{selectedPages(elementIds).map((page) => page.title).join(', ') || '선택 안 함'}</dd></div><div><dt>갈등·변수</dt><dd>{selectedPages(conflictIds).map((page) => page.title).join(', ') || '선택 안 함'}</dd></div></dl>
-          </article>
-          <article class="review-manifest-card guidance">
-            <header><span>집필 원칙</span><button class="ghost" on:click={() => editReviewSelection(4)}>수정</button></header>
-            {#if selectedCards.length}<ul>{#each selectedCards as card}<li><strong>{card.title}</strong><small>{card.body}</small></li>{/each}</ul>{:else}<p>별도 집필 지침 없이 자료의 사실 경계만 지킵니다.</p>{/if}
-          </article>
-          <article class="review-manifest-card expression">
-            <header><span>전개·표현 설계</span><button class="ghost" on:click={() => editReviewSelection(5)}>수정</button></header>
-            <strong>{selectedRecipe?.name}</strong><p>{selectedRecipe?.description}</p><div><span>{selectedVoiceProfile?.name || '모델 기본 문체'}</span><span>{selectedOutputProfile.title}</span><span>{selectedViewpoint.title}</span><span>{selectedTense.title}</span></div>
-          </article>
-        </div>
-
-        <section class="generation-route" aria-label="초안 작성 경로">
-          <header><div><span>작성 경로</span><h2>확인에서 초안까지</h2></div><p>설정 경계는 글의 흐름을 만들 때 자동으로 적용됩니다. 사용자는 흐름을 확인한 뒤 초안을 작성합니다.</p></header>
-          <ol>
-            <li class:complete={!!plan} class:active={!plan}>
-              <div><span>1</span><HelpTip label="글의 흐름 만들기 설명" text="원고를 쓰기 전에 각 문단이 어떤 순서로 무엇을 설명할지 편집 가능한 흐름으로 만듭니다." /></div>
-              <strong>글의 흐름 설계</strong><p>자료의 사실 경계를 자동 적용하고 전개 방식을 실제 문단 순서로 바꿉니다.</p><small>{plan ? `완료 · ${plan.blocks.length}개 문단 · ${planBudgetTotal.toLocaleString()}자` : '다음 작업'}</small>
-            </li>
-            <li class:complete={!!generatedDocument} class:active={!!plan && !generatedDocument}>
-              <div><span>2</span><HelpTip label="초안 작성 설명" text="자동 적용된 자료 경계와 편집한 글의 흐름을 바탕으로 초안을 쓰고 원고 작업으로 이동합니다." /></div>
-              <strong>초안 작성</strong><p>확정한 설계표로 원고를 쓰고 원고 작업 화면에서 이어갑니다.</p><small>{generatedDocument ? '완료' : plan ? '다음 작업' : '글의 흐름 뒤 진행'}</small>
-            </li>
-          </ol>
-        </section>
-
-        {#each plan?.warnings || [] as warning}<p class="notice-error">{warning}</p>{/each}
-
-        {#if plan}
-          <section class="review-plan-editor plan-editor">
-            <header class="plan-heading"><div><p class="eyebrow">글의 흐름 · {plan.blocks.length}개 문단 · 총 {planBudgetTotal.toLocaleString()}자 / 목표 {Number(plan.target_length || targetCharacters).toLocaleString()}자</p><div class="heading-with-help"><h2>{plan.title}</h2><HelpTip label="글의 흐름 설명" text="완성 원고가 아니라 AI에게 줄 문단별 작업 순서입니다. 설명할 내용과 순서, 문단별 글자 수를 바꿀 수 있습니다." /></div><p>{plan.angle}</p><small>각 줄은 원고의 한 문단입니다. 위에서 아래 순서로 작성됩니다.</small></div><button class="secondary" disabled={!planDirty} on:click={savePlan}>{planDirty ? '바꾼 흐름 저장' : '저장됨'}</button></header>
-            <div class="flow-list">
-              {#each plan.blocks as block, index}
-                <article class="flow-row">
-                  <div class="flow-index">{String(index + 1).padStart(2, '0')}</div>
-                  <label class="flow-move"><span class="compact-label">문단 방식 <HelpTip label={`${index + 1}번 문단 방식 설명`} text={moveDescriptions[block.move] || '이 문단이 글에서 맡을 설명 방식입니다.'} /></span><select aria-label={`${index + 1}번 문단 방식`} value={block.move} on:change={(e) => updateBlock(index, 'move', e.currentTarget.value)}>{#each Object.entries(moveLabels) as [value, label]}<option {value}>{label}</option>{/each}</select></label>
-                  <label class="flow-purpose"><span class="compact-label">이 문단에서 설명할 내용</span><input aria-label={`${index + 1}번 문단에서 설명할 내용`} value={block.purpose} on:input={(e) => updateBlock(index, 'purpose', e.currentTarget.value)} /></label>
-                  <label class="flow-budget"><span class="compact-label">분량</span><span class="input-suffix"><input aria-label={`${index + 1}번 문단 분량`} type="number" min="50" value={block.word_budget} on:input={(e) => updateBlock(index, 'word_budget', Number(e.currentTarget.value))} /><small>자</small></span></label>
-                  <div class="flow-meta"><span class="badge">설정 {block.evidence_ids.length}개</span><label><input type="checkbox" checked={block.locked} on:change={(e) => updateBlock(index, 'locked', e.currentTarget.checked)} /> 이 문단 고정</label></div>
-                  <div class="flow-actions"><button class="icon-button" aria-label={`${index + 1}번 문단 위로 이동`} on:click={() => moveBlock(index, -1)}>↑</button><button class="icon-button" aria-label={`${index + 1}번 문단 아래로 이동`} on:click={() => moveBlock(index, 1)}>↓</button><button class="ghost" on:click={() => duplicateBlock(index)}>복제</button><button class="danger-button" on:click={() => removeBlock(index)}>삭제</button></div>
-                </article>
-              {/each}
-            </div>
-          </section>
-        {/if}
       </div>
     {/if}
 
   </section>
 
-  {#if wizardStep === wizardSteps.length - 1 && generatedDocument}<div class="completion-banner"><div><strong>{generatedDocument.title}</strong><span>{generatedDocument.body_markdown.length.toLocaleString()}자 초안을 저장했습니다.</span></div><a class="primary" href={`/documents?document=${generatedDocument.id}`}>이 초안 작업하기 →</a></div>{/if}
   </div>
 
   <footer class="wizard-actions playbook-navigation">
@@ -581,7 +573,7 @@
     {:else}
     <button class="ghost" disabled={wizardStep === 0 || !!busy} on:click={() => setWizardStep(wizardStep - 1)}>← 이전</button>
     {#if activeStep.key === 'review'}
-      <button class="primary" disabled={!!busy || !subject || !!plan && cardConflicts.length} on:click={runReviewNext}>{!plan ? '글의 흐름 만들기' : '초안 작성'} →</button>
+      {#if generatedDocument}<a class="primary" href={`/documents?document=${generatedDocument.id}`}>원고 작업에서 편집 →</a>{:else}<button class="primary" disabled={!!busy || !subject || !!plan && cardConflicts.length} on:click={runReviewNext}>{!plan ? '글의 흐름 만들기' : '초안 작성'} →</button>{/if}
     {:else}
       <button class="primary" disabled={wizardStep === 0 && !subject || activeStep.key === 'guidance' && cardConflicts.length || activeStep.key === 'recipe' && !recipeId} on:click={nextStep}>{nextButtonLabel} →</button>
     {/if}

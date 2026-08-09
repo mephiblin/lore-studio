@@ -438,7 +438,7 @@ POST /blocks/{block_id}/rewrite
 - context preview는 선택된 프로필 ID·version, 포함/제외 예시와 제외 이유를 보여 준다.
 - plan은 문체가 전개 순서를 결정하지 못하게 하되 block의 `scene_mode`, `expression_focus`만 추천할 수 있다.
 - generate와 stream은 동일 compiler 결과와 prompt version을 사용한다.
-- `FinalizationRequest`에 `voice_profile_id`, `voice_selection_mode`, `voice_example_ids`를 추가한다. 필드를 보내지 않으면 초안의 generation snapshot을 상속하고, `model_default`를 명시하면 문체 입력을 제거한다.
+- `FinalizationRequest`의 기존 `voice_profile_id`, `voice_selection_mode`, `voice_example_ids` override는 API 호환성을 위해 남기되, 기본 원고 작업 UI는 이를 보내지 않고 초안의 generation snapshot을 상속한다. 완성 다듬기에서는 문체를 다시 선택하지 않는다.
 - 기존 `RewriteRequest.voice_profile_id`는 실제로 검증·로드한다. 보내지 않으면 문서 snapshot을 상속하며, 선택된 문단 앞뒤 문맥과 프로필 version을 함께 전달한다.
 - 모든 override는 현재 문서의 project scope와 APPROVED 상태를 다시 검증하고 `GenerationRun`에 원본 선택과 override를 모두 기록한다.
 
@@ -557,7 +557,7 @@ Writer 시스템 프롬프트에 다음 계약을 추가한다.
 - Planner는 VoiceProfile을 문단 공개 순서를 바꾸는 입력으로 사용하지 않는다.
 - Planner는 각 block에 `scene_mode`와 `expression_focus` 추천만 추가할 수 있다.
 - Writer는 block의 scene mode에 맞는 예시를 사용한다.
-- Finalizer는 최초 VoiceProfile을 기본값으로 불러오되 사용자가 완성 설정에서 다른 프로필 또는 모델 기본 문체로 바꿀 수 있게 한다.
+- Finalizer는 최초 VoiceProfile snapshot을 읽기 전용으로 상속한다. 기본 원고 작업 UI는 완성 다듬기에서 다른 프로필이나 모델 기본 문체로 교체하지 않는다.
 - Finalizer도 원본 사실 경계와 예시 비사실 정책을 그대로 유지한다.
 - 부분 재작성은 현재 문단의 앞뒤 문맥과 원고의 VoiceProfile을 함께 받는다.
 
@@ -918,7 +918,7 @@ desktop 1600×900, mobile 390×844/360×844에서 다음을 확인한다.
 
 - writer/finalizer prompt 태그와 권위 계약
 - 부분 재작성 voice 문맥
-- 완성 설정 voice 변경
+- 완성 다듬기의 최초 voice snapshot 상속
 - prompt version 갱신
 
 완료 조건: 초안·완성본·부분 재작성에서 같은 경계 계약을 지킴.

@@ -200,7 +200,7 @@
         <div class="row spread lorebook-source-link"><span>출처 초안은 로어북 글과 별도로 보존됩니다.</span><a class="secondary" href={`/documents?document=${selected.source_document_id}`}>출처 초안 열기</a></div>
         {#if message}<p class="success">{message}</p>{/if}
       {:else}
-        <section class="empty-state lorebook-empty"><strong>아직 로어북에 완성된 글이 없습니다.</strong><p>원고 작업에서 초안을 편집하고 완성 설정을 정한 뒤 로어북에 저장하세요.</p><a class="primary" href="/documents">원고 작업으로 이동</a></section>
+        <section class="empty-state lorebook-empty"><strong>아직 로어북에 완성된 글이 없습니다.</strong><p>원고 작업에서 초안을 편집하고 완성 다듬기 방향을 정한 뒤 로어북에 저장하세요.</p><a class="primary" href="/documents">원고 작업으로 이동</a></section>
       {/if}
     </main>
   </div>

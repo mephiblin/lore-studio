@@ -815,31 +815,34 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
   await page.getByRole('button', { name: /확인·작성으로 계속/ }).click();
 
   await expectStepHelp(page, '확인·작성 단계 설명', '선택을 확인하고 초안을 만드세요');
-  const reviewStudio = page.locator('.review-studio');
-  await expect(reviewStudio).toContainText('검은 등대');
-  await expect(reviewStudio).toContainText('회수실');
-  await expect(reviewStudio).toContainText('레아 벨');
-  await expect(reviewStudio).toContainText('원인에서 파급으로');
-  await expect(reviewStudio.getByRole('heading', { name: '확인에서 초안까지' })).toBeVisible();
-  await expect(reviewStudio).toContainText('글의 흐름 설계');
-  await expect(reviewStudio).not.toContainText('설정 경계 정리');
-  await expect(page.locator('.generation-route li')).toHaveCount(2);
+  const reviewWorkbench = page.locator('.review-workbench');
+  const reviewSpecimen = page.getByLabel('선택한 결과물 견본');
+  await expect(reviewSpecimen).toContainText('검은 등대');
+  await expect(reviewSpecimen).toContainText('회수실');
+  await expect(reviewSpecimen).toContainText('레아 벨');
+  await expect(reviewSpecimen).toContainText('원인에서 파급으로');
+  await expect(reviewWorkbench.getByLabel('확인에서 초안까지')).toBeVisible();
+  await expect(reviewWorkbench).toContainText('글의 흐름 설계');
+  await expect(reviewWorkbench).not.toContainText('설정 경계 정리');
+  await expect(page.locator('.review-stage-cards > button')).toHaveCount(2);
+  const reviewSpecimenBox = await reviewSpecimen.boundingBox();
+  const reviewResultBox = await page.locator('.review-result-slot').boundingBox();
+  if (testInfo.project.name === 'desktop') expect(reviewResultBox.x).toBeGreaterThan(reviewSpecimenBox.x + reviewSpecimenBox.width);
+  else expect(reviewResultBox.y).toBeGreaterThan(reviewSpecimenBox.y + reviewSpecimenBox.height);
   await expect(page.getByRole('heading', { name: '이 글이 참고할 세계관' })).toHaveCount(0);
   await expect(page.locator('.playbook-page > .playbook-navigation')).toBeVisible();
-  await expect(page.locator('.generation-route li.complete')).toHaveCount(0);
-  const originalBackground = (await reviewStudio.locator('.review-manifest-card.material dd').first().textContent()).trim();
-  await reviewStudio.locator('.review-manifest-card.material').getByRole('button', { name: '수정' }).click();
+  await expect(page.locator('.review-stage-cards > button.complete')).toHaveCount(0);
+  const originalBackground = (await reviewSpecimen.getByLabel('현재 원고 설계').locator('div').filter({ has: page.locator('dt', { hasText: '배경' }) }).locator('dd').textContent()).trim();
+  await reviewWorkbench.getByRole('button', { name: '주제·소재 수정' }).click();
   await expect(page.locator('.playbook-page > .playbook-navigation').getByRole('button', { name: /확인·작성으로 돌아가기/ })).toBeVisible();
   const candidateTitles = await page.locator('.wizard-choice-card .wizard-card-copy strong').allTextContents();
   const alternativeIndex = candidateTitles.findIndex((title) => !originalBackground.includes(title.trim()));
   if (alternativeIndex >= 0) await page.locator('.wizard-choice-card').nth(alternativeIndex).click();
   await page.locator('.playbook-page > .playbook-navigation').getByRole('button', { name: '수정 취소' }).click();
-  await expect(reviewStudio.locator('.review-manifest-card.material dd').first()).toHaveText(originalBackground);
-  await reviewStudio.locator('.review-manifest-card.material').getByRole('button', { name: '수정' }).click();
+  await expect(reviewSpecimen.getByLabel('현재 원고 설계')).toContainText(originalBackground);
+  await reviewWorkbench.getByRole('button', { name: '주제·소재 수정' }).click();
   await page.locator('.playbook-page > .playbook-navigation').getByRole('button', { name: /확인·작성으로 돌아가기/ }).click();
-  await expect(reviewStudio).toBeVisible();
-  await page.getByRole('button', { name: '글의 흐름 만들기 설명' }).click();
-  await expect(page.getByRole('tooltip').filter({ hasText: '편집 가능한 흐름' })).toBeVisible();
+  await expect(reviewWorkbench).toBeVisible();
   await page.route('**/api/v1/playbook-sessions/*/plan', async (route) => {
     await route.fulfill({
       status: 200,
@@ -864,7 +867,7 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
     request.method() === 'POST' && request.url().endsWith('/api/v1/playbook-sessions')
   );
   const playbookNavigation = page.locator('.playbook-page > .playbook-navigation');
-  await playbookNavigation.getByRole('button', { name: /글의 흐름 만들기/ }).click();
+  await page.locator('.review-stage-cards > button').first().click();
   const sessionRequest = await sessionRequestPromise;
   expect(sessionRequest.postDataJSON().settings_json).toMatchObject({
     length: 'long',
@@ -880,20 +883,38 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
   });
   const sessionResponse = await sessionRequest.response();
   const session = await sessionResponse.json();
-  await expect(page.locator('.generation-route li').first()).toHaveClass(/complete/);
-  await expect(page.locator('.generation-route li').first()).toContainText('완료 · 5개 문단 · 6,500자');
+  await expect(page.locator('.review-stage-cards > button').first()).toHaveClass(/complete/);
+  await expect(page.locator('.review-stage-cards > button').first()).toContainText('5개 문단 · 6,500자');
   await expect(page.locator('.plan-heading')).toContainText('총 6,500자 / 목표 6,500자');
   await expect(playbookNavigation.getByRole('button', { name: /초안 작성/ })).toBeEnabled();
+  await page.route('**/api/v1/playbook-sessions/*/generate/stream', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'text/event-stream',
+      body: `event: complete\ndata: ${JSON.stringify({ session: { id: session.id }, plan: { title: '검은 등대 흐름', angle: '대가가 항로를 유지하는 방식을 설명한다.', target_length: 6500, planned_length: 6500, warnings: [], blocks: Array.from({ length: 5 }, (_, index) => ({ move: 'ORIENT', purpose: `${index + 1}번 흐름`, evidence_ids: [], word_budget: 1300, must_include: [], avoid: [], scene_mode: '설명', expression_focus: '', locked: false })) }, document: { id: 'e2e-draft', title: '검은 등대 초안', body_markdown: '첫 문단의 초안입니다.\n\n둘째 문단의 초안입니다.' } })}\n\n`
+    });
+  });
+  await page.locator('.review-stage-cards > button').nth(1).click();
+  await expect(page.locator('.review-result-slot')).toContainText('검은 등대 초안');
+  await expect(page.locator('.review-result-slot')).toContainText('첫 문단의 초안입니다.');
+  await expect(page.locator('.review-result-slot')).not.toContainText('총 6,500자 / 목표 6,500자');
+  await expect(page.locator('.review-stage-cards > button').nth(1)).toHaveClass(/complete/);
+  await page.locator('.review-stage-cards > button').first().click();
+  await expect(page.locator('.review-result-slot')).toContainText('총 6,500자 / 목표 6,500자');
+  await expect(page.locator('.review-result-slot')).not.toContainText('첫 문단의 초안입니다.');
+  await page.locator('.review-stage-cards > button').nth(1).click();
+  await expect(page.locator('.review-result-slot')).toContainText('첫 문단의 초안입니다.');
+  await expect(page).toHaveURL(/\/playbook/);
   await expect(page.getByRole('heading', { name: '이 글이 참고할 세계관' })).toHaveCount(0);
   await page.request.delete(`${new URL(sessionRequest.url()).origin}/api/v1/playbook-sessions/${session.id}`);
 });
 
-test('document workflow separates draft editing, editable final settings, and lorebook', async ({ page }) => {
+test('document workflow preserves draft design and applies explicit final refinement', async ({ page }) => {
   test.skip(process.env.E2E_EXPECT_DATA !== 'true', 'requires the curated Black Route draft');
   await page.goto('/documents');
   await page.getByLabel('현재 프로젝트').selectOption({ label: '검은 항로 연대기' });
   await expect(page.locator('.document-wizard-progress .wizard-step-button').filter({ hasText: '초안 편집' })).toBeVisible();
-  await expect(page.locator('.document-wizard-progress .wizard-step-button').filter({ hasText: '완성 설정' })).toBeVisible();
+  await expect(page.locator('.document-wizard-progress .wizard-step-button').filter({ hasText: '완성 다듬기' })).toBeVisible();
   await expect(page.locator('.document-wizard-progress .wizard-step-button').filter({ hasText: '완성본 만들기' })).toBeVisible();
   await expect(page.locator('.wizard-heading')).toHaveCount(0);
   await expect(page.locator('.document-inspector-tabs')).toBeVisible();
@@ -903,24 +924,29 @@ test('document workflow separates draft editing, editable final settings, and lo
   await page.getByRole('tab', { name: '재작성' }).click();
   expect(parseFloat(await page.locator('.document-toolbar').evaluate((element) => getComputedStyle(element).paddingTop))).toBeLessThanOrEqual(4);
   expect(parseFloat(await page.locator('.document-main').evaluate((element) => getComputedStyle(element).rowGap))).toBeLessThanOrEqual(8);
-  await page.getByRole('button', { name: /완성 설정으로 계속/ }).click();
-  await expectStepHelp(page, '완성 설정 단계 설명', '완성본의 결과물 형태를 다시 정하세요.');
-  await expect(page.getByLabel('전개 방식')).toBeVisible();
-  await expect(page.getByLabel('완성본 결과 견본')).toBeVisible();
-  expect((await page.getByLabel('완성본 결과 견본').boundingBox()).y).toBeGreaterThanOrEqual(0);
-  await expect(page.getByRole('group', { name: '결과물 종류' }).getByRole('button', { name: /영상 내레이션/ })).toHaveAttribute('aria-pressed', 'true');
-  await page.getByRole('group', { name: '시점' }).getByRole('button', { name: /1인칭 관찰자/ }).click();
-  await page.getByRole('group', { name: '시제' }).getByRole('button', { name: /현재형 중심/ }).click();
-  await expect(page.getByLabel('현재 완성 설정')).toContainText('1인칭 관찰자');
-  await page.getByLabel('완성본의 추가 지시').fill('완성 단계에서 바꾼 지시');
-  await page.getByRole('button', { name: /설정 확인으로 계속/ }).click();
-  await expect(page.getByText('1인칭 관찰자 · 현재형 중심')).toBeVisible();
-  await expect(page.getByText('완성 단계에서 바꾼 지시')).toBeVisible();
+  await page.getByRole('button', { name: /완성 다듬기로 계속/ }).click();
+  await expectStepHelp(page, '완성 다듬기 단계 설명', '초안에서 무엇을 보강할까요?');
+  await expect(page.getByLabel('초안에서 이어받은 원고 기준')).toBeVisible();
+  const finalSourceBox = await page.getByLabel('초안에서 이어받은 원고 기준').boundingBox();
+  const finalDeckBox = await page.locator('.final-polish-deck').boundingBox();
+  expect(finalSourceBox.y).toBeGreaterThanOrEqual(0);
+  if (page.viewportSize().width > 820) expect(finalDeckBox.x).toBeGreaterThan(finalSourceBox.x + finalSourceBox.width);
+  else expect(finalDeckBox.y).toBeGreaterThan(finalSourceBox.y + finalSourceBox.height);
+  await expect(page.getByRole('group', { name: '결과물 종류' })).toHaveCount(0);
+  await expect(page.getByLabel('이어받은 원고 설정')).toContainText('전개 방식');
+  await page.getByRole('group', { name: '보강 목표' }).getByRole('button', { name: /장면·감각/ }).click();
+  await page.getByRole('group', { name: '다듬기 강도' }).getByRole('button', { name: /적극적으로/ }).click();
+  await page.getByRole('group', { name: '분량 방향' }).getByRole('button', { name: /필요한 곳 보강/ }).click();
+  await page.getByLabel('이번 다듬기에만 추가할 요청').fill('마지막 장면의 여운을 강화해 주세요.');
+  await page.getByRole('button', { name: /다듬기 확인으로 계속/ }).click();
+  await expect(page.locator('.final-review-sheet')).toContainText('장면·감각');
+  await expect(page.locator('.final-review-sheet')).toContainText('적극적으로 · 필요한 곳 보강');
+  await expect(page.locator('.final-review-sheet')).toContainText('마지막 장면의 여운을 강화해 주세요.');
   await expect(page.locator('.final-review-sheet')).toBeVisible();
   expect((await page.locator('.final-review-sheet').boundingBox()).y).toBeGreaterThanOrEqual(0);
   await expect(page.locator('.finalization-review').getByRole('button', { name: '수정' })).toHaveCount(0);
   await expect(page.getByText('완성본은 로어북에 별도 저장됩니다.')).toBeVisible();
-  await expect(page.getByRole('button', { name: /로어북에 저장/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /초안 다듬어 로어북에 저장|완성본 다시 다듬기/ })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 
   await page.goto('/lorebook');
@@ -959,11 +985,11 @@ test('draft edits and a new paragraph are saved before moving to final settings'
     const saveRequestPromise = page.waitForRequest((request) =>
       request.method() === 'PATCH' && request.url().endsWith(`/documents/${documentId}/draft`)
     );
-    await page.getByRole('button', { name: /저장하고 완성 설정으로 계속/ }).click();
+    await page.getByRole('button', { name: /저장하고 완성 다듬기로 계속/ }).click();
     const saveRequest = await saveRequestPromise;
     expect(saveRequest.postDataJSON().blocks).toHaveLength(originalBlocks.length + 1);
     expect((await saveRequest.response()).status()).toBe(200);
-    await expectStepHelp(page, '완성 설정 단계 설명', '완성본의 결과물 형태를 다시 정하세요.');
+    await expectStepHelp(page, '완성 다듬기 단계 설명', '초안에서 무엇을 보강할까요?');
 
     await page.reload();
     await expect(page.getByLabel('초안 제목')).toHaveValue(`${originalDocument.title} · ${marker}`);

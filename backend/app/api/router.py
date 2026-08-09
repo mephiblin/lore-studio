@@ -1898,6 +1898,7 @@ async def finalize_document(
             db,
             document,
             instruction=payload.instruction,
+            refinement_json=payload.refinement.model_dump(),
             user_direction=payload.user_direction,
             writing_recipe_id=payload.writing_recipe_id,
             output_profile=payload.output_profile,

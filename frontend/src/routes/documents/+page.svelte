@@ -19,15 +19,16 @@
   let inspectorTab = 'rewrite';
   let documentLoadToken = 0;
 
-  let finalUserDirection = '', finalRecipeId = '', finalVoiceProfileId = '', finalOutputProfile = 'lore_article';
-  let finalLength = 'normal', finalCustomLength = 4000, finalDetailLevel = 3;
-  let finalContextDepth = 'balanced', finalCreativity = 'conservative', finalMystery = 4;
+  let finalRecipeId = '', finalVoiceProfileId = '', finalOutputProfile = 'lore_article';
+  let finalLength = 'normal', finalCustomLength = 4000;
   let finalViewpoint = 'omniscient', finalTense = 'present', finalInstruction = '';
+  let finalRefinementPriorities = ['coherence', 'deduplicate', 'rhythm'];
+  let finalRefinementIntensity = 'balanced', finalLengthPolicy = 'preserve';
 
   const workflowSteps = [
     { short: '초안 편집', title: '문단별 초안을 검토하세요.', copy: '내용과 근거를 확인하고 필요한 문단만 수정합니다.' },
-    { short: '완성 설정', title: '완성본의 결과물 형태를 다시 정하세요.', copy: '처음 선택한 값은 초깃값일 뿐입니다. 이번 완성본에 맞게 모두 바꿀 수 있습니다.' },
-    { short: '완성본 만들기', title: '한 편의 글로 다듬어 로어북에 보냅니다.', copy: '최신 초안 전체와 아래 설정을 Writer에게 전달합니다.' }
+    { short: '완성 다듬기', title: '초안에서 무엇을 보강할까요?', copy: '처음 설계한 형식은 유지하고 연결·문장·장면·결말의 완성도를 높입니다.' },
+    { short: '완성본 만들기', title: '보강 방향을 확인하고 로어북에 보냅니다.', copy: '최신 초안 전체와 선택한 다듬기 기준을 Writer에게 전달합니다.' }
   ];
   const viewpointOptions = [
     { value: 'omniscient', title: '전지적 설명자', copy: '세계 전체를 내려다봅니다.' },
@@ -45,6 +46,24 @@
     { value: 'very_long', title: '매우 길게', copy: '약 12,000자' },
     { value: 'custom', title: '직접 지정', copy: '원하는 길이' }
   ];
+  const refinementPriorityOptions = [
+    { value: 'coherence', title: '문단 연결', copy: '시간·관점·논리의 이동을 자연스럽게 잇습니다.' },
+    { value: 'causality', title: '인과 선명화', copy: '사건과 주장 사이의 원인·결과를 분명히 합니다.' },
+    { value: 'imagery', title: '장면·감각', copy: '새 사실 없이 구체적인 장면과 감각을 보강합니다.' },
+    { value: 'rhythm', title: '문장 리듬', copy: '문장 길이와 문단 호흡의 단조로움을 다듬습니다.' },
+    { value: 'deduplicate', title: '중복 제거', copy: '겹치는 도입과 설명을 합쳐 밀도를 높입니다.' },
+    { value: 'ending', title: '결말 강화', copy: '마지막 문단의 수렴과 여운을 강화합니다.' }
+  ];
+  const refinementIntensityOptions = [
+    { value: 'light', title: '가볍게', copy: '문장 표현과 접속만 손봅니다.' },
+    { value: 'balanced', title: '균형 있게', copy: '필요하면 문단을 합치거나 나눕니다.' },
+    { value: 'strong', title: '적극적으로', copy: '핵심을 지키며 문단 순서도 재배열합니다.' }
+  ];
+  const finalLengthPolicyOptions = [
+    { value: 'preserve', title: '분량 유지', copy: '초안의 전체 길이를 대체로 유지합니다.' },
+    { value: 'tighten', title: '더 간결하게', copy: '중복과 군더더기를 줄입니다.' },
+    { value: 'expand', title: '필요한 곳 보강', copy: '새 사실 없이 연결·장면·근거를 보탭니다.' }
+  ];
 
   $: selectedRecipe = recipes.find((item) => item.id === finalRecipeId);
   $: selectedProfile = outputProfiles.find((item) => item.key === finalOutputProfile);
@@ -52,10 +71,10 @@
   $: selectedViewpoint = viewpointOptions.find((item) => item.value === finalViewpoint) || viewpointOptions[0];
   $: selectedTense = tenseOptions.find((item) => item.value === finalTense) || tenseOptions[0];
   $: selectedLength = lengthOptions.find((item) => item.value === finalLength) || lengthOptions[1];
-  $: finalLengthLabel = finalLength === 'custom' ? `직접 지정 · ${Number(finalCustomLength).toLocaleString()}자` : ({ short: '짧게', normal: '보통', long: '길게', very_long: '매우 길게' }[finalLength] || finalLength);
   $: finalLengthCopy = finalLength === 'custom' ? `${Number(finalCustomLength || 0).toLocaleString()}자` : selectedLength.copy;
-  $: finalContextLabel = ({ core: '요약과 작성 경계만', balanced: '선택 자료 본문 일부', wide: '선택 자료 본문 넓게', max: '선택 자료 본문 최대' }[finalContextDepth] || finalContextDepth);
-  $: finalCreativityLabel = ({ strict: '새 설정 제안 안 함', conservative: '새 설정 제안 최소한', balanced: '필요할 때만 제안', free: '적극적으로 제안' }[finalCreativity] || finalCreativity);
+  $: selectedRefinementLabels = refinementPriorityOptions.filter((item) => finalRefinementPriorities.includes(item.value)).map((item) => item.title);
+  $: finalRefinementIntensityLabel = refinementIntensityOptions.find((item) => item.value === finalRefinementIntensity)?.title || '균형 있게';
+  $: finalLengthPolicyLabel = finalLengthPolicyOptions.find((item) => item.value === finalLengthPolicy)?.title || '분량 유지';
 
   onMount(loadInitial);
 
@@ -108,19 +127,27 @@
 
   function loadFinalSettings(inputs = {}) {
     const settings = inputs.generation_settings || {};
-    finalUserDirection = inputs.user_direction || '';
     finalRecipeId = inputs.writing_recipe?.id || finalRecipeId || recipes[0]?.id || '';
     finalVoiceProfileId = inputs.voice_profile?.id || '';
     finalOutputProfile = inputs.output_profile?.key || 'lore_article';
     finalLength = settings.length || 'normal';
     finalCustomLength = settings.custom_length || 4000;
-    finalDetailLevel = settings.detail_level || 3;
-    finalContextDepth = settings.context_depth || 'balanced';
-    finalCreativity = settings.creativity || 'conservative';
-    finalMystery = settings.mystery_preservation || 4;
     finalViewpoint = settings.viewpoint || 'omniscient';
     finalTense = settings.tense || 'present';
+    const refinement = inputs.refinement || {};
+    finalRefinementPriorities = refinement.priorities?.length ? [...refinement.priorities] : ['coherence', 'deduplicate', 'rhythm'];
+    finalRefinementIntensity = refinement.intensity || 'balanced';
+    finalLengthPolicy = refinement.length_policy || 'preserve';
     finalInstruction = '';
+  }
+
+  function toggleRefinementPriority(value) {
+    if (finalRefinementPriorities.includes(value)) {
+      if (finalRefinementPriorities.length === 1) return;
+      finalRefinementPriorities = finalRefinementPriorities.filter((item) => item !== value);
+    } else {
+      finalRefinementPriorities = [...finalRefinementPriorities, value];
+    }
   }
 
   async function selectDocument(document) {
@@ -156,7 +183,7 @@
     setTimeout(() => {
       const workflow = document.querySelector('.document-workflow');
       workflow?.scrollIntoView({ behavior: 'auto', block: 'start' });
-      workflow?.querySelector('.document-main, .final-output-studio, .finalization-review')?.scrollTo?.({ top: 0 });
+      workflow?.querySelector('.document-main, .final-polish-studio, .finalization-review')?.scrollTo?.({ top: 0 });
     }, 0);
   }
 
@@ -315,21 +342,10 @@
     try {
       const result = await api.post(`/documents/${selected.id}/finalize`, {
         instruction: finalInstruction,
-        user_direction: finalUserDirection,
-        writing_recipe_id: finalRecipeId,
-        voice_profile_id: finalVoiceProfileId || null,
-        voice_selection_mode: finalVoiceProfileId ? 'profile_default' : 'model_default',
-        voice_example_ids: [],
-        output_profile: finalOutputProfile,
-        settings_json: {
-          length: finalLength,
-          custom_length: finalLength === 'custom' ? Number(finalCustomLength) : null,
-          detail_level: Number(finalDetailLevel),
-          context_depth: finalContextDepth,
-          creativity: finalCreativity,
-          mystery_preservation: Number(finalMystery),
-          viewpoint: finalViewpoint,
-          tense: finalTense
+        refinement: {
+          priorities: finalRefinementPriorities,
+          intensity: finalRefinementIntensity,
+          length_policy: finalLengthPolicy
         }
       });
       await goto(`/lorebook?entry=${result.lorebook_entry.id}`);
@@ -344,7 +360,7 @@
       {#each workflowSteps as step, index}
         <div class="wizard-progress-item">
           <button class="wizard-step-button" class:active={workflowStep === index} class:complete={index < workflowStep || index <= furthestStep && index !== workflowStep} disabled={index > furthestStep} aria-current={workflowStep === index ? 'step' : undefined} on:click={() => setWorkflowStep(index)}>
-            <span>{index + 1}</span><div><strong>{step.short}</strong><small>{index === 0 ? selected?.title || '초안 선택 필요' : index === 1 ? selectedProfile?.name || '설정 전' : finalization?.lorebook_entry ? '로어북 글 다시 만들기' : '로어북에 새 글 저장'}</small></div>
+            <span>{index + 1}</span><div><strong>{step.short}</strong><small>{index === 0 ? selected?.title || '초안 선택 필요' : index === 1 ? `${selectedRefinementLabels.length}개 보강 목표` : finalization?.lorebook_entry ? '로어북 글 다시 다듬기' : '로어북에 새 글 저장'}</small></div>
           </button>
           <HelpTip label={`${step.short} 단계 설명`} text={`${step.title} ${step.copy}`} />
         </div>
@@ -395,30 +411,33 @@
           {/if}
         </aside>
       </div>
-      <footer class="wizard-actions"><small>{draftDirty ? '다음 단계로 가면 변경 내용을 자동 저장합니다.' : '모든 변경 내용이 저장되었습니다.'}</small><button class="primary" disabled={!!busy} on:click={() => continueTo(1)}>저장하고 완성 설정으로 계속 →</button></footer>
+      <footer class="wizard-actions"><small>{draftDirty ? '다음 단계로 가면 변경 내용을 자동 저장합니다.' : '모든 변경 내용이 저장되었습니다.'}</small><button class="primary" disabled={!!busy} on:click={() => continueTo(1)}>저장하고 완성 다듬기로 계속 →</button></footer>
     {:else if workflowStep === 1}
-      <div class="output-studio final-output-studio">
-        <aside class="output-specimen final-output-specimen" aria-label="완성본 결과 견본">
+      <div class="final-polish-studio">
+        <aside class="output-specimen final-output-specimen final-polish-source" aria-label="초안에서 이어받은 원고 기준">
           <span class="specimen-mark">{outputMark(finalOutputProfile)}</span>
-          <div><p>{selected.title}</p><h2>{selectedProfile?.name || '세계관 설명 글'}</h2><blockquote>{selectedProfile?.description || '초안을 선택한 형식과 시점에 맞춰 한 편의 글로 다듬습니다.'}</blockquote></div>
-          <dl class="specimen-selection-summary" aria-label="현재 완성 설정"><div><dt>형식</dt><dd>{selectedProfile?.name || finalOutputProfile}</dd></div><div><dt>시점</dt><dd>{selectedViewpoint.title}</dd></div><div><dt>시제</dt><dd>{selectedTense.title}</dd></div><div><dt>분량</dt><dd>{selectedLength.title} · {finalLengthCopy}</dd></div></dl>
-          <footer><span>{selectedRecipe?.name || '전개 방식 미지정'}</span><span>{selectedVoiceProfile?.name || '모델 기본 문체'}</span></footer>
+          <div><p>{selected.title}</p><h2>초안에서 이어받은 기준</h2><blockquote>글 만들기에서 정한 형식과 관점은 다시 고르지 않습니다. 최신 초안의 설계를 보존한 채 필요한 완성도만 높입니다.</blockquote></div>
+          <dl class="specimen-selection-summary" aria-label="이어받은 원고 설정"><div><dt>형식</dt><dd>{selectedProfile?.name || finalOutputProfile}</dd></div><div><dt>시점</dt><dd>{selectedViewpoint.title}</dd></div><div><dt>시제</dt><dd>{selectedTense.title}</dd></div><div><dt>목표 분량</dt><dd>{selectedLength.title} · {finalLengthCopy}</dd></div><div><dt>전개 방식</dt><dd>{selectedRecipe?.name || '미지정'}</dd></div><div><dt>문체·필력</dt><dd>{selectedVoiceProfile?.name || '모델 기본 문체'}</dd></div></dl>
+          <footer><span>초안 설계 유지</span><span>새 설정 자동 추가 금지</span></footer>
         </aside>
-        <div class="output-control-deck">
-          <section class="output-choice-section"><header><span>형식</span><strong>완성본을 어떤 독서 경험으로 만들까요?</strong></header><div class="output-format-grid" role="group" aria-label="결과물 종류">{#each outputProfiles as profile}<button class:selected={finalOutputProfile === profile.key} aria-pressed={finalOutputProfile === profile.key} on:click={() => finalOutputProfile = profile.key}><span>{outputMark(profile.key)}</span><strong>{profile.name}</strong><small>{profile.description}</small></button>{/each}</div></section>
-          <div class="output-choice-pair"><section class="output-choice-section"><header><span>시점</span><strong>누구의 거리에서 볼까요?</strong></header><div class="voice-card-grid" role="group" aria-label="시점">{#each viewpointOptions as option}<button class:selected={finalViewpoint === option.value} aria-pressed={finalViewpoint === option.value} on:click={() => finalViewpoint = option.value}><strong>{option.title}</strong><small>{option.copy}</small></button>{/each}</div></section><section class="output-choice-section"><header><span>시제</span><strong>시간의 결을 고르세요.</strong></header><div class="tense-card-grid" role="group" aria-label="시제">{#each tenseOptions as option}<button class:selected={finalTense === option.value} aria-pressed={finalTense === option.value} on:click={() => finalTense = option.value}><strong>{option.title}</strong><small>{option.copy}</small></button>{/each}</div></section></div>
-          <section class="output-choice-section output-length-section"><header><span>분량</span><strong>완성본이 숨 쉴 길이를 정하세요.</strong></header><div class="length-card-grid" role="group" aria-label="분량">{#each lengthOptions as option}<button class:selected={finalLength === option.value} aria-pressed={finalLength === option.value} on:click={() => finalLength = option.value}><strong>{option.title}</strong><small>{option.copy}</small></button>{/each}</div>{#if finalLength === 'custom'}<label class="custom-length-field">목표 글자 수<input type="number" min="500" bind:value={finalCustomLength} /></label>{/if}</section>
-          <section class="output-tuning-card final-output-tuning"><div class="output-selectors"><label>전개 방식<select bind:value={finalRecipeId}>{#each recipes as recipe}<option value={recipe.id}>{recipe.name}</option>{/each}</select></label><label>문체·필력<select bind:value={finalVoiceProfileId}><option value="">모델 기본 문체</option>{#each voiceProfiles as profile}<option value={profile.id}>{profile.name} · v{profile.version}</option>{/each}</select></label><label>선택 자료 본문 반영<select bind:value={finalContextDepth}><option value="core">요약과 작성 경계만</option><option value="balanced">선택 자료 본문 일부</option><option value="wide">선택 자료 본문 넓게</option><option value="max">선택 자료 본문 최대</option></select></label><label>새 설정 제안<select bind:value={finalCreativity}><option value="strict">하지 않음</option><option value="conservative">최소한</option><option value="balanced">필요할 때</option><option value="free">적극적</option></select></label></div><div class="output-ranges"><label><span>설명의 자세함 <b>{finalDetailLevel}/5</b></span><input type="range" min="1" max="5" bind:value={finalDetailLevel} /></label><label><span>아직 답하지 않을 질문 보존 <b>{finalMystery}/5</b></span><input type="range" min="1" max="5" bind:value={finalMystery} /></label></div><div class="final-instruction-grid"><label>완성본의 추가 지시<textarea bind:value={finalUserDirection} placeholder="글 만들기 때의 지시를 바꾸거나 보완할 수 있습니다."></textarea></label><label>이번 다듬기에만 추가할 요청<textarea bind:value={finalInstruction} placeholder="예: 문단 사이의 시간 흐름을 자연스럽게 연결해 주세요."></textarea></label></div></section>
+        <div class="final-polish-deck">
+          <header class="final-polish-heading"><span>완성 다듬기</span><h2>초안의 무엇을 더 강하게 만들까요?</h2><p>선택한 항목만 Writer가 집중해서 손봅니다. 프로젝트 사실과 원래 주제는 바꾸지 않습니다.</p></header>
+          <section class="final-polish-section"><header><span>보강 목표</span><strong>한 개 이상 선택하세요.</strong></header><div class="refinement-priority-grid" role="group" aria-label="보강 목표">{#each refinementPriorityOptions as option}<button class:selected={finalRefinementPriorities.includes(option.value)} aria-pressed={finalRefinementPriorities.includes(option.value)} on:click={() => toggleRefinementPriority(option.value)}><strong>{option.title}</strong><small>{option.copy}</small></button>{/each}</div></section>
+          <div class="final-polish-pair">
+            <section class="final-polish-section"><header><span>다듬기 강도</span><strong>초안 구조를 얼마나 손볼까요?</strong></header><div class="refinement-choice-grid" role="group" aria-label="다듬기 강도">{#each refinementIntensityOptions as option}<button class:selected={finalRefinementIntensity === option.value} aria-pressed={finalRefinementIntensity === option.value} on:click={() => finalRefinementIntensity = option.value}><strong>{option.title}</strong><small>{option.copy}</small></button>{/each}</div></section>
+            <section class="final-polish-section"><header><span>분량 방향</span><strong>기존 목표 안에서 조정합니다.</strong></header><div class="refinement-choice-grid" role="group" aria-label="분량 방향">{#each finalLengthPolicyOptions as option}<button class:selected={finalLengthPolicy === option.value} aria-pressed={finalLengthPolicy === option.value} on:click={() => finalLengthPolicy = option.value}><strong>{option.title}</strong><small>{option.copy}</small></button>{/each}</div></section>
+          </div>
+          <section class="final-polish-instruction"><label>이번 다듬기에만 추가할 요청<textarea bind:value={finalInstruction} placeholder="예: 마지막 문단이 첫 장면의 이미지를 되받도록 다듬어 주세요."></textarea></label><small>형식·주제·시점·시제와 세계관 사실은 변경하지 않습니다.</small></section>
         </div>
       </div>
-      <footer class="wizard-actions"><button class="ghost" on:click={() => setWorkflowStep(0)}>← 초안 편집</button><button class="primary" on:click={() => continueTo(2)}>설정 확인으로 계속 →</button></footer>
+      <footer class="wizard-actions"><button class="ghost" on:click={() => setWorkflowStep(0)}>← 초안 편집</button><button class="primary" on:click={() => continueTo(2)}>다듬기 확인으로 계속 →</button></footer>
     {:else}
       <div class="finalization-review">
         {#if finalization?.status === 'stale'}<p class="notice-error"><strong>로어북 글을 만든 뒤 초안이 바뀌었습니다.</strong> 지금 실행하면 최신 초안으로 교체됩니다.</p>{/if}
-        <article class="final-review-sheet"><header><span>로어북에 보낼 원고</span><h2>{selected.title}</h2><p>{selectedProfile?.name || finalOutputProfile} · {selectedViewpoint.title} · {selectedTense.title} · {finalLengthLabel}</p></header><dl><div><dt>전개와 문체</dt><dd>{selectedRecipe?.name || '전개 방식 미지정'} · {selectedVoiceProfile?.name || '모델 기본 문체'}</dd></div><div><dt>자료와 제안</dt><dd>{finalContextLabel} · {finalCreativityLabel}</dd></div><div><dt>표현 강도</dt><dd>자세함 {finalDetailLevel}/5 · 공개 유보 {finalMystery}/5</dd></div><div><dt>추가 지시</dt><dd>{finalUserDirection || '없음'}{#if finalInstruction}<small>이번 다듬기: {finalInstruction}</small>{/if}</dd></div></dl></article>
+        <article class="final-review-sheet"><header><span>로어북에 보낼 원고</span><h2>{selected.title}</h2><p>{selectedProfile?.name || finalOutputProfile} · {selectedViewpoint.title} · {selectedTense.title} · 초안 설계 유지</p></header><dl><div><dt>보강 목표</dt><dd>{selectedRefinementLabels.join(' · ')}</dd></div><div><dt>다듬기 범위</dt><dd>{finalRefinementIntensityLabel} · {finalLengthPolicyLabel}</dd></div><div><dt>유지할 설계</dt><dd>{selectedRecipe?.name || '전개 방식 미지정'} · {selectedVoiceProfile?.name || '모델 기본 문체'}</dd></div><div><dt>추가 요청</dt><dd>{finalInstruction || '없음'}</dd></div></dl></article>
         <section class="lorebook-destination"><div><p class="eyebrow">저장 위치</p><h3>완성본은 로어북에 별도 저장됩니다.</h3><p>초안 문단과 로어북 글은 서로 덮어쓰지 않습니다. 로어북에서 완성된 글만 읽고 편집하고 내보낼 수 있습니다.</p></div><span>초안 → Writer → 로어북</span></section>
       </div>
-      <footer class="wizard-actions"><button class="ghost" on:click={() => setWorkflowStep(1)}>← 완성 설정</button><button class="primary final-generate-button" disabled={!!busy} on:click={finalizeDocument}>{finalization?.lorebook_entry ? '최신 설정으로 로어북 글 다시 만들기' : '완성본 만들어 로어북에 저장'}</button></footer>
+      <footer class="wizard-actions"><button class="ghost" on:click={() => setWorkflowStep(1)}>← 완성 다듬기</button><button class="primary final-generate-button" disabled={!!busy} on:click={finalizeDocument}>{finalization?.lorebook_entry ? '최신 초안으로 완성본 다시 다듬기' : '초안 다듬어 로어북에 저장'}</button></footer>
     {/if}
   </section>
   {#if message}<p class="success">{message}</p>{/if}
