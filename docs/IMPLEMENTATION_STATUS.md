@@ -37,6 +37,8 @@
 - 세계관 자료의 저장 후 읽기 모드·명시적 글 편집, 프로젝트·세계관 자료·로어북 삭제, 출처 초안을 보존하는 로어북 삭제 API·감사 기록
 - 글 만들기 대규모 자료 카드의 비겹침 방지·독립 스크롤·전역 하단 바와 겹치지 않는 고정 `자료 더 보기`
 - 로어북 `.page-tools` 왼쪽의 브라우저 로컬 열람 테마 4종: 기존 노말, 밝은 양피지·굵은 적갈색 판타지아, 단순 선형 암부·형광 녹색·배경 글리치 메카니컬, 공포 질감 없는 남색 도시 네온 어반 판타지, 이미지보다 어두운 작업면 여백과 공통 진녹색·금색 `글 편집`, 읽기/편집 고대비·번호·금색 ring·ARIA 선택 표현
+- 6,000자 이상 초안·완성 보강의 전개 블록별 이어쓰기와 실제 글자 수 95% 저장 gate, 호출·목표·실제 분량 감사 기록, 원래 목표보다 짧은 초안을 복구하는 `필요한 곳 보강`
+- 긴 로어북 본문의 reader 내부 스크롤과 출처 초안·접힌 생성 설정을 합친 단일 출처 카드
 - `$lore-studio-ui-safety` 프로젝트 로컬 skill과 읽기 전용 정적 preflight: UI 계약·변경 체크리스트 기반 반복 점검, 5개 route·migration head·manifest·API 경유 규칙 확인, 기능 계약과 점검 절차의 변경 범위에 따른 문서·테스트·skill 동기화
 
 ## 실제 환경 증거
@@ -48,11 +50,11 @@ Utility 9-case 결과는 Qwen3.5-4B가 namespace 누출로 탈락했고 Gemma4-2
 ## 최종 검증
 
 - Ruff PASS
-- pytest `28 passed, 3 skipped` (실제 endpoint opt-in tests는 기본 run에서 skip)
+- pytest `30 passed, 3 skipped` (실제 endpoint opt-in tests는 기본 run에서 skip)
 - 실제 모델 opt-in `3 passed` (Writer/Utility, Embedding, Vision)
 - bundle/schema/YAML PASS
 - Svelte production build PASS
-- 실제 데이터 Playwright `33 passed, 7 skipped` (1600×900/390×844 및 별도 360×844 navigation 회귀, 확인·작성 원고 설계·흐름/초안 동일 영역 교체, 원고 저장·완성 다듬기·로어북 분리 포함)
+- 실제 데이터 Playwright `35 passed, 7 skipped` (1600×900/390×844 및 별도 360×844 navigation 회귀, 확인·작성 원고 설계·흐름/초안 동일 영역 교체, 원고 저장·완성 다듬기·로어북 분리·긴 본문 스크롤/출처 카드 포함)
 - 모델 서비스 미연결 UI E2E `10 passed`
 - Compose build/up 및 DB health PASS
 - PostgreSQL Alembic `20260809_0006` 기존 데이터 upgrade, 프로젝트 삭제 감사 묘비 보존 및 임시 fresh DB upgrade/downgrade/upgrade PASS

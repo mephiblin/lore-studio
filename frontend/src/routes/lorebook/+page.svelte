@@ -196,8 +196,10 @@
             </div>
           </footer>
         </article>
-        <details class="card lorebook-provenance"><summary>이 글을 만든 설정</summary><div class="details-body"><div><small>결과물 형태</small><strong>{selected.generation_inputs_json?.output_profile?.name || '기록 없음'}</strong></div><div><small>전개 방식</small><strong>{selected.generation_inputs_json?.writing_recipe?.name || '기록 없음'}</strong></div><div><small>시점·시제·분량</small><strong>{settingLabel(selected.generation_inputs_json?.generation_settings?.viewpoint)} · {settingLabel(selected.generation_inputs_json?.generation_settings?.tense)} · {settingLabel(selected.generation_inputs_json?.generation_settings?.length)}</strong></div><div><small>추가 지시</small><p>{selected.generation_inputs_json?.user_direction || '추가 지시 없음'}</p></div></div></details>
-        <div class="row spread lorebook-source-link"><span>출처 초안은 로어북 글과 별도로 보존됩니다.</span><a class="secondary" href={`/documents?document=${selected.source_document_id}`}>출처 초안 열기</a></div>
+        <section class="card lorebook-source-link" aria-label="로어북 글 출처">
+          <div class="row spread lorebook-source-row"><span>출처 초안은 로어북 글과 별도로 보존됩니다.</span><a class="secondary" href={`/documents?document=${selected.source_document_id}`}>출처 초안 열기</a></div>
+          <details class="lorebook-provenance"><summary>이 글을 만든 설정</summary><div class="details-body"><div><small>결과물 형태</small><strong>{selected.generation_inputs_json?.output_profile?.name || '기록 없음'}</strong></div><div><small>전개 방식</small><strong>{selected.generation_inputs_json?.writing_recipe?.name || '기록 없음'}</strong></div><div><small>시점·시제·분량</small><strong>{settingLabel(selected.generation_inputs_json?.generation_settings?.viewpoint)} · {settingLabel(selected.generation_inputs_json?.generation_settings?.tense)} · {settingLabel(selected.generation_inputs_json?.generation_settings?.length)}</strong></div><div><small>추가 지시</small><p>{selected.generation_inputs_json?.user_direction || '추가 지시 없음'}</p></div></div></details>
+        </section>
         {#if message}<p class="success">{message}</p>{/if}
       {:else}
         <section class="empty-state lorebook-empty"><strong>아직 로어북에 완성된 글이 없습니다.</strong><p>원고 작업에서 초안을 편집하고 완성 다듬기 방향을 정한 뒤 로어북에 저장하세요.</p><a class="primary" href="/documents">원고 작업으로 이동</a></section>

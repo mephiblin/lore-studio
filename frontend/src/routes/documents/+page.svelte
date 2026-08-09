@@ -62,7 +62,7 @@
   const finalLengthPolicyOptions = [
     { value: 'preserve', title: '분량 유지', copy: '초안의 전체 길이를 대체로 유지합니다.' },
     { value: 'tighten', title: '더 간결하게', copy: '중복과 군더더기를 줄입니다.' },
-    { value: 'expand', title: '필요한 곳 보강', copy: '새 사실 없이 연결·장면·근거를 보탭니다.' }
+    { value: 'expand', title: '필요한 곳 보강', copy: '초안이 짧으면 원래 목표까지 연결·장면·근거를 보탭니다.' }
   ];
 
   $: selectedRecipe = recipes.find((item) => item.id === finalRecipeId);

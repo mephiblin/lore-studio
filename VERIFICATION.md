@@ -8,10 +8,10 @@
 
 - 프로젝트 로컬 `$lore-studio-ui-safety`: skill package 형식 검증 PASS, 기준 문서·5개 route·Alembic head·manifest·API 경유·충돌/디버그 표식 정적 preflight `7 passed, 0 failures`
 - Ruff: `All checks passed`
-- pytest: `28 passed, 3 skipped` (Writer/Utility, Embedding, Vision 실제 endpoint tests는 기본 suite에서 의도적으로 skip)
+- pytest: `30 passed, 3 skipped` (Writer/Utility, Embedding, Vision 실제 endpoint tests는 기본 suite에서 의도적으로 skip)
 - 실제 모델 opt-in: `3 passed` (Writer/Utility structured output, BGE-M3 1024차원, Vision data URL)
 - SvelteKit adapter-node production build: PASS
-- Playwright Chromium desktop 1600×900/mobile 390×844 실제 인수 자료 포함 회귀: `33 passed, 7 skipped`
+- Playwright Chromium desktop 1600×900/mobile 390×844 실제 인수 자료 포함 회귀: `35 passed, 7 skipped`
 - 문체·필력: DRAFT 명시 승인·사용 후 새 버전·공용/프로젝트 범위·권리별 짧은 예시 격리 API, 다섯 번째 로컬 탭과 내부 스크롤·고정 footer 모달, 글 만들기 `모델 기본 문체`/승인 프로필 명시 선택, profile/version/example GenerationRun snapshot, 원고 필력 점검과 승인형 수정 제안 PASS
 - 프로젝트 전개 방식 생성·수정·글 만들기 선택·삭제 desktop/mobile 집중 회귀: `2 passed`
 - 세계관 자료의 전개 방식 목록: 검은 항로/신규 프로젝트 모두 세계관·소설·수필·보고서를 포괄하는 공용 기본 8개 노출, 프로젝트 전용 항목과 출처 구분 PASS
@@ -37,6 +37,8 @@
 - 원고 작업 3단계 표현 개편: 초안 제목 toolbar 상단 padding 4px·제목/동작 하단 정렬·문단/카드 내부 간격 8px, `재작성 / 문장 점검 / 설정 후보` 단일 활성 원고 도구, 최초 형식·시점·시제·분량·전개·문체를 읽기 전용으로 이어받는 완성 다듬기 기준표, 보강 목표·강도·분량 방향 카드, 항목별 수정 버튼 없는 최종 요약을 실제 데이터 desktop/mobile 확인 PASS. Finalizer는 최신 `editable_draft`와 구조화 `revision_brief`를 기록하며 프론트는 최초 설정을 재전송하지 않음.
 - 로어북 로컬 열람 테마: 네 원형 선택기를 책장에서 상단 `.page-tools` 왼쪽으로 이동하고 프로젝트 도구는 오른쪽에 유지, 책장 내부 중복 제거. 밝은 황백색·굵은 적갈색 판타지아, 단순 선형 암부·형광 녹색·8초 간격 배경 글리치 메카니컬, 공포 질감을 제거한 남색 도시 네온 어반 판타지, 이미지보다 어두운 `.workspace-main`, 테마별 `책장` 제목, 네 테마 공통 진녹색·금색 `글 편집`, route 이탈 시 배경 정리를 실제 데이터 desktop/mobile `2 passed`; 1600×900에서는 한 행, 390×844·360×844에서는 테마/프로젝트 두 행이며 가로 overflow 0px·책장 내 테마 toolbar 0개·pageerror 없음 PASS
 - 73개 Diablo 자료에서 글 만들기 카드 18개 제한, 모바일 선택 영역 456px, 데스크톱 자료 목록 848px/내부 스크롤, `종족·생물` 필터, 단계 이동 pageerror 없음 PASS
+- 매우 길게 실제 분량 복구: `시간의 층위가 머무는 곳: 크리핑 피처(Creeping Feature) 분석 보고서`의 계획 12,000자 대비 기존 초안 3,064자·완성본 2,838자 미달을 재현. `필요한 곳 보강`을 실제 Chromium에서 실행해 36회 OpenAI 호환 Writer 호출·블록별 1,780/1,962/2,861/2,424/2,636/296자, 최종 11,969자(99.7%)를 저장했고 유사 문단 0개·GenerationRun target/actual/call audit를 확인
+- 긴 로어북 UI: 위 11,969자 글에서 desktop reader `clientHeight=808`, `scrollHeight=7,577`, `scrollTop 0→500`, provenance가 출처 카드 내부 1개임을 실제 Chromium으로 확인. 읽기/편집·스크롤/출처·네 테마 desktop/mobile 집중 회귀 `6 passed`
 - 모바일 프로젝트 생성 창 366×758(하단 메뉴 위), 프로젝트 제목 첫 화면 y=408, 로어북 읽기 기본/편집 왕복, 원고 도구 점프 PASS
 - 원고 저장 회귀: 제목·문단 수정과 새 문단 추가 → 다음 단계 자동 저장 → 새로고침 복원 → 테스트 데이터 원상복구 PASS
 - JSON Schema/YAML/Python bundle validation: PASS

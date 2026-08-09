@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 from datetime import UTC, datetime
+from difflib import SequenceMatcher
 from typing import Any
 
 from sqlalchemy import func, select
@@ -21,7 +23,7 @@ from app.models import (
 from app.services.audits import run_audits
 from app.services.config_loader import load_output_profiles, load_prompt
 from app.services.context_compiler import UNSET, compile_context
-from app.services.model_gateway import ModelGateway
+from app.services.model_gateway import ModelCallResult, ModelGateway
 from app.services.revisions import add_lore_revision
 
 LENGTH_BUDGETS = {
@@ -30,6 +32,59 @@ LENGTH_BUDGETS = {
     "long": 6500,
     "very_long": 12000,
 }
+
+LONG_FORM_THRESHOLD = 6000
+LONG_FORM_MINIMUM_RATIO = 0.95
+LONG_FORM_MAXIMUM_RATIO = 1.1
+LONG_FORM_MAX_CALLS_PER_BLOCK = 14
+LONG_FORM_SEGMENT_FOCI = (
+    "아직 쓰지 않은 직접 관찰과 자료 근거를 구체화한다.",
+    "관찰된 사실과 그로부터 가능한 해석을 명시적으로 구분한다.",
+    "이미 제시한 결과의 작동 과정과 인과 사슬을 한 단계 더 풀어낸다.",
+    "공간적 위치·범위·경계가 의미에 미치는 영향을 분석한다.",
+    "시간의 전후 관계와 변화 또는 정체가 뜻하는 바를 검토한다.",
+    "명칭·개념·분류가 설명하는 것과 설명하지 못하는 것을 가른다.",
+    "첫 해석과 다른 대안적 독해를 제시하되 어느 쪽도 사실로 확정하지 않는다.",
+    "현재 해석에 대한 반론·예외·한계를 검토한다.",
+    "자료가 답하지 않는 질문과 추가로 필요한 근거를 구체적으로 밝힌다.",
+    "앞선 세부가 더 큰 장소·제도·역사적 맥락에서 갖는 의미를 연결한다.",
+    "같은 사실을 반복 설명하지 말고 독자가 체감할 구체적 결과를 보여 준다.",
+    "주장의 적용 범위와 일반화할 수 없는 경계를 분명히 한다.",
+    "서로 떨어진 두 근거의 관계를 비교해 공통점과 차이를 드러낸다.",
+    "새 사실 없이 남은 분석을 수렴하고 다음 전개로 자연스럽게 이행한다.",
+)
+LONG_FORM_NOVEL_FOCI = (
+    "인물의 현재 욕망이 드러나는 구체적인 행동을 전진시킨다.",
+    "시각·소리·촉감·거리감 가운데 아직 쓰지 않은 감각으로 장면을 구체화한다.",
+    "행동을 막는 장애물과 인물이 즉시 치르는 대가를 보여 준다.",
+    "상대의 말과 행동 사이의 어긋남을 대화와 반응으로 드러낸다.",
+    "인물의 판단이 바뀌는 짧은 계기와 그 직후의 선택을 쓴다.",
+    "공간 안의 위치와 이동을 분명히 해 장면의 동선을 전진시킨다.",
+    "설정을 설명하지 말고 인물이 사용하거나 피하는 방식으로 노출한다.",
+    "앞선 행동의 예상 밖 결과를 발생시켜 긴장을 한 단계 높인다.",
+    "겉으로 한 행동과 속으로 억누른 반응의 차이를 보여 준다.",
+    "인물 관계가 가까워지거나 멀어지는 구체적인 교환을 배치한다.",
+    "긴 호흡 뒤 짧은 결정이나 사건을 두어 문장 리듬을 바꾼다.",
+    "아직 답하지 않을 정보는 정답 대신 관찰 가능한 흔적으로 남긴다.",
+    "이전 장면의 세부를 다른 의미로 되돌려 현재 선택과 연결한다.",
+    "같은 감정 설명을 반복하지 말고 다음 행동·장면으로 이행한다.",
+)
+LONG_FORM_ESSAY_FOCI = (
+    "성찰의 출발점이 된 한 순간을 구체적인 경험으로 되살린다.",
+    "그때의 감각과 몸의 반응을 아직 쓰지 않은 세부로 보여 준다.",
+    "당시 믿었던 것과 지금 이해하는 것의 차이를 분명히 한다.",
+    "생각이 흔들린 계기와 그 변화가 즉시 만든 선택을 연결한다.",
+    "개인적 경험을 더 넓은 질문과 연결하되 성급히 일반화하지 않는다.",
+    "첫 해석과 충돌하는 기억이나 예외를 정직하게 검토한다.",
+    "감정의 이름을 반복하지 말고 행동·장면·이미지로 드러낸다.",
+    "시간이 지난 뒤 달라진 관점과 여전히 남은 의문을 나눈다.",
+    "다른 사람의 관점을 추측으로 단정하지 않고 관찰 범위를 밝힌다.",
+    "경험에서 얻은 통찰이 실제 생활에 만든 작은 결과를 보여 준다.",
+    "앞서 등장한 사물이나 이미지를 새 의미로 되돌려 쓴다.",
+    "자신의 해석이 적용되지 않는 경계와 한계를 인정한다.",
+    "서로 떨어진 두 경험을 비교해 변화의 방향을 드러낸다.",
+    "교훈을 선언하지 말고 남은 질문이나 구체적 장면으로 수렴한다.",
+)
 
 REFINEMENT_PRIORITIES = {
     "coherence": "문단 사이의 시간·관점·논리 연결을 자연스럽게 만든다.",
@@ -319,9 +374,377 @@ def _plain_document_json(body: str) -> dict[str, Any]:
     }
 
 
+def _clean_generated_text(value: str) -> str:
+    body = value.strip()
+    if body.startswith("```") and body.endswith("```"):
+        body = re.sub(
+            r"^```(?:markdown)?\s*|\s*```$", "", body, flags=re.IGNORECASE
+        ).strip()
+    body = re.sub(r"^#\s+[^\n]+\n+", "", body, count=1).strip()
+    return body
+
+
+def _remove_continuation_overlap(previous: str, continuation: str) -> str:
+    """Remove a repeated boundary when a model echoes the supplied tail."""
+    if not previous or not continuation:
+        return continuation
+    maximum = min(600, len(previous), len(continuation))
+    for size in range(maximum, 39, -1):
+        if previous[-size:].strip() == continuation[:size].strip():
+            return continuation[size:].lstrip()
+    return continuation
+
+
+def _similarity_text(value: str) -> str:
+    return re.sub(r"[^0-9A-Za-z가-힣]+", "", value).lower()
+
+
+def _paragraph_is_repeated(candidate: str, existing: list[str]) -> bool:
+    normalized = _similarity_text(candidate)
+    if len(normalized) < 50:
+        return False
+    for paragraph in existing:
+        other = _similarity_text(paragraph)
+        if len(other) < 50:
+            continue
+        shorter, longer = sorted((normalized, other), key=len)
+        if len(shorter) >= len(longer) * 0.72 and shorter in longer:
+            return True
+        if SequenceMatcher(None, normalized, other).ratio() >= 0.78:
+            return True
+    return False
+
+
+def _unique_generated_text(candidate: str, existing_text: str) -> str:
+    existing = _markdown_blocks(existing_text)
+    accepted: list[str] = []
+    for paragraph in _markdown_blocks(candidate):
+        if not _paragraph_is_repeated(paragraph, [*existing, *accepted]):
+            accepted.append(paragraph)
+    return "\n\n".join(accepted).strip()
+
+
+def _near_duplicate_count(body: str) -> int:
+    paragraphs = _markdown_blocks(body)
+    duplicates = 0
+    accepted: list[str] = []
+    for paragraph in paragraphs:
+        if _paragraph_is_repeated(paragraph, accepted):
+            duplicates += 1
+        else:
+            accepted.append(paragraph)
+    return duplicates
+
+
+def _long_form_foci(source_payload: dict[str, Any]) -> tuple[str, ...]:
+    context_pack = source_payload.get("context_pack", {})
+    original_request = source_payload.get("original_writing_request", {})
+    output_profile = context_pack.get("output_profile") or original_request.get(
+        "output_profile", {}
+    )
+    key = str(output_profile.get("key", "")) if isinstance(output_profile, dict) else ""
+    if key == "novel_prose":
+        return LONG_FORM_NOVEL_FOCI
+    if key == "personal_essay":
+        return LONG_FORM_ESSAY_FOCI
+    return LONG_FORM_SEGMENT_FOCI
+
+
+def _trim_near_sentence(text: str, target: int) -> str:
+    ceiling = max(target, math.ceil(target * LONG_FORM_MAXIMUM_RATIO))
+    if len(text) <= ceiling:
+        return text.strip()
+    floor = math.floor(target * LONG_FORM_MINIMUM_RATIO)
+    endings = [
+        match.end()
+        for match in re.finditer(r"[.!?。](?:[\"'’”」』])?(?=\s|$)", text)
+        if floor <= match.end() <= ceiling
+    ]
+    return text[: endings[-1]].strip() if endings else text.strip()
+
+
+def _merged_usage(results: list[ModelCallResult]) -> dict[str, Any]:
+    usage: dict[str, Any] = {}
+    for result in results:
+        for key, value in (result.usage or {}).items():
+            if isinstance(value, (int, float)):
+                usage[key] = usage.get(key, 0) + value
+            elif key not in usage:
+                usage[key] = value
+    return usage
+
+
+def _aggregate_calls(
+    results: list[ModelCallResult],
+    body: str,
+    *,
+    target: int,
+    block_counts: list[int],
+) -> ModelCallResult:
+    if not results:
+        raise ValueError("장문 생성 호출 결과가 없습니다.")
+    return ModelCallResult(
+        content=body,
+        role=results[-1].role,
+        model=results[-1].model,
+        endpoint=results[-1].endpoint,
+        params={
+            "strategy": "block_segments",
+            "call_count": len(results),
+            "target_characters": target,
+            "minimum_characters": math.floor(target * LONG_FORM_MINIMUM_RATIO),
+            "actual_characters": len(body),
+            "block_character_counts": block_counts,
+            "calls": [result.audit_metadata() for result in results],
+        },
+        usage=_merged_usage(results),
+        timings={"call_count": len(results)},
+        fallback_from=next(
+            (result.fallback_from for result in results if result.fallback_from), None
+        ),
+    )
+
+
 class LoreHarness:
     def __init__(self, gateway: ModelGateway | None = None) -> None:
         self.gateway = gateway or ModelGateway()
+
+    async def _complete_long_form(
+        self,
+        *,
+        system_prompt: str,
+        source_payload: dict[str, Any],
+        plan: dict[str, Any],
+        target: int,
+        temperature: float,
+        seed: int | None,
+        mode: str,
+    ) -> tuple[ModelCallResult, list[int]]:
+        raw_blocks = [
+            dict(block) for block in plan.get("blocks", []) if isinstance(block, dict)
+        ]
+        if not raw_blocks:
+            raw_blocks = [
+                {
+                    "move": "DRAFT",
+                    "purpose": "선택한 자료와 지시에 맞는 완성된 글을 쓴다.",
+                    "word_budget": target,
+                    "must_include": [],
+                    "avoid": [],
+                }
+            ]
+        raw_budgets = [int(block.get("word_budget") or 1) for block in raw_blocks]
+        if len(raw_budgets) >= 4:
+            # Local writers commonly close conclusions early. Keep the ending concise and
+            # spend the recovered length on evidence/analysis instead of repeated codas.
+            raw_budgets[-1] = min(raw_budgets[-1], max(400, math.floor(target * 0.05)))
+        budgets = _fit_block_budgets(raw_budgets, target)
+        completed_sections: list[str] = []
+        paragraph_plan_indexes: list[int] = []
+        results: list[ModelCallResult] = []
+        block_counts: list[int] = []
+        segment_foci = _long_form_foci(source_payload)
+        segment_prompt = (
+            f"{system_prompt}\n\n"
+            "# 장문 구간 작성 모드\n"
+            "- 지금은 전체 글을 한 번에 끝내지 말고 active_block의 새 본문 구간만 쓴다.\n"
+            "- current_block_text는 이미 작성된 부분이다. 이를 반복하거나 처음부터 다시 쓰지 말고 "
+            "그 직후에 붙을 새 문장만 출력한다.\n"
+            "- previous_block_tail과 자연스럽게 이어지되 같은 설명·비유·결론을 반복하지 않는다.\n"
+            "- covered_paragraph_openings와 같은 주장·문단을 단어만 바꾸어 다시 쓰지 않는다. "
+            "현재 focus와 맞는 새로운 분석 단위를 선택한다.\n"
+            "- 내부 블록명, 목표 글자 수, 작업 설명, JSON, 제목을 출력하지 않는다.\n"
+            "- requested_new_characters에 가까운 충분한 분량을 쓴다. 문장을 중간에 끊지 않는다."
+        )
+
+        for block_index, (block, block_target) in enumerate(
+            zip(raw_blocks, budgets, strict=True)
+        ):
+            segments: list[str] = []
+            minimum = math.floor(block_target * LONG_FORM_MINIMUM_RATIO)
+            for attempt in range(LONG_FORM_MAX_CALLS_PER_BLOCK):
+                current = "\n\n".join(segments).strip()
+                if len(current) >= minimum:
+                    break
+                remaining = max(1, block_target - len(current))
+                requested = min(3000, max(900, remaining + 600))
+                segment_focus = segment_foci[attempt % len(segment_foci)]
+                active_payload = {
+                    "long_form_contract": {
+                        "mode": mode,
+                        "block_number": block_index + 1,
+                        "block_count": len(raw_blocks),
+                        "block_target_characters": block_target,
+                        "block_minimum_characters": minimum,
+                        "current_character_count": len(current),
+                        "remaining_characters": remaining,
+                        "requested_new_characters": requested,
+                        "segment_focus": segment_focus,
+                        "covered_paragraph_openings": [
+                            paragraph[:120]
+                            for paragraph in _markdown_blocks(
+                                "\n\n".join([*completed_sections, current])
+                            )[-30:]
+                        ],
+                        "active_block": {**block, "word_budget": block_target},
+                        "next_block_purpose": (
+                            raw_blocks[block_index + 1].get("purpose", "")
+                            if block_index + 1 < len(raw_blocks)
+                            else "글 전체를 수렴하고 마무리한다."
+                        ),
+                    },
+                    "previous_block_tail": (
+                        completed_sections[-1][-1400:] if completed_sections else ""
+                    ),
+                    "current_block_text": current,
+                    "source_material": source_payload,
+                    "instruction": (
+                        "이미 쓴 부분과 겹치지 않는 새 한국어 본문만 출력하라. "
+                        f"이번 응답은 반드시 다음 초점만 새롭게 전개한다: {segment_focus}"
+                    ),
+                }
+                result = await self.gateway.complete(
+                    [
+                        {"role": "system", "content": segment_prompt},
+                        {
+                            "role": "user",
+                            "content": json.dumps(active_payload, ensure_ascii=False, indent=2),
+                        },
+                    ],
+                    role="writer",
+                    temperature=temperature,
+                    max_tokens=3500,
+                    seed=(seed + len(results) + 1) if seed is not None else None,
+                )
+                results.append(result)
+                segment = _unique_generated_text(
+                    _remove_continuation_overlap(
+                        current, _clean_generated_text(result.content)
+                    ),
+                    "\n\n".join([*completed_sections, current]),
+                )
+                if len(segment) < 40 or segment in current:
+                    continue
+                segments.append(segment)
+
+            section = _trim_near_sentence("\n\n".join(segments), block_target)
+            is_conclusion = block_index == len(raw_blocks) - 1 and len(raw_blocks) >= 4
+            conclusion_floor = max(250, math.floor(block_target * 0.35))
+            block_floor = conclusion_floor if is_conclusion else 250
+            if len(section) < block_floor:
+                raise ValueError(
+                    f"장문 생성이 {block_index + 1}번째 전개 구간에서 목표 분량을 채우지 못했습니다. "
+                    f"목표 {block_target:,}자, 실제 {len(section):,}자, "
+                    f"유효 구간 {len(segments)}개입니다."
+                )
+            completed_sections.append(section)
+            block_counts.append(len(section))
+
+        body = "\n\n".join(completed_sections).strip()
+        minimum_total = math.floor(target * LONG_FORM_MINIMUM_RATIO)
+        if len(body) < minimum_total and len(completed_sections) >= 2:
+            recovery_index = max(
+                range(len(completed_sections) - 1),
+                key=lambda index: budgets[index] - len(completed_sections[index]),
+            )
+            for attempt in range(LONG_FORM_MAX_CALLS_PER_BLOCK):
+                body = "\n\n".join(completed_sections).strip()
+                if len(body) >= minimum_total:
+                    break
+                recovery_section = completed_sections[recovery_index]
+                remaining = minimum_total - len(body)
+                recovery_focus = segment_foci[(attempt + 1) % (len(segment_foci) - 1)]
+                recovery_payload = {
+                    "long_form_contract": {
+                        "mode": f"{mode}_length_recovery",
+                        "block_number": recovery_index + 1,
+                        "block_count": len(raw_blocks),
+                        "block_target_characters": len(recovery_section) + remaining,
+                        "block_minimum_characters": len(recovery_section) + remaining,
+                        "current_character_count": len(recovery_section),
+                        "remaining_characters": remaining,
+                        "requested_new_characters": min(2400, max(900, remaining + 500)),
+                        "segment_focus": recovery_focus,
+                        "covered_paragraph_openings": [
+                            paragraph[:120]
+                            for paragraph in _markdown_blocks(
+                                "\n\n".join(completed_sections)
+                            )[-30:]
+                        ],
+                        "active_block": {
+                            **raw_blocks[recovery_index],
+                            "purpose": (
+                                "결론을 반복하지 말고, 초안에서 아직 충분히 풀지 않은 다른 근거·"
+                                "작동 원리·인과·한계를 골라 이 분석 구간에 삽입할 독립 문단을 쓴다."
+                            ),
+                        },
+                        "next_block_purpose": raw_blocks[recovery_index + 1].get(
+                            "purpose", "다음 전개로 이행한다."
+                        ),
+                    },
+                    "previous_block_tail": completed_sections[
+                        max(0, recovery_index - 1)
+                    ][-1000:],
+                    "current_block_text": recovery_section,
+                    "source_material": source_payload,
+                    "instruction": (
+                        "이미 쓴 결론이나 기존 문단을 되풀이하지 말고, 이 분석 구간에 삽입할 "
+                        f"새 한국어 문단만 출력하라. 이번 응답의 필수 초점: {recovery_focus}"
+                    ),
+                }
+                result = await self.gateway.complete(
+                    [
+                        {"role": "system", "content": segment_prompt},
+                        {
+                            "role": "user",
+                            "content": json.dumps(
+                                recovery_payload, ensure_ascii=False, indent=2
+                            ),
+                        },
+                    ],
+                    role="writer",
+                    temperature=temperature,
+                    max_tokens=3500,
+                    seed=(seed + len(results) + 1) if seed is not None else None,
+                )
+                results.append(result)
+                segment = _unique_generated_text(
+                    _remove_continuation_overlap(
+                        recovery_section, _clean_generated_text(result.content)
+                    ),
+                    "\n\n".join(completed_sections),
+                )
+                if len(segment) < 40 or segment in recovery_section:
+                    continue
+                completed_sections[recovery_index] = (
+                    f"{recovery_section}\n\n{segment}"
+                ).strip()
+
+            body = "\n\n".join(completed_sections).strip()
+            block_counts = [len(section) for section in completed_sections]
+        if len(body) < minimum_total:
+            raise ValueError(
+                f"장문 생성 결과가 목표 분량에 미달했습니다. "
+                f"목표 {target:,}자, 최소 {minimum_total:,}자, 실제 {len(body):,}자입니다."
+            )
+        duplicate_count = _near_duplicate_count(body)
+        if duplicate_count:
+            raise ValueError(
+                f"장문 생성 결과에서 유사 문단 {duplicate_count}개를 감지해 저장하지 않았습니다."
+            )
+        for block_index, section in enumerate(completed_sections):
+            paragraph_plan_indexes.extend(
+                [block_index] * len(_markdown_blocks(section))
+            )
+        return (
+            _aggregate_calls(
+                results,
+                body,
+                target=target,
+                block_counts=block_counts,
+            ),
+            paragraph_plan_indexes,
+        )
 
     def context_preview(self, db: Session, session: PlaybookSession) -> dict[str, Any]:
         pack = compile_context(db, session)
@@ -493,6 +916,14 @@ class LoreHarness:
         refinement = _normalize_refinement(refinement_json)
         inputs["refinement"] = refinement
         draft_hash = _stable_hash(draft)
+        plan = session.plan_json or {}
+        original_target = int(plan.get("target_length") or _target_length(pack))
+        if refinement["length_policy"] == "tighten":
+            target = max(500, math.floor(len(draft) * 0.82))
+        elif refinement["length_policy"] == "expand":
+            target = max(original_target, math.ceil(len(draft) * 1.18))
+        else:
+            target = len(draft)
         payload = {
             "title": document.title,
             "editable_draft": draft,
@@ -522,24 +953,49 @@ class LoreHarness:
                 ],
             },
             "revision_brief": refinement,
+            "target_character_contract": {
+                "original_target": original_target,
+                "current_draft": len(draft),
+                "target": target,
+                "minimum": math.floor(target * LONG_FORM_MINIMUM_RATIO),
+            },
             "final_pass_instruction": instruction,
             "instruction": "분석이나 작업 설명 없이 완성된 한국어 글 본문만 출력하라.",
         }
-        call_result = await self.gateway.complete(
-            [
-                {"role": "system", "content": load_prompt("finalizer.md")},
-                {"role": "user", "content": json.dumps(payload, ensure_ascii=False, indent=2)},
-            ],
-            role="writer",
-            temperature=0.48,
-            max_tokens=None,
-            seed=session.seed,
-        )
-        body = call_result.content.strip()
-        if body.startswith("```") and body.endswith("```"):
-            body = re.sub(r"^```(?:markdown)?\s*|\s*```$", "", body, flags=re.IGNORECASE).strip()
+        system_prompt = load_prompt("finalizer.md")
+        if target >= LONG_FORM_THRESHOLD:
+            call_result, _ = await self._complete_long_form(
+                system_prompt=system_prompt,
+                source_payload=payload,
+                plan=plan,
+                target=target,
+                temperature=0.48,
+                seed=session.seed,
+                mode=f"finalize_{refinement['length_policy']}",
+            )
+            body = call_result.content
+        else:
+            call_result = await self.gateway.complete(
+                [
+                    {"role": "system", "content": system_prompt},
+                    {
+                        "role": "user",
+                        "content": json.dumps(payload, ensure_ascii=False, indent=2),
+                    },
+                ],
+                role="writer",
+                temperature=0.48,
+                max_tokens=None,
+                seed=session.seed,
+            )
+            body = _clean_generated_text(call_result.content)
         if not body:
             raise ValueError("Writer가 비어 있는 완성본을 반환했습니다.")
+        if refinement["length_policy"] in {"preserve", "expand"} and len(body) < target * 0.7:
+            raise ValueError(
+                f"완성본이 선택한 분량 방향에 크게 못 미칩니다. "
+                f"목표 {target:,}자, 실제 {len(body):,}자이므로 저장하지 않았습니다."
+            )
 
         lorebook_entry = db.scalar(
             select(LoreDocument).where(
@@ -591,6 +1047,9 @@ class LoreHarness:
                 **inputs["generation_settings"],
                 "refinement": refinement,
                 "final_pass_instruction": instruction,
+                "target_characters": target,
+                "actual_characters": len(body),
+                "length_strategy": call_result.params.get("strategy", "single_call"),
                 "model_call": call_result.audit_metadata(),
             },
             input_hash=_stable_hash(payload),
@@ -617,7 +1076,12 @@ class LoreHarness:
                 "reused_inputs": inputs,
                 "final_pass_instruction": instruction,
             },
-            output_json={"body_hash": _stable_hash(body), "character_count": len(body)},
+            output_json={
+                "body_hash": _stable_hash(body),
+                "character_count": len(body),
+                "target_characters": target,
+                "length_strategy": call_result.params.get("strategy", "single_call"),
+            },
             run_id=run.id,
         )
         session.state = "finalized"
@@ -723,24 +1187,46 @@ class LoreHarness:
             "article_plan": plan,
             "instruction": "완성된 한국어 본문만 출력하라.",
         }
-        call_result = await self.gateway.complete(
-            [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": json.dumps(payload, ensure_ascii=False, indent=2)},
-            ],
-            role="writer",
-            temperature=0.72,
-            max_tokens=None,
-            seed=session.seed,
-        )
-        body = call_result.content
+        target = int(plan.get("target_length") or _target_length(pack))
+        paragraph_plan_indexes: list[int] = []
+        if target >= LONG_FORM_THRESHOLD:
+            call_result, paragraph_plan_indexes = await self._complete_long_form(
+                system_prompt=system_prompt,
+                source_payload=payload,
+                plan=plan,
+                target=target,
+                temperature=0.72,
+                seed=session.seed,
+                mode="draft",
+            )
+            body = call_result.content
+        else:
+            call_result = await self.gateway.complete(
+                [
+                    {"role": "system", "content": system_prompt},
+                    {
+                        "role": "user",
+                        "content": json.dumps(payload, ensure_ascii=False, indent=2),
+                    },
+                ],
+                role="writer",
+                temperature=0.72,
+                max_tokens=None,
+                seed=session.seed,
+            )
+            body = _clean_generated_text(call_result.content)
 
         title = str(plan.get("title") or "새 로어 문서")
         paragraphs = _markdown_blocks(body)
         plan_blocks = list(plan.get("blocks", []))
         body_nodes: list[dict[str, Any]] = []
         for index, paragraph in enumerate(paragraphs):
-            plan_block = plan_blocks[min(index, len(plan_blocks) - 1)] if plan_blocks else {}
+            plan_index = (
+                paragraph_plan_indexes[index]
+                if index < len(paragraph_plan_indexes)
+                else min(index, len(plan_blocks) - 1)
+            )
+            plan_block = plan_blocks[plan_index] if plan_blocks else {}
             body_nodes.append(
                 _block_json(
                     paragraph,
@@ -821,6 +1307,9 @@ class LoreHarness:
                 direction_card_ids=session.direction_card_ids,
                 params_json={
                     **session.settings_json,
+                    "target_characters": target,
+                    "actual_characters": len(body),
+                    "length_strategy": call_result.params.get("strategy", "single_call"),
                     "model_call": call_result.audit_metadata(),
                 },
                 input_hash=_stable_hash({"pack": pack, "plan": plan}),
@@ -831,7 +1320,12 @@ class LoreHarness:
         db.add(run)
         db.flush()
         for index, paragraph in enumerate(paragraphs):
-            plan_block = plan_blocks[min(index, len(plan_blocks) - 1)] if plan_blocks else {}
+            plan_index = (
+                paragraph_plan_indexes[index]
+                if index < len(paragraph_plan_indexes)
+                else min(index, len(plan_blocks) - 1)
+            )
+            plan_block = plan_blocks[plan_index] if plan_blocks else {}
             db.add(
                 LoreBlock(
                     document_id=document.id,
@@ -850,7 +1344,13 @@ class LoreHarness:
             session,
             "DRAFT_BLOCKS",
             input_json={"plan": plan},
-            output_json={"document_id": document.id, "block_count": len(paragraphs)},
+            output_json={
+                "document_id": document.id,
+                "block_count": len(paragraphs),
+                "target_characters": target,
+                "actual_characters": len(body),
+                "length_strategy": call_result.params.get("strategy", "single_call"),
+            },
             run_id=run.id,
         )
         _record_stage(

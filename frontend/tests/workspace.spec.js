@@ -412,6 +412,30 @@ test('lorebook defaults to reading and edit mode is reversible', async ({ page }
   await expect(page.getByLabel('로어북 글 제목')).toHaveCount(0);
 });
 
+test('lorebook long article owns its scroll and keeps provenance with the source link', async ({ page }, testInfo) => {
+  test.skip(process.env.E2E_EXPECT_DATA !== 'true', 'requires a Diablo lorebook entry');
+  await page.goto('/lorebook');
+  await page.getByLabel('현재 프로젝트').selectOption({ label: 'Diablo' });
+  const namedEntry = page.locator('.lorebook-list button').filter({
+    hasText: '시간의 층위가 머무는 곳: 크리핑 피처(Creeping Feature) 분석 보고서'
+  });
+  if (await namedEntry.count()) await namedEntry.click();
+
+  const sourceCard = page.getByLabel('로어북 글 출처');
+  await expect(sourceCard.locator('.lorebook-provenance')).toHaveCount(1);
+  await expect(page.locator('.lorebook-reader > .card.lorebook-provenance')).toHaveCount(0);
+  await expect(sourceCard.getByRole('link', { name: '출처 초안 열기' })).toBeVisible();
+
+  if (testInfo.project.name === 'desktop') {
+    const reader = page.locator('.lorebook-reader');
+    expect(await reader.evaluate((node) => node.scrollHeight > node.clientHeight)).toBe(true);
+    await reader.evaluate((node) => { node.scrollTop = Math.min(500, node.scrollHeight); });
+    expect(await reader.evaluate((node) => node.scrollTop)).toBeGreaterThan(0);
+  } else {
+    expect(await page.evaluate(() => document.documentElement.scrollHeight > window.innerHeight)).toBe(true);
+  }
+});
+
 test('lorebook reading themes switch, persist, and leave content actions unchanged', async ({ page }) => {
   test.skip(process.env.E2E_EXPECT_DATA !== 'true', 'requires a Diablo lorebook entry');
   await page.goto('/lorebook');

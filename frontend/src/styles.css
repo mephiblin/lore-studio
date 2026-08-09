@@ -788,7 +788,7 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
 .lorebook-list small { color: var(--muted-text); font-size: 9px; }
 .lorebook-shelf-title { margin: 0; font: 700 21px/1.2 Georgia, "Noto Serif KR", serif; letter-spacing: -.03em; }
 .lorebook-reader { min-width: 0; }
-.lorebook-sheet { position: relative; isolation: isolate; overflow: hidden; padding: clamp(22px, 5vw, 58px); border-left: 4px solid var(--signal); background: #fff; }
+.lorebook-sheet { position: relative; isolation: isolate; overflow: visible; padding: clamp(22px, 5vw, 58px); border-left: 4px solid var(--signal); background: #fff; }
 .lorebook-sheet > * { position: relative; z-index: 1; }
 .lorebook-sheet-heading { display: flex; justify-content: space-between; align-items: start; gap: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--line); }
 .lorebook-title-block { min-width: 0; }
@@ -812,13 +812,16 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
 .lorebook-actions { display: flex; justify-content: space-between; align-items: end; gap: 14px; padding-top: 18px; border-top: 1px solid var(--line); }
 .lorebook-actions > label { min-width: 130px; }
 .lorebook-actions > div { display: flex; flex-wrap: wrap; gap: 7px; }
-.lorebook-provenance .details-body { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.lorebook-provenance { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.lorebook-provenance summary { color: var(--ink); font-weight: 750; cursor: pointer; }
+.lorebook-provenance .details-body { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
 .lorebook-provenance .details-body > div { min-width: 0; padding: 12px; background: var(--paper-deep); }
 .lorebook-provenance small, .lorebook-provenance strong { display: block; }
 .lorebook-provenance small { color: var(--muted-text); font-size: 9px; }
 .lorebook-provenance strong { margin-top: 6px; font-size: 12px; }
 .lorebook-provenance p { margin: 6px 0 0; font-size: 12px; white-space: pre-wrap; }
 .lorebook-source-link { color: var(--muted-text); font-size: 11px; }
+.lorebook-source-row { gap: 14px; }
 .lorebook-empty { min-height: 480px; display: grid; place-content: center; justify-items: start; }
 
 /* Lorebook themes are a browser-local reading lens; content and export data remain unchanged. */
@@ -1099,7 +1102,7 @@ html[data-lorebook-theme] .app-main.workspace-main { transition: background-colo
   .document-edit-stage { padding: 10px; }
   .finalization-review { padding: 12px; }
   .final-review-sheet dl > div { grid-template-columns: 1fr; gap: 5px; padding: 13px 16px; }
-  .lorebook-destination, .lorebook-actions, .lorebook-sheet-heading, .lorebook-source-link { align-items: stretch; flex-direction: column; }
+  .lorebook-destination, .lorebook-actions, .lorebook-sheet-heading, .lorebook-source-row { align-items: stretch; flex-direction: column; }
   .lorebook-destination > span, .lorebook-mark { align-self: flex-start; }
   .lorebook-sheet { padding: 20px 16px; border-left-width: 3px; }
   .lorebook-title-block h2 { font-size: 31px; }
