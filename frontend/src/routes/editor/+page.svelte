@@ -594,12 +594,12 @@
                   <section class="boundary-review" aria-label="AI 작성 경계 제안">
                     <div class="boundary-review-heading"><strong>저장 전 검토</strong><small>체크한 항목만 기존 내용에 추가됩니다.</small></div>
                     {#each [
-                      ['locked_facts', '유지할 사실'],
-                      ['open_questions', '공개 유보'],
-                      ['forbidden_changes', '금지된 변경·전개']
-                    ] as [key, label]}
+                      ['locked_facts', '유지할 사실', '원고에서 반드시 참으로 유지할 설정입니다.'],
+                      ['open_questions', '공개 유보', '아직 정답이나 정체를 만들거나 독자에게 공개하지 않을 정보입니다.'],
+                      ['forbidden_changes', '금지된 변경·전개', '흥미를 위해서도 발생시키거나 뒤집으면 안 되는 변경입니다.']
+                    ] as [key, label, helpText]}
                       <div class="boundary-review-group">
-                        <strong>{label}</strong>
+                        <div class="heading-with-help"><strong>{label}</strong><HelpTip label={`AI 제안 ${label} 설명`} text={helpText} /></div>
                         {#each boundarySuggestion[key] as item}
                           <label class="boundary-suggestion-item">
                             <input type="checkbox" bind:checked={item.selected} />

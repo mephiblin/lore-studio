@@ -277,6 +277,9 @@ test('a project can be added after projects already exist', async ({ page }, tes
     await expect(writingBoundaries).toContainText('유지할 사실');
     await expect(writingBoundaries).toContainText('공개 유보');
     await expect(writingBoundaries).toContainText('금지된 변경·전개');
+    await expect(writingBoundaries.getByRole('button', { name: '유지할 사실 설명' })).toBeVisible();
+    await expect(writingBoundaries.getByRole('button', { name: '공개 유보 설명' })).toBeVisible();
+    await expect(writingBoundaries.getByRole('button', { name: '금지된 변경 설명' })).toBeVisible();
     await expect(writingBoundaries.getByRole('button', { name: '본문에서 AI 제안' })).toBeVisible();
 
     await page.getByRole('navigation', { name: '세계관 자료 관리' }).getByRole('button', { name: /^전개 방식/ }).click();

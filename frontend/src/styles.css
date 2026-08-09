@@ -280,7 +280,9 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
 .boundary-review-heading strong { color: var(--ink); font-size: 12px; }
 .boundary-review-heading small { color: var(--muted-text); font-size: 10px; line-height: 1.45; }
 .boundary-review-group { display: grid; gap: 5px; }
-.boundary-review-group > strong { color: var(--ink-soft); font-size: 10px; }
+.boundary-review-group > .heading-with-help { justify-content: flex-start; }
+.boundary-review-group > .heading-with-help strong { color: var(--ink-soft); font-size: 10px; }
+.boundary-review-group .help-tip-button { width: 18px; height: 18px; }
 .boundary-suggestion-item { min-height: 0; display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 7px; align-items: start; padding: 7px; border: 1px solid rgba(104, 139, 127, .28); border-radius: 4px; background: rgba(255, 255, 255, .76); }
 .boundary-suggestion-item input { width: 14px; height: 14px; margin-top: 2px; }
 .boundary-suggestion-item span { min-width: 0; display: grid; gap: 3px; }
