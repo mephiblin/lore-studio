@@ -10,8 +10,8 @@
 | 6 | 자료 역할 선택 | PASS | 한 단계에 한 역할만 노출, 전체 미배정 자료 18개·더 보기, 검색·종류 필터, 중복 역할 방지, 선택 단계 건너뛰기 |
 | 7 | 선택/설정/seed 재현 | PASS | 생성 세션에 모든 선택과 seed 저장 |
 | 8 | 공용·프로젝트 전개 방식/결과물/시점·시제/분량/범위/자유도 | PASS | 프로젝트 전개 방식 CRUD·격리, 실제 `required_moves` 카드 순서·자동 파생 단계 목적, 단계형 글 만들기와 요청 본문 E2E |
-| 9 | 사실/질문/금지/참고 구분 | PASS | 쉬운 설명·툴팁을 포함한 ‘이 글이 참고할 세계관’ 3패널 |
-| 10 | editable plan | PASS | 실제 Gemma 5 blocks + 압축형 ‘글의 흐름’ 편집 UI |
+| 9 | 사실/질문/금지/참고 구분 | PASS | 최종 원고 설계 카드의 설정 경계 개수·경고와 쉬운 설명 툴팁 |
+| 10 | editable plan | PASS | 실제 Gemma 5 blocks + 최종 확인 화면에 바로 열리는 ‘글의 흐름’ 편집 카드 |
 | 11 | Gemma Writer 전체 원고 | PASS | 1,039자/5 blocks |
 | 12 | 검증된 Utility | PASS | Gemma pass, Qwen reject |
 | 13 | BGE-M3 검색 | PASS | 실제 Compose Dense hit |

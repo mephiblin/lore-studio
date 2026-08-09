@@ -26,7 +26,29 @@
     { key: 'guidance', short: '집필 지침', title: '이번 글에서 무엇을 강조하거나 피할까요?', copy: '현재 프로젝트에 저장한 강조점과 금지 원칙입니다. 여러 개를 고르거나 건너뛸 수 있습니다.', next: '전개 방식으로 계속' },
     { key: 'recipe', short: '전개 방식', title: '글을 어떤 방식으로 풀어갈까요?', copy: '공용 기본 방식과 이 프로젝트에서 만든 방식 중 정보가 드러나는 순서 하나를 고르세요.', required: true, next: '결과물 형태로 계속' },
     { key: 'settings', short: '결과물 형태', title: '어떤 결과물로 만들까요?', copy: '결과물 종류, 시점·시제와 분량을 정하세요.', next: '확인·작성으로 계속' },
-    { key: 'review', short: '확인·작성', title: '선택을 확인하고 초안을 만드세요.', copy: '사용할 세계관을 확인하고, 글의 흐름을 정한 뒤 초안을 작성합니다.' }
+    { key: 'review', short: '확인·작성', title: '선택을 확인하고 초안을 만드세요.', copy: '원고 설계를 확인하고, 글의 흐름을 정한 뒤 초안을 작성합니다.' }
+  ];
+  const outputProfiles = [
+    { value: 'lore_article', mark: '설정집', title: '세계관 설명 글', copy: '사실과 맥락을 차분하게 정리합니다.' },
+    { value: 'video_narration', mark: '영상', title: '영상 내레이션', copy: '소리 내어 읽기 좋은 호흡으로 씁니다.' },
+    { value: 'novel_prose', mark: '장면', title: '소설 장면', copy: '인물의 행동과 감각이 보이게 씁니다.' },
+    { value: 'in_universe_report', mark: '기록', title: '세계 내부 문서', copy: '세계 안의 작성자가 남긴 기록처럼 씁니다.' }
+  ];
+  const viewpointOptions = [
+    { value: 'omniscient', title: '전지적 설명자', copy: '세계 전체를 내려다봅니다.' },
+    { value: 'first_observer', title: '1인칭 관찰자', copy: '목격자의 언어로 제한합니다.' },
+    { value: 'third_limited', title: '3인칭 제한', copy: '한 인물 가까이 머뭅니다.' }
+  ];
+  const tenseOptions = [
+    { value: 'present', title: '현재형 중심', copy: '지금 벌어지는 듯한 밀도' },
+    { value: 'past', title: '과거형 중심', copy: '기록하고 회고하는 안정감' }
+  ];
+  const lengthOptions = [
+    { value: 'short', title: '짧게', copy: '약 1,200자' },
+    { value: 'normal', title: '보통', copy: '약 3,000자' },
+    { value: 'long', title: '길게', copy: '약 6,500자' },
+    { value: 'very_long', title: '매우 길게', copy: '약 12,000자' },
+    { value: 'custom', title: '직접 지정', copy: '원하는 길이' }
   ];
   $: selectedCards = cards.filter((card) => directionCardIds.includes(card.id));
   $: selectedRecipe = recipes.find((recipe) => recipe.id === recipeId);
@@ -44,6 +66,9 @@
     .filter((page) => !slotFor(page.id) || slotFor(page.id) === activeSlot);
   $: wizardPages = wizardCandidates.slice(0, pageLimit);
   $: totalSupporting = backgroundIds.length + elementIds.length + conflictIds.length;
+  $: selectedOutputProfile = outputProfiles.find((item) => item.value === outputProfile) || outputProfiles[0];
+  $: selectedViewpoint = viewpointOptions.find((item) => item.value === viewpoint) || viewpointOptions[0];
+  $: selectedTense = tenseOptions.find((item) => item.value === tense) || tenseOptions[0];
   $: hasCurrentSelection = activeIds.length || activeStep?.key === 'settings' || activeStep?.key === 'guidance' && directionCardIds.length || activeStep?.key === 'recipe' && !!recipeId;
   $: nextButtonLabel = activeStep?.next ? `${hasCurrentSelection ? '' : '선택 없이 '}${activeStep.next}` : '';
   $: progressSummaries = [
@@ -178,6 +203,17 @@
     resetRun();
   }
 
+  function selectOutputProfile(value) { outputProfile = value; resetRun(); }
+  function selectViewpoint(value) { viewpoint = value; resetRun(); }
+  function selectTense(value) { tense = value; resetRun(); }
+  function selectLength(value) { length = value; resetRun(); }
+
+  function runReviewNext() {
+    if (!preview) return runAction('context-preview');
+    if (!plan) return runAction('plan');
+    return runAction('generate');
+  }
+
   async function ensureSession() {
     if (session) return session;
     session = await api.post('/playbook-sessions', {
@@ -223,7 +259,11 @@
       const result = await api.post(`/playbook-sessions/${current.id}/${kind}`, {});
       session = result.session;
       if (kind === 'context-preview') preview = result.context_preview;
-      if (kind === 'plan') { plan = result.plan; planDirty = false; }
+      if (kind === 'plan') {
+        plan = result.plan;
+        planDirty = false;
+        setTimeout(() => document.querySelector('.review-plan-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+      }
     } catch (e) { error = e.message; }
     finally { busy = ''; }
   }
@@ -316,79 +356,141 @@
         {#if !recipes.length}<a class="empty-state" href="/editor">사용할 수 있는 전개 방식이 없습니다. 세계관 자료에서 만들기 →</a>{/if}
       </div>
     {:else if activeStep.key === 'settings'}
-      <div class="settings-grid wizard-settings">
-        <div class="card stack">
-          <h3>결과물 형태</h3>
-          <label>결과물 종류<select bind:value={outputProfile} on:change={resetRun}><option value="lore_article">세계관 설명 글</option><option value="video_narration">영상 내레이션</option><option value="novel_prose">소설 장면</option><option value="in_universe_report">세계 내부 문서</option></select></label>
-          <div class="grid-2"><label>시점<select bind:value={viewpoint} on:change={resetRun}><option value="omniscient">전지적 설명자</option><option value="first_observer">1인칭 관찰자</option><option value="third_limited">3인칭 제한</option></select></label><label>시제<select bind:value={tense} on:change={resetRun}><option value="present">현재형 중심</option><option value="past">과거형 중심</option></select></label></div>
-        </div>
-        <div class="card stack">
-          <div class="row spread"><h3>분량과 자유도</h3><span class="badge">예상 {estimatedTokens.toLocaleString()} tokens</span></div>
-          <div class="grid-2"><label>분량<select bind:value={length} on:change={resetRun}><option value="short">짧게 · 약 1,200자</option><option value="normal">보통 · 약 3,000자</option><option value="long">길게 · 약 6,500자</option><option value="very_long">매우 길게 · 약 12,000자</option><option value="custom">직접 지정</option></select></label>{#if length === 'custom'}<label>목표 글자 수<input type="number" min="500" bind:value={customLength} on:change={resetRun} /></label>{/if}<label>자료 반영 범위<select bind:value={contextDepth} on:change={resetRun}><option value="core">선택한 핵심만</option><option value="balanced">관련 자료까지 균형 있게</option><option value="wide">세계 맥락을 넓게</option><option value="max">가능한 자료를 최대로</option></select></label><label>새 설정 제안<select bind:value={creativity} on:change={resetRun}><option value="strict">하지 않음</option><option value="conservative">최소한</option><option value="balanced">필요할 때</option><option value="free">적극적</option></select></label></div>
-          <label>설명의 자세함 · {detailLevel}/5<input type="range" min="1" max="5" bind:value={detailLevel} on:change={resetRun} /></label>
-          <label>아직 답하지 않을 질문 보존 · {mystery}/5<input type="range" min="1" max="5" bind:value={mystery} on:change={resetRun} /></label>
-          <details><summary>재현용 시드</summary><div class="details-body"><label>같은 선택과 이 번호는 같은 조합을 만듭니다.<input type="number" bind:value={seed} on:change={resetRun} /></label></div></details>
+      <div class="output-studio">
+        <aside class="output-specimen" aria-label="선택한 결과물 견본">
+          <span class="specimen-mark">{selectedOutputProfile.mark}</span>
+          <div>
+            <p>{subject?.title || '새 원고'}</p>
+            <h2>{selectedOutputProfile.title}</h2>
+            <blockquote>{selectedOutputProfile.copy}</blockquote>
+          </div>
+          <footer><span>{selectedViewpoint.title}</span><span>{selectedTense.title}</span><span>예상 {estimatedTokens.toLocaleString()} tokens</span></footer>
+        </aside>
+
+        <div class="output-control-deck">
+          <section class="output-choice-section">
+            <header><span>형식</span><strong>어떤 독서 경험으로 만들까요?</strong></header>
+            <div class="output-format-grid" role="group" aria-label="결과물 종류">
+              {#each outputProfiles as profile}
+                <button class:selected={outputProfile === profile.value} aria-pressed={outputProfile === profile.value} on:click={() => selectOutputProfile(profile.value)}>
+                  <span>{profile.mark}</span><strong>{profile.title}</strong><small>{profile.copy}</small>
+                </button>
+              {/each}
+            </div>
+          </section>
+
+          <div class="output-choice-pair">
+            <section class="output-choice-section">
+              <header><span>시점</span><strong>누구의 거리에서 볼까요?</strong></header>
+              <div class="voice-card-grid" role="group" aria-label="시점">
+                {#each viewpointOptions as option}
+                  <button class:selected={viewpoint === option.value} aria-pressed={viewpoint === option.value} on:click={() => selectViewpoint(option.value)}><strong>{option.title}</strong><small>{option.copy}</small></button>
+                {/each}
+              </div>
+            </section>
+            <section class="output-choice-section">
+              <header><span>시제</span><strong>시간의 결을 고르세요.</strong></header>
+              <div class="tense-card-grid" role="group" aria-label="시제">
+                {#each tenseOptions as option}
+                  <button class:selected={tense === option.value} aria-pressed={tense === option.value} on:click={() => selectTense(option.value)}><strong>{option.title}</strong><small>{option.copy}</small></button>
+                {/each}
+              </div>
+            </section>
+          </div>
+
+          <section class="output-choice-section output-length-section">
+            <header><span>분량</span><strong>원고가 숨 쉴 길이를 정하세요.</strong></header>
+            <div class="length-card-grid" role="group" aria-label="분량">
+              {#each lengthOptions as option}
+                <button class:selected={length === option.value} aria-pressed={length === option.value} on:click={() => selectLength(option.value)}><strong>{option.title}</strong><small>{option.copy}</small></button>
+              {/each}
+            </div>
+            {#if length === 'custom'}<label class="custom-length-field">목표 글자 수<input type="number" min="500" bind:value={customLength} on:change={resetRun} /></label>{/if}
+          </section>
+
+          <section class="output-tuning-card">
+            <div class="output-selectors"><label>자료 반영 범위<select bind:value={contextDepth} on:change={resetRun}><option value="core">선택한 핵심만</option><option value="balanced">관련 자료까지 균형 있게</option><option value="wide">세계 맥락을 넓게</option><option value="max">가능한 자료를 최대로</option></select></label><label>새 설정 제안<select bind:value={creativity} on:change={resetRun}><option value="strict">하지 않음</option><option value="conservative">최소한</option><option value="balanced">필요할 때</option><option value="free">적극적</option></select></label></div>
+            <div class="output-ranges"><label><span>설명의 자세함 <b>{detailLevel}/5</b></span><input type="range" min="1" max="5" bind:value={detailLevel} on:change={resetRun} /></label><label><span>미스터리 보존 <b>{mystery}/5</b></span><input type="range" min="1" max="5" bind:value={mystery} on:change={resetRun} /></label></div>
+            <details><summary>재현용 시드</summary><div class="details-body"><label>같은 선택과 이 번호는 같은 조합을 만듭니다.<input type="number" bind:value={seed} on:change={resetRun} /></label></div></details>
+          </section>
         </div>
       </div>
     {:else if activeStep.key === 'review'}
-      <div class="wizard-review-grid">
-        <article><div><span>주제</span><strong>{subject?.title}</strong></div><button class="ghost" on:click={() => setWizardStep(0)}>수정</button></article>
-        <article><div><span>배경</span><strong>{selectedPages(backgroundIds).map((page) => page.title).join(', ') || '선택 안 함'}</strong></div><button class="ghost" on:click={() => setWizardStep(1)}>수정</button></article>
-        <article><div><span>주요 요소</span><strong>{selectedPages(elementIds).map((page) => page.title).join(', ') || '선택 안 함'}</strong></div><button class="ghost" on:click={() => setWizardStep(2)}>수정</button></article>
-        <article><div><span>갈등·변수</span><strong>{selectedPages(conflictIds).map((page) => page.title).join(', ') || '선택 안 함'}</strong></div><button class="ghost" on:click={() => setWizardStep(3)}>수정</button></article>
-        <article><div><span>집필 지침</span><strong>{selectedCards.map((card) => card.title).join(', ') || '선택 안 함'}</strong></div><button class="ghost" on:click={() => setWizardStep(4)}>수정</button></article>
-        <article><div><span>전개 방식</span><strong>{selectedRecipe?.name || '선택 필요'}</strong></div><button class="ghost" on:click={() => setWizardStep(5)}>수정</button></article>
-        <article><div><span>결과물 형태</span><strong>{outputProfile === 'lore_article' ? '세계관 설명 글' : outputProfile === 'video_narration' ? '영상 내레이션' : outputProfile === 'novel_prose' ? '소설 장면' : '세계 내부 문서'} · {viewpoint === 'omniscient' ? '전지적 설명자' : viewpoint === 'first_observer' ? '1인칭 관찰자' : '3인칭 제한'}</strong></div><button class="ghost" on:click={() => setWizardStep(6)}>수정</button></article>
-      </div>
-      <section class="wizard-run-panel">
-        <div class="run-summary"><strong>{subject?.title}</strong><span>보조 자료 {totalSupporting}개 · 집필 지침 {directionCardIds.length}개 · {selectedRecipe?.name}</span><small>세 단계를 차례로 진행합니다. 작성된 초안은 원고 작업 화면에서 바로 열립니다.</small></div>
-        <div class="run-actions">
-          <div class="run-action"><div><span>1</span><HelpTip label="사용할 설정 확인 설명" text="선택한 자료의 유지할 사실, 공개 유보, 금지된 변경·전개를 먼저 보여 줍니다." /></div><button class="secondary" disabled={!!busy || !subject} on:click={() => runAction('context-preview')}>{preview ? '✓ 사용할 설정 확인됨' : '사용할 설정 확인'}</button></div>
-          <div class="run-action"><div><span>2</span><HelpTip label="글의 흐름 만들기 설명" text="원고를 쓰기 전에 각 문단이 어떤 순서로 무엇을 설명할지 목록으로 만듭니다." /></div><button class="secondary" disabled={!!busy || !subject || !preview} on:click={() => runAction('plan')}>{plan ? '✓ 글의 흐름 준비됨' : '글의 흐름 만들기'}</button></div>
-          <div class="run-action"><div><span>3</span><HelpTip label="초안 작성 설명" text="확인한 세계관과 글의 흐름을 바탕으로 초안을 쓰고, 원고 작업 화면으로 이동합니다." /></div><button class="primary" disabled={!!busy || !plan || cardConflicts.length} on:click={() => runAction('generate')}>초안 작성</button></div>
+      <div class="review-studio">
+        <section class="review-brief-card">
+          <div class="review-brief-cover">
+            {#if conceptCover(subject)}<img src={conceptCover(subject)} alt={`${subject?.title} 자료 이미지`} />{:else}<span>{conceptInitial(subject)}</span>{/if}
+          </div>
+          <div class="review-brief-copy"><span>원고 설계표</span><h2>{subject?.title}</h2><p>{selectedOutputProfile.title} · {selectedViewpoint.title} · {selectedTense.title}</p><small>보조 자료 {totalSupporting}개 · 집필 지침 {directionCardIds.length}개 · {selectedRecipe?.name}</small></div>
+          <button class="ghost" on:click={() => setWizardStep(0)}>주제 수정</button>
+        </section>
+
+        <div class="review-manifest-grid">
+          <article class="review-manifest-card material">
+            <header><span>소재</span><button class="ghost" on:click={() => setWizardStep(1)}>수정</button></header>
+            <dl><div><dt>배경</dt><dd>{selectedPages(backgroundIds).map((page) => page.title).join(', ') || '선택 안 함'}</dd></div><div><dt>주요 요소</dt><dd>{selectedPages(elementIds).map((page) => page.title).join(', ') || '선택 안 함'}</dd></div><div><dt>갈등·변수</dt><dd>{selectedPages(conflictIds).map((page) => page.title).join(', ') || '선택 안 함'}</dd></div></dl>
+          </article>
+          <article class="review-manifest-card guidance">
+            <header><span>집필 원칙</span><button class="ghost" on:click={() => setWizardStep(4)}>수정</button></header>
+            {#if selectedCards.length}<ul>{#each selectedCards as card}<li><strong>{card.title}</strong><small>{card.body}</small></li>{/each}</ul>{:else}<p>별도 집필 지침 없이 자료의 사실 경계만 지킵니다.</p>{/if}
+          </article>
+          <article class="review-manifest-card expression">
+            <header><span>표현 설계</span><button class="ghost" on:click={() => setWizardStep(5)}>수정</button></header>
+            <strong>{selectedRecipe?.name}</strong><p>{selectedRecipe?.description}</p><div><span>{selectedOutputProfile.title}</span><span>{selectedViewpoint.title}</span><span>{selectedTense.title}</span></div>
+          </article>
         </div>
-      </section>
+
+        <section class="generation-route" aria-label="초안 작성 경로">
+          <header><div><span>작성 경로</span><h2>확인에서 초안까지</h2></div><p>하단의 버튼으로 한 단계씩 진행합니다. 글의 흐름이 준비되면 바로 아래에 펼쳐집니다.</p></header>
+          <ol>
+            <li class:complete={!!preview} class:active={!preview}>
+              <div><span>1</span><HelpTip label="사용할 설정 확인 설명" text="선택한 자료의 유지할 사실, 공개 유보, 금지된 변경·전개를 AI 입력으로 정리합니다." /></div>
+              <strong>설정 경계 정리</strong><p>사실을 더 보여 주지 않고, 원고가 지킬 경계만 준비합니다.</p><small>{preview ? `완료 · 사실 ${preview.locked_facts.length} · 유보 ${preview.open_questions.length} · 금지 ${preview.forbidden_material.length}` : '다음 작업'}</small>
+            </li>
+            <li class:complete={!!plan} class:active={!!preview && !plan}>
+              <div><span>2</span><HelpTip label="글의 흐름 만들기 설명" text="원고를 쓰기 전에 각 문단이 어떤 순서로 무엇을 설명할지 편집 가능한 흐름으로 만듭니다." /></div>
+              <strong>글의 흐름 설계</strong><p>선택한 전개 방식을 실제 문단 순서로 바꾸고 직접 편집합니다.</p><small>{plan ? `완료 · ${plan.blocks.length}개 문단` : preview ? '다음 작업' : '설정 경계 뒤 진행'}</small>
+            </li>
+            <li class:complete={!!generatedDocument} class:active={!!plan && !generatedDocument}>
+              <div><span>3</span><HelpTip label="초안 작성 설명" text="확인한 설정 경계와 편집한 글의 흐름을 바탕으로 초안을 쓰고 원고 작업으로 이동합니다." /></div>
+              <strong>초안 작성</strong><p>확정한 설계표로 원고를 쓰고 원고 작업 화면에서 이어갑니다.</p><small>{generatedDocument ? '완료' : plan ? '다음 작업' : '글의 흐름 뒤 진행'}</small>
+            </li>
+          </ol>
+        </section>
+
+        {#each preview?.warnings || [] as warning}<p class="notice-error">{warning}</p>{/each}
+
+        {#if plan}
+          <section class="review-plan-editor plan-editor">
+            <header class="plan-heading"><div><p class="eyebrow">글의 흐름 · {plan.blocks.length}개 문단</p><div class="heading-with-help"><h2>{plan.title}</h2><HelpTip label="글의 흐름 설명" text="완성 원고가 아니라 AI에게 줄 문단별 작업 순서입니다. 설명할 내용과 순서를 바꿀 수 있습니다." /></div><p>{plan.angle}</p><small>각 줄은 원고의 한 문단입니다. 위에서 아래 순서로 작성됩니다.</small></div><button class="secondary" disabled={!planDirty} on:click={savePlan}>{planDirty ? '바꾼 흐름 저장' : '저장됨'}</button></header>
+            <div class="flow-list">
+              {#each plan.blocks as block, index}
+                <article class="flow-row">
+                  <div class="flow-index">{String(index + 1).padStart(2, '0')}</div>
+                  <label class="flow-move"><span class="compact-label">문단 방식 <HelpTip label={`${index + 1}번 문단 방식 설명`} text={moveDescriptions[block.move] || '이 문단이 글에서 맡을 설명 방식입니다.'} /></span><select aria-label={`${index + 1}번 문단 방식`} value={block.move} on:change={(e) => updateBlock(index, 'move', e.currentTarget.value)}>{#each Object.entries(moveLabels) as [value, label]}<option {value}>{label}</option>{/each}</select></label>
+                  <label class="flow-purpose"><span class="compact-label">이 문단에서 설명할 내용</span><input aria-label={`${index + 1}번 문단에서 설명할 내용`} value={block.purpose} on:input={(e) => updateBlock(index, 'purpose', e.currentTarget.value)} /></label>
+                  <label class="flow-budget"><span class="compact-label">분량</span><span class="input-suffix"><input aria-label={`${index + 1}번 문단 분량`} type="number" min="50" value={block.word_budget} on:input={(e) => updateBlock(index, 'word_budget', Number(e.currentTarget.value))} /><small>자</small></span></label>
+                  <div class="flow-meta"><span class="badge">설정 {block.evidence_ids.length}개</span><label><input type="checkbox" checked={block.locked} on:change={(e) => updateBlock(index, 'locked', e.currentTarget.checked)} /> 이 문단 고정</label></div>
+                  <div class="flow-actions"><button class="icon-button" aria-label={`${index + 1}번 문단 위로 이동`} on:click={() => moveBlock(index, -1)}>↑</button><button class="icon-button" aria-label={`${index + 1}번 문단 아래로 이동`} on:click={() => moveBlock(index, 1)}>↓</button><button class="ghost" on:click={() => duplicateBlock(index)}>복제</button><button class="danger-button" on:click={() => removeBlock(index)}>삭제</button></div>
+                </article>
+              {/each}
+            </div>
+          </section>
+        {/if}
+      </div>
     {/if}
 
   </section>
 
-  {#if wizardStep === wizardSteps.length - 1 && preview}
-    <section class="playbook-section evidence-review">
-      <div class="section-copy"><span class="step-number">✓</span><div><div class="heading-with-help"><h2>이 글이 참고할 세계관</h2><HelpTip label="참고할 세계관 설명" text="AI가 원고를 쓸 때 사실로 사용할 내용과 지켜야 할 경계를 모아 보여 주는 단계입니다." /></div><p>유지할 사실, 공개를 유보할 정보, 금지된 변경·전개를 확인하세요.</p></div></div>
-      <div class="evidence-columns">
-        <div><div class="heading-with-help"><h3>유지할 사실</h3><HelpTip label="유지할 사실 설명" text="원고가 반드시 참으로 유지할 세계관 사실입니다." /></div>{#each preview.locked_facts as item}<div class="evidence-item"><strong>{item.page_title}</strong><small>{item.fact}</small></div>{/each}{#if !preview.locked_facts.length}<p class="empty-mini">유지할 사실이 없습니다.</p>{/if}</div>
-        <div><div class="heading-with-help"><h3>공개 유보</h3><HelpTip label="공개 유보 설명" text="아직 정답이나 정체를 만들거나 독자에게 공개하지 않을 정보입니다." /></div>{#each preview.open_questions as item}<div class="evidence-item"><strong>{item.page_title}</strong><small>{item.question}</small></div>{/each}{#if !preview.open_questions.length}<p class="empty-mini">공개를 유보할 정보가 없습니다.</p>{/if}</div>
-        <div><div class="heading-with-help"><h3>금지된 변경·전개</h3><HelpTip label="금지된 변경 설명" text="원고를 흥미롭게 만들기 위해서도 발생시키거나 뒤집으면 안 되는 변경입니다." /></div>{#each preview.forbidden_material as item}<div class="evidence-item"><strong>{item.page_title || '작성 경계'}</strong><small>{item.rule}</small></div>{/each}{#if !preview.forbidden_material.length}<p class="empty-mini">금지된 변경·전개가 없습니다.</p>{/if}</div>
-      </div>
-      {#each preview.warnings || [] as warning}<p class="notice-error">{warning}</p>{/each}
-    </section>
-  {/if}
-
-  {#if wizardStep === wizardSteps.length - 1 && plan}
-    <section class="playbook-section plan-editor">
-      <header class="plan-heading"><div><p class="eyebrow">글의 흐름</p><div class="heading-with-help"><h2>{plan.title}</h2><HelpTip label="글의 흐름 설명" text="완성 원고가 아니라 AI에게 줄 문단별 작업 순서입니다. 설명할 내용과 순서를 바꿀 수 있습니다." /></div><p>{plan.angle}</p><small>각 줄은 원고의 한 문단입니다. 위에서 아래 순서로 작성됩니다.</small></div><button class="secondary" disabled={!planDirty} on:click={savePlan}>{planDirty ? '바꾼 흐름 저장' : '저장됨'}</button></header>
-      <div class="flow-list">
-        {#each plan.blocks as block, index}
-          <article class="flow-row">
-            <div class="flow-index">{String(index + 1).padStart(2, '0')}</div>
-            <label class="flow-move"><span class="compact-label">문단 방식 <HelpTip label={`${index + 1}번 문단 방식 설명`} text={moveDescriptions[block.move] || '이 문단이 글에서 맡을 설명 방식입니다.'} /></span><select aria-label={`${index + 1}번 문단 방식`} value={block.move} on:change={(e) => updateBlock(index, 'move', e.currentTarget.value)}>{#each Object.entries(moveLabels) as [value, label]}<option {value}>{label}</option>{/each}</select></label>
-            <label class="flow-purpose"><span class="compact-label">이 문단에서 설명할 내용</span><input aria-label={`${index + 1}번 문단에서 설명할 내용`} value={block.purpose} on:input={(e) => updateBlock(index, 'purpose', e.currentTarget.value)} /></label>
-            <label class="flow-budget"><span class="compact-label">분량</span><span class="input-suffix"><input aria-label={`${index + 1}번 문단 분량`} type="number" min="50" value={block.word_budget} on:input={(e) => updateBlock(index, 'word_budget', Number(e.currentTarget.value))} /><small>자</small></span></label>
-            <div class="flow-meta"><span class="badge">설정 {block.evidence_ids.length}개</span><label><input type="checkbox" checked={block.locked} on:change={(e) => updateBlock(index, 'locked', e.currentTarget.checked)} /> 이 문단 고정</label></div>
-            <div class="flow-actions"><button class="icon-button" aria-label={`${index + 1}번 문단 위로 이동`} on:click={() => moveBlock(index, -1)}>↑</button><button class="icon-button" aria-label={`${index + 1}번 문단 아래로 이동`} on:click={() => moveBlock(index, 1)}>↓</button><button class="ghost" on:click={() => duplicateBlock(index)}>복제</button><button class="danger-button" on:click={() => removeBlock(index)}>삭제</button></div>
-          </article>
-        {/each}
-      </div>
-    </section>
-  {/if}
-
   {#if wizardStep === wizardSteps.length - 1 && generatedDocument}<div class="completion-banner"><div><strong>{generatedDocument.title}</strong><span>{generatedDocument.body_markdown.length.toLocaleString()}자 초안을 저장했습니다.</span></div><a class="primary" href={`/documents?document=${generatedDocument.id}`}>이 초안 작업하기 →</a></div>{/if}
   </div>
 
-  {#if activeStep.key !== 'review'}
-    <footer class="wizard-actions playbook-navigation">
-      <button class="ghost" disabled={wizardStep === 0} on:click={() => setWizardStep(wizardStep - 1)}>← 이전</button>
+  <footer class="wizard-actions playbook-navigation">
+    <button class="ghost" disabled={wizardStep === 0 || !!busy} on:click={() => setWizardStep(wizardStep - 1)}>← 이전</button>
+    {#if activeStep.key === 'review'}
+      <button class="primary" disabled={!!busy || !subject || !!plan && cardConflicts.length} on:click={runReviewNext}>{!preview ? '사용할 설정 확인' : !plan ? '글의 흐름 만들기' : '초안 작성'} →</button>
+    {:else}
       <button class="primary" disabled={wizardStep === 0 && !subject || activeStep.key === 'guidance' && cardConflicts.length || activeStep.key === 'recipe' && !recipeId} on:click={nextStep}>{nextButtonLabel} →</button>
-    </footer>
-  {/if}
+    {/if}
+  </footer>
 </div>

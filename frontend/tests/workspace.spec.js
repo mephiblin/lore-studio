@@ -605,25 +605,34 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
   await page.getByRole('button', { name: /결과물 형태로 계속/ }).click();
 
   await expectStepHelp(page, '결과물 형태 단계 설명', '어떤 결과물로 만들까요');
-  await expect(page.getByLabel('시점')).toHaveValue('omniscient');
-  await expect(page.getByLabel('시제')).toHaveValue('present');
-  await page.getByLabel('시점').selectOption('third_limited');
-  await page.getByLabel('시제').selectOption('past');
+  await expect(page.locator('.output-specimen')).toContainText('세계관 설명 글');
+  const viewpointGroup = page.getByRole('group', { name: '시점' });
+  const tenseGroup = page.getByRole('group', { name: '시제' });
+  await expect(viewpointGroup.getByRole('button', { name: /전지적 설명자/ })).toHaveAttribute('aria-pressed', 'true');
+  await expect(tenseGroup.getByRole('button', { name: /현재형 중심/ })).toHaveAttribute('aria-pressed', 'true');
+  await viewpointGroup.getByRole('button', { name: /3인칭 제한/ }).click();
+  await tenseGroup.getByRole('button', { name: /과거형 중심/ }).click();
+  await expect(page.locator('.output-specimen')).toContainText('3인칭 제한');
+  await expect(page.locator('.output-specimen')).toContainText('과거형 중심');
   await page.getByRole('button', { name: /확인·작성으로 계속/ }).click();
 
   await expectStepHelp(page, '확인·작성 단계 설명', '선택을 확인하고 초안을 만드세요');
-  await expect(page.locator('.wizard-review-grid')).toContainText('검은 등대');
-  await expect(page.locator('.wizard-review-grid')).toContainText('회수실');
-  await expect(page.locator('.wizard-review-grid')).toContainText('레아 벨');
-  await expect(page.locator('.wizard-review-grid')).toContainText('전개 방식');
-  await expect(page.locator('.wizard-review-grid')).toContainText('원인에서 파급으로');
-  await expect(page.getByRole('button', { name: '초안 작성', exact: true })).toBeDisabled();
+  const reviewStudio = page.locator('.review-studio');
+  await expect(reviewStudio).toContainText('검은 등대');
+  await expect(reviewStudio).toContainText('회수실');
+  await expect(reviewStudio).toContainText('레아 벨');
+  await expect(reviewStudio).toContainText('원인에서 파급으로');
+  await expect(reviewStudio.getByRole('heading', { name: '확인에서 초안까지' })).toBeVisible();
+  await expect(reviewStudio).toContainText('글의 흐름 설계');
+  await expect(page.getByRole('heading', { name: '이 글이 참고할 세계관' })).toHaveCount(0);
+  await expect(page.locator('.playbook-page > .playbook-navigation')).toBeVisible();
   await page.getByRole('button', { name: '사용할 설정 확인 설명' }).click();
-  await expect(page.getByRole('tooltip').filter({ hasText: '유지할 사실, 공개 유보, 금지된 변경·전개' })).toBeVisible();
+  await expect(page.getByRole('tooltip').filter({ hasText: 'AI 입력으로 정리' })).toBeVisible();
   const sessionRequestPromise = page.waitForRequest((request) =>
     request.method() === 'POST' && request.url().endsWith('/api/v1/playbook-sessions')
   );
-  await page.getByRole('button', { name: '사용할 설정 확인', exact: true }).click();
+  const playbookNavigation = page.locator('.playbook-page > .playbook-navigation');
+  await playbookNavigation.getByRole('button', { name: /사용할 설정 확인/ }).click();
   const sessionRequest = await sessionRequestPromise;
   expect(sessionRequest.postDataJSON().settings_json).toMatchObject({
     viewpoint: 'third_limited',
@@ -632,8 +641,10 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
   expect(sessionRequest.postDataJSON().writing_recipe_id).toBeTruthy();
   const sessionResponse = await sessionRequest.response();
   const session = await sessionResponse.json();
-  await expect(page.getByRole('button', { name: '✓ 사용할 설정 확인됨' })).toBeEnabled();
-  await expect(page.getByRole('heading', { name: '이 글이 참고할 세계관' })).toBeVisible();
+  await expect(page.locator('.generation-route li').first()).toHaveClass(/complete/);
+  await expect(page.locator('.generation-route li').first()).toContainText('완료 · 사실');
+  await expect(playbookNavigation.getByRole('button', { name: /글의 흐름 만들기/ })).toBeEnabled();
+  await expect(page.getByRole('heading', { name: '이 글이 참고할 세계관' })).toHaveCount(0);
   await page.request.delete(`${new URL(sessionRequest.url()).origin}/api/v1/playbook-sessions/${session.id}`);
 });
 
