@@ -269,7 +269,6 @@
                 <span class="selection-mark">{activeIds.includes(page.id) ? '✓' : activeSlot === 'subject' ? '○' : '+'}</span>
                 <span class="row spread"><span class="badge">{categoryName(page)}</span><small>{roleLabel(page.usage_role)}</small></span>
                 <strong>{page.title}</strong><p>{page.summary || '요약이 없습니다.'}</p>
-                <span class="selection-action">{activeIds.includes(page.id) ? '선택됨' : activeSlot === 'subject' ? '이 자료를 주제로 선택' : `${activeStep.short}에 추가`}</span>
               </button>
             {/each}
             {#if !wizardPages.length}<div class="empty-state">검색 조건에 맞는 자료가 없거나, 모든 자료가 앞 단계에 배정됐습니다.</div>{/if}

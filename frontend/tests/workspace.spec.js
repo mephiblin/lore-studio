@@ -274,6 +274,8 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
   await page.goto('/playbook');
   await expect(page.locator('select[multiple]')).toHaveCount(0);
   await expect(page.locator('.wizard-heading')).toHaveCount(0);
+  await expect(page.locator('.selection-action')).toHaveCount(0);
+  await expect(page.getByText('이 자료를 주제로 선택')).toHaveCount(0);
   await expectStepHelp(page, '주제 단계 설명', '무엇에 관한 글인가요?');
   await expect(page.getByRole('button', { name: /배경으로 계속/ })).toBeDisabled();
   const lighthouse = page.locator('.wizard-choice-card').filter({
@@ -281,6 +283,8 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
   });
   await lighthouse.click();
   await expect(lighthouse).toHaveAttribute('aria-pressed', 'true');
+  await expect.poll(() => lighthouse.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(32, 66, 62)');
+  await expect.poll(() => lighthouse.locator('strong').evaluate((element) => getComputedStyle(element).color)).toBe('rgb(240, 188, 101)');
   await page.getByRole('button', { name: /배경으로 계속/ }).click();
 
   await expectStepHelp(page, '배경 단계 설명', '어디서, 어떤 상황에서');

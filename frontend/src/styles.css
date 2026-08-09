@@ -16,6 +16,9 @@
   --lichen: #19766e;
   --danger: #ad534d;
   --shadow: 0 14px 42px rgba(20, 43, 53, .09);
+  --nav-deep: #14322e;
+  --nav-active: #20423e;
+  --nav-accent: #f0bc65;
   --gallery-card-min: 260px;
   --gallery-card-width: 300px;
 }
@@ -41,7 +44,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .app-nav {
   position: sticky; top: 0; height: 100vh; padding: 20px 14px 18px;
   display: flex; flex-direction: column; gap: 30px;
-  overflow: visible; background: #14322e; color: #dce7e3; border-right: 1px solid #294842;
+  overflow: visible; background: var(--nav-deep); color: #dce7e3; border-right: 1px solid #294842;
 }
 .brand { display: flex; gap: 11px; align-items: center; padding: 2px 6px; }
 .brand-seal {
@@ -62,8 +65,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .nav-list a { min-height: 46px; display: flex; gap: 12px; align-items: center; padding: 10px 12px; border-left: 3px solid transparent; color: #afc1bb; font-size: 13px; font-weight: 650; }
 .nav-list a .nav-mark { width: 20px; flex: 0 0 20px; color: #78918a; font: 700 9px/1 ui-monospace, "SFMono-Regular", Consolas, monospace; letter-spacing: .04em; text-align: center; }
 .nav-list a:hover { color: #fff; background: #1b3a36; }
-.nav-list a.active { color: #fff; border-left-color: var(--signal); background: #20423e; }
-.nav-list a.active span { color: #f0bc65; }
+.nav-list a.active { color: #fff; border-left-color: var(--signal); background: var(--nav-active); }
+.nav-list a.active span { color: var(--nav-accent); }
 .local-note { margin-top: auto; display: flex; gap: 9px; padding: 12px 8px; border-top: 1px solid #36505a; }
 .local-note strong, .local-note small { display: block; }
 .local-note strong { font-size: 12px; }
@@ -341,13 +344,13 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
 .assign-actions button:hover { color: #fff; background: var(--ink-soft); }
 .direction-option-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(var(--gallery-card-min), 100%), var(--gallery-card-width))); gap: 13px; align-items: start; justify-content: start; margin-top: 16px; }
 .direction-option { position: relative; min-height: 214px; padding: 17px 42px 17px 17px; text-align: left; color: var(--ink); }
-.direction-option.selected { border-color: #7e9e94; background: #edf4f1; box-shadow: inset 3px 0 var(--lichen); }
+.direction-option.selected { border-color: var(--nav-accent); background: var(--nav-active); box-shadow: 0 10px 26px rgba(16,43,54,.16); }
 .direction-option strong { display: block; margin-bottom: 8px; font: 600 16px/1.25 Georgia, "Noto Serif KR", serif; }
 .direction-option p { margin: 0 0 8px; color: var(--muted-text); font-size: 12px; line-height: 1.55; }
 .direction-option small { color: #527366; font-size: 10px; line-height: 1.45; }
 .direction-option span:not(.choice-check) { display: block; color: var(--muted-text); font-size: 12px; line-height: 1.55; }
 .choice-check { position: absolute; top: 14px; right: 14px; width: 20px; height: 20px; display: grid; place-items: center; border: 1px solid var(--line-strong); border-radius: 50%; font-size: 11px; }
-.selected .choice-check { color: #fff; border-color: var(--lichen); background: var(--lichen); }
+.selected .choice-check { color: var(--nav-deep); border-color: var(--nav-accent); background: var(--nav-accent); }
 .wide-field { margin-top: 14px; }
 .settings-section { display: grid; grid-template-columns: minmax(230px, .45fr) minmax(0, 1fr); gap: 24px; }
 .settings-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
@@ -428,22 +431,22 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
 .scope-switch button { min-height: 34px; padding: 6px 11px; border: 0; border-radius: 3px; color: var(--muted-text); background: transparent; font-size: 11px; font-weight: 760; }
 .scope-switch button.active { color: #fff; background: var(--ink-soft); }
 .wizard-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(var(--gallery-card-min), 100%), var(--gallery-card-width))); gap: 13px; align-items: start; justify-content: start; max-height: 585px; overflow-y: auto; padding: 2px; }
-.wizard-choice-card { position: relative; min-height: 214px; display: grid; grid-template-rows: auto auto 1fr auto; gap: 0; padding: 0; text-align: left; color: var(--ink); }
-.wizard-choice-card.selected { border-color: #739688; background: #edf5f1; box-shadow: inset 3px 0 var(--lichen); }
+.wizard-choice-card { position: relative; min-height: 172px; display: grid; grid-template-rows: auto auto 1fr; gap: 0; padding: 0; text-align: left; color: var(--ink); }
+.wizard-choice-card.selected { border-color: var(--nav-accent); background: var(--nav-active); box-shadow: 0 10px 26px rgba(16,43,54,.16); }
 .wizard-choice-card > .row { min-height: 47px; padding: 12px 46px 11px 14px; border-bottom: 1px solid var(--line); background: var(--paper-deep); }
 .wizard-choice-card > strong { align-self: start; padding: 16px 16px 0; font: 600 18px/1.25 Georgia, "Noto Serif KR", serif; }
 .wizard-choice-card p { margin: 0; padding: 8px 16px 15px; color: var(--muted-text); font-size: 12px; line-height: 1.55; }
 .wizard-choice-card small { color: var(--muted-text); font-size: 10px; }
 .selection-mark { position: absolute; top: 12px; right: 13px; width: 23px; height: 23px; display: grid; place-items: center; border: 1px solid var(--line-strong); border-radius: 50%; color: var(--ink-soft); font-size: 12px; font-weight: 800; }
-.selected .selection-mark { color: #fff; border-color: var(--lichen); background: var(--lichen); }
-.selection-action { min-height: 42px; display: flex; align-items: center; padding: 9px 13px; border-top: 1px solid var(--line); color: var(--ink-soft); background: var(--paper-deep); font-size: 11px; font-weight: 780; }
-.wizard-choice-card.selected > .row, .wizard-choice-card.selected .selection-action { background: #e6f0eb; }
-.selected .selection-action { color: #416c5a; }
+.selected .selection-mark { color: var(--nav-deep); border-color: var(--nav-accent); background: var(--nav-accent); }
+.wizard-choice-card.selected > .row { border-bottom-color: #365f57; background: var(--nav-deep); }
+.wizard-choice-card.selected > strong, .wizard-choice-card.selected p, .wizard-choice-card.selected small, .wizard-choice-card.selected .badge { color: var(--nav-accent); }
+.wizard-choice-card.selected .badge { border-color: #806d42; background: var(--nav-deep); }
 .wizard-load-more { width: 100%; min-height: 44px; margin-top: 10px; }
 .wizard-direction-grid, .wizard-settings, .wizard-review-grid { margin: 0; padding: clamp(18px, 3vw, 30px); }
 .recipe-option-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(var(--gallery-card-min), 100%), var(--gallery-card-width))); gap: 13px; align-items: start; justify-content: start; padding: clamp(18px, 3vw, 30px); }
 .recipe-option { position: relative; min-height: 250px; display: flex; flex-direction: column; align-items: stretch; padding: 18px; text-align: left; color: var(--ink); }
-.recipe-option.selected { border-color: #739688; background: #edf5f1; box-shadow: inset 3px 0 var(--lichen); }
+.recipe-option.selected { border-color: var(--nav-accent); background: var(--nav-active); box-shadow: 0 10px 26px rgba(16,43,54,.16); }
 .recipe-option > strong { margin: 15px 32px 8px 0; font: 600 18px/1.25 Georgia, "Noto Serif KR", serif; }
 .recipe-option > p { flex: 1; margin: 0 0 16px; color: var(--muted-text); font-size: 12px; line-height: 1.6; }
 .recipe-scope { align-self: flex-start; color: #527366; font-size: 9px; font-weight: 780; letter-spacing: .02em; }
@@ -452,6 +455,9 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
 .recipe-flow i { color: var(--signal); font-size: 10px; font-style: normal; }
 .recipe-option > small { color: var(--muted-text); font-size: 10px; line-height: 1.55; }
 .recipe-option > small b { margin-right: 5px; color: var(--ink-soft); }
+.direction-option.selected strong, .direction-option.selected p, .direction-option.selected small, .direction-option.selected span:not(.choice-check), .recipe-option.selected > strong, .recipe-option.selected > p, .recipe-option.selected > small, .recipe-option.selected > small b, .recipe-option.selected .recipe-scope { color: var(--nav-accent); }
+.recipe-option.selected .recipe-flow { background: var(--nav-deep); }
+.recipe-option.selected .recipe-flow span { color: var(--nav-accent); border-color: #806d42; background: var(--nav-active); }
 .wizard-settings { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .wizard-settings .card { box-shadow: none; }
 .wizard-review-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
@@ -658,7 +664,7 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
   .scope-switch { align-self: stretch; }
   .scope-switch button { flex: 1; min-height: 40px; }
   .wizard-card-grid { max-height: min(54vh, 460px); overscroll-behavior: contain; }
-  .wizard-choice-card { min-height: 188px; }
+  .wizard-choice-card { min-height: 154px; }
   .wizard-choice-card > strong { font-size: 16px; }
   .wizard-choice-card p { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
   .wizard-actions { position: sticky; z-index: 8; bottom: 0; }
