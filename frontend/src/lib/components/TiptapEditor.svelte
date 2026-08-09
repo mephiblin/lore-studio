@@ -18,7 +18,7 @@
   const operations = [
     ['polish', '문맥에 맞게 다듬기'],
     ['shorter', '더 짧게'],
-    ['longer', '더 자세히'],
+    ['longer', '더 자세히 (약 2배)'],
     ['clarify', '설명을 명확하게'],
     ['consistency', '설정 충돌 줄이기'],
     ['custom', '직접 지시']

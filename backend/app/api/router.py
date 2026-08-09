@@ -601,7 +601,7 @@ async def rewrite_concept_page_selection(
             "instruction": payload.instruction,
             "context": context,
         },
-        prompt_components={"concept_editor": "selection_rewrite_v1"},
+        prompt_components={"concept_editor": "selection_contextual_rewrite_v2"},
         selected_concept_ids=[page.id, *source_ids],
         output_text=result.content,
     )

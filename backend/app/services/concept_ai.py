@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
+from copy import deepcopy
 from typing import Any
 
 from sqlalchemy import select
@@ -17,6 +19,22 @@ AI_TEXT_SCHEMA: dict[str, Any] = {
     "additionalProperties": False,
     "required": ["content_text", "warnings"],
     "properties": {
+        "content_text": {"type": "string", "minLength": 1},
+        "warnings": {"type": "array", "items": {"type": "string"}},
+    },
+}
+
+AI_REWRITE_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["context_summary", "continuity_requirements", "content_text", "warnings"],
+    "properties": {
+        "context_summary": {"type": "string", "minLength": 1},
+        "continuity_requirements": {
+            "type": "array",
+            "minItems": 1,
+            "items": {"type": "string"},
+        },
         "content_text": {"type": "string", "minLength": 1},
         "warnings": {"type": "array", "items": {"type": "string"}},
     },
@@ -75,6 +93,46 @@ def _current_body_context(body: str, selection_text: str = "") -> dict[str, Any]
         "text": body[start:end],
         "truncated": start > 0 or end < len(body),
         "window_start": start,
+    }
+
+
+def _selection_context(body: str, selection_text: str, radius: int = 1600) -> dict[str, Any]:
+    needle = selection_text.strip()
+    index = body.find(needle) if needle else -1
+    if index < 0:
+        return {
+            "found": False,
+            "before": "",
+            "selected": needle,
+            "after": "",
+        }
+    return {
+        "found": True,
+        "before": body[max(0, index - radius) : index],
+        "selected": needle,
+        "after": body[index + len(needle) : index + len(needle) + radius],
+    }
+
+
+def _rewrite_length_contract(operation: str, selection_text: str) -> dict[str, Any]:
+    original_chars = len(selection_text.strip())
+    if operation != "longer":
+        return {
+            "mode": "preserve_unless_operation_requires_change",
+            "original_chars": original_chars,
+        }
+    minimum_chars = original_chars + max(100, min(1200, math.ceil(original_chars * 0.55)))
+    target_chars = original_chars + max(220, min(2600, math.ceil(original_chars * 1.1)))
+    return {
+        "mode": "expand_with_substance",
+        "original_chars": original_chars,
+        "minimum_chars": minimum_chars,
+        "target_chars": target_chars,
+        "measurement": "공백 포함 한국어 문자 수의 대략적 목표",
+        "fallback": (
+            "근거가 부족해 최소 길이를 안전하게 채울 수 없다면 새 사실을 만들지 말고 warnings에 "
+            "부족한 근거를 명시한다."
+        ),
     }
 
 
@@ -205,6 +263,7 @@ def compile_concept_ai_context(
             "summary": page.summary,
             "tags": page.tags,
             "body_context": _current_body_context(body, selection_text),
+            "selection_context": _selection_context(body, selection_text),
             "writing_boundaries": {
                 "locked_facts": page.locked_facts if locked_facts is None else locked_facts,
                 "open_questions": page.open_questions if open_questions is None else open_questions,
@@ -240,6 +299,13 @@ async def rewrite_concept_selection(
     operation: str,
     instruction: str,
 ) -> tuple[str, list[str], ModelCallResult]:
+    length_contract = _rewrite_length_contract(operation, selection_text)
+    response_schema = deepcopy(AI_REWRITE_SCHEMA)
+    max_tokens = 2200
+    if operation == "longer":
+        minimum_chars = int(length_contract["minimum_chars"])
+        response_schema["properties"]["content_text"]["minLength"] = minimum_chars
+        max_tokens = min(8000, max(4200, math.ceil(minimum_chars * 0.8)))
     payload = {
         "task": "rewrite_selection",
         "target": {
@@ -248,11 +314,16 @@ async def rewrite_concept_selection(
             "selection_to": selection_to,
         },
         "operation": OPERATION_LABELS[operation],
+        "length_contract": length_contract,
         "user_instruction": instruction.strip(),
         "read_only_context": context,
         "rules": [
+            "먼저 read_only_context.current_page.body_context.text 전체를 읽고 문서의 주제와 정보 흐름을 context_summary로 요약한다.",
+            "그 다음 selection_context.before와 after에 자연스럽게 이어지기 위한 조건을 continuity_requirements에 적는다.",
             "target.selection_text만 대체할 문장을 content_text로 반환한다.",
             "read_only_context는 이해와 사실 검증에만 쓰고 문서 전체를 다시 출력하지 않는다.",
+            "앞뒤 본문의 정보를 불필요하게 반복하지 말고 대명사·시점·용어·문장 호흡을 연결한다.",
+            "length_contract.mode가 expand_with_substance이면 minimum_chars 이상을 목표로 원인·작동 과정·감각·구체적 결과를 보강한다.",
             "새 설정을 확정 사실처럼 만들지 않는다.",
             "열린 질문에 답하거나 금지된 변경을 만들지 않는다.",
             "원문의 시점, 말투, 고유명사 표기를 유지한다.",
@@ -265,18 +336,19 @@ async def rewrite_concept_selection(
             {
                 "role": "system",
                 "content": (
-                    "세계관 자료 편집기의 선택 영역만 문맥에 맞게 수정한다. 결과는 사용자가 검토할 "
-                    "CANDIDATE이며 어떤 데이터도 자동 저장하거나 정사로 승격하지 않는다."
+                    "세계관 자료 편집기의 본문 전체와 선택부 앞뒤를 먼저 파악한 뒤 선택 영역만 수정한다. "
+                    "문맥 요약과 연결 조건을 먼저 작성하고, 이를 만족하는 대체문을 만든다. 결과는 사용자가 "
+                    "검토할 CANDIDATE이며 어떤 데이터도 자동 저장하거나 정사로 승격하지 않는다."
                 ),
             },
             {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
         ],
         role="writer",
         temperature=0.25,
-        max_tokens=1800,
+        max_tokens=max_tokens,
         response_mode="json_schema",
-        json_schema=AI_TEXT_SCHEMA,
-        schema_name="concept_selection_rewrite",
+        json_schema=response_schema,
+        schema_name="concept_selection_contextual_rewrite",
     )
     text, warnings = _parse_response(result.content)
     return text, warnings, result

@@ -117,6 +117,7 @@ test('world material AI edits stay reviewable and use temporary references', asy
 
   await page.route('**/api/v1/concept-pages/*/ai/rewrite-selection', async (route) => {
     const payload = route.request().postDataJSON();
+    expect(payload.operation).toBe('longer');
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -171,6 +172,8 @@ test('world material AI edits stay reviewable and use temporary references', asy
   const rewritePanel = page.getByRole('form', { name: '선택 영역 AI 수정' });
   await expect(rewritePanel).toBeVisible();
   await expect(rewritePanel).toContainText('연결된 자료');
+  await rewritePanel.getByLabel('수정 방식').selectOption('longer');
+  await expect(rewritePanel.getByLabel('수정 방식')).toContainText('더 자세히 (약 2배)');
   await rewritePanel.getByRole('button', { name: '수정 제안' }).click();
 
   const proposal = page.getByRole('region', { name: 'AI 본문 제안' });

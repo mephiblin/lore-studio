@@ -18,16 +18,22 @@ class ConceptAiGateway:
     async def complete(self, messages, **kwargs):  # type: ignore[no-untyped-def]
         payload = json.loads(messages[1]["content"])
         self.calls.append({"payload": payload, "kwargs": kwargs})
+        is_rewrite = payload["task"] == "rewrite_selection"
         content_text = (
             "성문은 해가 지기 전에 닫히며, 수호자는 침묵으로 통행을 막는다."
-            if payload["task"] == "rewrite_selection"
+            if is_rewrite
             else "## 해질의 성문\n\n성문은 저녁마다 닫힌다.\n\n> 수호자의 정체는 아직 드러나지 않는다."
         )
+        response = {"content_text": content_text, "warnings": ["사용자 검토가 필요합니다."]}
+        if is_rewrite:
+            response.update(
+                {
+                    "context_summary": "해질 무렵 성문과 수호자를 설명하는 세계관 자료다.",
+                    "continuity_requirements": ["뒤 문장의 수호자 언급으로 자연스럽게 이어진다."],
+                }
+            )
         return ModelCallResult(
-            content=json.dumps(
-                {"content_text": content_text, "warnings": ["사용자 검토가 필요합니다."]},
-                ensure_ascii=False,
-            ),
+            content=json.dumps(response, ensure_ascii=False),
             role="writer",
             model="writer-test",
             endpoint="http://models.test/v1",
@@ -100,7 +106,7 @@ def test_concept_ai_returns_reviewable_proposals_without_saving(monkeypatch) -> 
                 "selection_from": 1,
                 "selection_to": 13,
                 "selection_text": "성문은 늦게 닫혔다.",
-                "operation": "consistency",
+                "operation": "longer",
                 "source_page_ids": [fact_source["id"], inspiration["id"]],
                 "open_questions": ["수호자의 정체는 아직 공개하지 않는다."],
             },
@@ -119,6 +125,22 @@ def test_concept_ai_returns_reviewable_proposals_without_saving(monkeypatch) -> 
         assert rewrite_payload["target"]["selection_text"] == "성문은 늦게 닫혔다."
         context = rewrite_payload["read_only_context"]
         assert context["current_page"]["body_context"]["text"].startswith("성문은 늦게")
+        assert context["current_page"]["selection_context"]["found"] is True
+        assert context["current_page"]["selection_context"]["after"].startswith(
+            " 수호자의 얼굴은"
+        )
+        assert rewrite_payload["length_contract"]["mode"] == "expand_with_substance"
+        assert rewrite_payload["length_contract"]["minimum_chars"] > len(
+            rewrite_payload["target"]["selection_text"]
+        )
+        rewrite_schema = gateway.calls[0]["kwargs"]["json_schema"]
+        assert rewrite_schema["properties"]["content_text"]["minLength"] == rewrite_payload[
+            "length_contract"
+        ]["minimum_chars"]
+        assert gateway.calls[0]["kwargs"]["max_tokens"] >= 4200
+        assert {"context_summary", "continuity_requirements"}.issubset(
+            rewrite_schema["required"]
+        )
         assert context["current_page"]["writing_boundaries"]["open_questions"] == [
             "수호자의 정체는 아직 공개하지 않는다."
         ]
@@ -157,6 +179,13 @@ def test_concept_ai_returns_reviewable_proposals_without_saving(monkeypatch) -> 
         assert {run.task for run in runs} == {"concept_selection_rewrite", "concept_body_draft"}
         assert all(run.input_hash for run in runs)
         assert all(run.selected_concept_ids[0] == current["id"] for run in runs)
+        rewrite_run = next(run for run in runs if run.task == "concept_selection_rewrite")
+        assert rewrite_run.prompt_components == {
+            "concept_editor": "selection_contextual_rewrite_v2"
+        }
+        assert rewrite_run.input_json["context"]["current_page"]["selection_context"][
+            "found"
+        ] is True
     finally:
         app.dependency_overrides.clear()
         db.close()
