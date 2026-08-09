@@ -55,7 +55,7 @@ make test-models
 - 화면 구조와 용어: [`docs/INFORMATION_ARCHITECTURE.md`](docs/INFORMATION_ARCHITECTURE.md)
 - 운영/백업: [`docs/OPERATIONS.md`](docs/OPERATIONS.md), [`docs/BACKUP_RESTORE.md`](docs/BACKUP_RESTORE.md)
 - 데이터 경계: [`docs/EMBEDDING_ISOLATION.md`](docs/EMBEDDING_ISOLATION.md), [`docs/SECURITY_AND_DATA.md`](docs/SECURITY_AND_DATA.md)
-- 개발/상태: [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md), [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md)
+- 개발/상태: [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md), [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md), [`docs/CHANGE_SAFETY_CHECKLIST.md`](docs/CHANGE_SAFETY_CHECKLIST.md)
 - 제품·작문 계약: [`docs/PROJECT_SPECIFICATION.md`](docs/PROJECT_SPECIFICATION.md), [`docs/WRITING_SYSTEM.md`](docs/WRITING_SYSTEM.md)
 - 검증·남은 작업: [`VERIFICATION.md`](VERIFICATION.md), [`TASKS.md`](TASKS.md)
 
