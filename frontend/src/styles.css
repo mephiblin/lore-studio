@@ -742,8 +742,9 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
 /* Lorebook: a quiet reading sheet, visibly detached from draft controls. */
 .lorebook-layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 16px; align-items: start; }
 .lorebook-shelf { position: sticky; top: 26px; max-height: calc(100vh - 52px); overflow: auto; background: #eaf0ee; }
-.lorebook-theme-toolbar { display: grid; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
-.lorebook-theme-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.lorebook-commandbar { justify-content: space-between; gap: 16px; }
+.lorebook-theme-toolbar { min-width: 0; display: flex; align-items: center; gap: 12px; }
+.lorebook-theme-heading { display: grid; gap: 3px; min-width: 70px; }
 .lorebook-theme-heading span { color: var(--muted-text); font-size: 9px; font-weight: 800; letter-spacing: .08em; }
 .lorebook-theme-heading strong { color: var(--ink); font-size: 10px; }
 .lorebook-theme-options { display: flex; align-items: center; gap: 9px; }
@@ -811,14 +812,11 @@ html[data-lorebook-theme] .app-main.workspace-main { transition: background-colo
   background-image: linear-gradient(rgba(250,239,210,.42), rgba(238,217,174,.38)), url('/themes/lorebook-fantasia.webp');
   background-size: cover;
 }
-.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-theme-toolbar,
 .lorebook-page[data-lorebook-theme="fantasia"] .lorebook-sheet-heading,
 .lorebook-page[data-lorebook-theme="fantasia"] .lorebook-actions { border-color: rgba(91,54,27,.42); }
-.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-theme-heading span,
 .lorebook-page[data-lorebook-theme="fantasia"] .lorebook-list small,
 .lorebook-page[data-lorebook-theme="fantasia"] .lorebook-title-block > span,
 .lorebook-page[data-lorebook-theme="fantasia"] .lorebook-read-note { color: #805249; }
-.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-theme-heading strong,
 .lorebook-page[data-lorebook-theme="fantasia"] .lorebook-list strong,
 .lorebook-page[data-lorebook-theme="fantasia"] .lorebook-title-block h2,
 .lorebook-page[data-lorebook-theme="fantasia"] .lorebook-body-reader h2,
@@ -851,14 +849,11 @@ html[data-lorebook-theme] .app-main.workspace-main { transition: background-colo
   background-image: linear-gradient(rgba(0,13,7,.22), rgba(0,12,7,.32)), url('/themes/lorebook-mechanical.webp');
   background-size: cover;
 }
-.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-theme-toolbar,
 .lorebook-page[data-lorebook-theme="mechanical"] .lorebook-sheet-heading,
 .lorebook-page[data-lorebook-theme="mechanical"] .lorebook-actions { border-color: rgba(74,218,143,.38); }
-.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-theme-heading span,
 .lorebook-page[data-lorebook-theme="mechanical"] .lorebook-list small,
 .lorebook-page[data-lorebook-theme="mechanical"] .lorebook-title-block > span,
 .lorebook-page[data-lorebook-theme="mechanical"] .lorebook-read-note { color: #5fcd83; }
-.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-theme-heading strong,
 .lorebook-page[data-lorebook-theme="mechanical"] .mobile-document-picker,
 .lorebook-page[data-lorebook-theme="mechanical"] .lorebook-list strong,
 .lorebook-page[data-lorebook-theme="mechanical"] .lorebook-title-block h2,
@@ -897,14 +892,11 @@ html[data-lorebook-theme] .app-main.workspace-main { transition: background-colo
   background-image: linear-gradient(rgba(5,16,39,.47), rgba(7,18,43,.58)), url('/themes/lorebook-urban.webp');
   background-size: cover;
 }
-.lorebook-page[data-lorebook-theme="urban"] .lorebook-theme-toolbar,
 .lorebook-page[data-lorebook-theme="urban"] .lorebook-sheet-heading,
 .lorebook-page[data-lorebook-theme="urban"] .lorebook-actions { border-color: rgba(95,166,218,.38); }
-.lorebook-page[data-lorebook-theme="urban"] .lorebook-theme-heading span,
 .lorebook-page[data-lorebook-theme="urban"] .lorebook-list small,
 .lorebook-page[data-lorebook-theme="urban"] .lorebook-title-block > span,
 .lorebook-page[data-lorebook-theme="urban"] .lorebook-read-note { color: #91abd7; }
-.lorebook-page[data-lorebook-theme="urban"] .lorebook-theme-heading strong,
 .lorebook-page[data-lorebook-theme="urban"] .mobile-document-picker,
 .lorebook-page[data-lorebook-theme="urban"] .lorebook-list strong,
 .lorebook-page[data-lorebook-theme="urban"] .lorebook-title-block h2,
@@ -967,6 +959,8 @@ html[data-lorebook-theme] .app-main.workspace-main { transition: background-colo
   .project-tools > label { min-width: 0; flex: 1 1 210px; }
   .page-tools .project-tools > label { display: grid; gap: 6px; white-space: normal; }
   .page-tools .project-tools > label select { min-width: 0; }
+  .lorebook-commandbar { align-items: stretch; flex-direction: column; gap: 10px; }
+  .lorebook-commandbar .lorebook-theme-toolbar { justify-content: space-between; }
   .archive-layout { grid-template-columns: 1fr; }
   .archive-list { position: static; height: auto; max-height: none; overflow: visible; }
   .archive-page-list { max-height: 330px; }

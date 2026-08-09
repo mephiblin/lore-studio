@@ -439,7 +439,10 @@ test('lorebook reading themes switch, persist, and leave content actions unchang
     urban: 'rgb(238, 242, 255)'
   };
 
-  await expect(page.getByRole('group', { name: '로어북 열람 테마' })).toBeVisible();
+  const themeGroup = page.getByRole('group', { name: '로어북 열람 테마' });
+  await expect(page.locator('.lorebook-commandbar').getByRole('group', { name: '로어북 열람 테마' })).toBeVisible();
+  await expect(page.locator('.lorebook-shelf .lorebook-theme-toolbar')).toHaveCount(0);
+  await expect(themeGroup).toBeVisible();
   await expect(page.getByRole('button', { name: '로어북 테마: 노말' })).toHaveAttribute('aria-pressed', 'true');
   for (const [name, id, asset] of themes) {
     await page.getByRole('button', { name: `로어북 테마: ${name}` }).click();

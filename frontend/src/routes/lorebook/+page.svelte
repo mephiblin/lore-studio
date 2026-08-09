@@ -129,7 +129,23 @@
 </script>
 
 <div class="page lorebook-page workspace-page" data-lorebook-theme={lorebookTheme}>
-  <div class="page-tools">
+  <div class="page-tools lorebook-commandbar">
+    <div class="lorebook-theme-toolbar">
+      <div class="lorebook-theme-heading"><span>열람 테마</span><strong>{activeThemeName}</strong></div>
+      <div class="lorebook-theme-options" role="group" aria-label="로어북 열람 테마">
+        {#each lorebookThemes as theme}
+          <button
+            type="button"
+            class="lorebook-theme-button theme-{theme.id}"
+            class:active={lorebookTheme === theme.id}
+            aria-label={`로어북 테마: ${theme.name}`}
+            aria-pressed={lorebookTheme === theme.id}
+            title={theme.name}
+            on:click={() => selectTheme(theme.id)}
+          ><span aria-hidden="true">{theme.number}</span></button>
+        {/each}
+      </div>
+    </div>
     <div class="project-tools"><label style="min-width:260px">현재 프로젝트<select bind:value={projectId} on:change={loadEntries}>{#each projects as project}<option value={project.id}>{project.name}</option>{/each}</select></label><ProjectCreator onCreated={projectCreated} /></div>
   </div>
 
@@ -138,22 +154,6 @@
 
   <div class="lorebook-layout">
     <aside class="card stack lorebook-shelf">
-      <div class="lorebook-theme-toolbar">
-        <div class="lorebook-theme-heading"><span>열람 테마</span><strong>{activeThemeName}</strong></div>
-        <div class="lorebook-theme-options" role="group" aria-label="로어북 열람 테마">
-          {#each lorebookThemes as theme}
-            <button
-              type="button"
-              class="lorebook-theme-button theme-{theme.id}"
-              class:active={lorebookTheme === theme.id}
-              aria-label={`로어북 테마: ${theme.name}`}
-              aria-pressed={lorebookTheme === theme.id}
-              title={theme.name}
-              on:click={() => selectTheme(theme.id)}
-            ><span aria-hidden="true">{theme.number}</span></button>
-          {/each}
-        </div>
-      </div>
       <div class="row spread"><div><p class="eyebrow">완성된 글</p><h3 class="lorebook-shelf-title">책장</h3></div><span class="badge">{entries.length}</span></div>
       <label class="mobile-document-picker">읽을 글<select value={selected?.id || ''} on:change={(event) => selectEntry(entries.find((entry) => entry.id === event.currentTarget.value) || null)}>{#each entries as entry}<option value={entry.id}>{entry.title}</option>{/each}</select></label>
       <div class="list lorebook-list">
