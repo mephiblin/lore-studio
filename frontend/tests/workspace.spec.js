@@ -345,10 +345,14 @@ test('a project can be added after projects already exist', async ({ page }, tes
     await page.getByLabel('현재 프로젝트').selectOption({ label: projectName });
     await page.getByRole('navigation', { name: '세계관 자료 관리' }).getByRole('button', { name: /^자료 종류/ }).click();
     await expect(page.locator('.category-intro')).toHaveCount(0);
-    await expect(page.locator('.category-settings-row')).toHaveCount(5);
+    await expect(page.locator('.category-settings-card')).toHaveCount(5);
+    await expect(page.getByText('분류 기준', { exact: true })).toHaveCount(0);
+    if (testInfo.project.name === 'desktop') {
+      expect((await page.locator('.category-settings-card').first().boundingBox()).width).toBeLessThanOrEqual(305);
+    }
     await expect(page.getByText('글 만들기 추천')).toHaveCount(0);
     await expect(page.locator('.category-recommendations')).toHaveCount(0);
-    await expectStepHelp(page, '자료 종류 설명', '자료 종류는 프로젝트별 분류');
+    await expectStepHelp(page, '자료 종류 설명', '이 프로젝트의 세계관 자료를 묶는 이름');
     await page.getByText('새 자료 종류 만들기', { exact: true }).click();
     await expect(page.getByLabel('새 자료 종류 이름')).toBeVisible();
     await page.getByLabel('새 자료 종류 이름').fill('세력');
@@ -399,14 +403,21 @@ test('a project can be added after projects already exist', async ({ page }, tes
     await expectStepHelp(page, '전개 방식 설명', '공용 기본 방식은 프로젝트와 관계없이');
     await expect(page.locator('.recipe-settings-card').filter({ hasText: '모든 프로젝트에서 사용' }).first()).toBeVisible();
     await page.getByText('새 전개 방식 만들기', { exact: true }).click();
+    await expect(page.getByText('카드 표시', { exact: true })).toHaveCount(0);
+    await expect(page.locator('.recipe-create .recipe-step-row input')).toHaveCount(0);
+    await expect(page.locator('.recipe-create .recipe-derived-purpose')).toHaveCount(3);
     await page.getByLabel('새 전개 방식 이름').fill('징후에서 결론으로');
     await page.getByRole('button', { name: '전개 방식 만들기', exact: true }).click();
     await expect(page.getByText("'징후에서 결론으로' 전개 방식을 만들었습니다.")).toBeVisible();
     const recipeCard = page.locator('.recipe-settings-card').filter({ hasText: '징후에서 결론으로' });
-    await expect(recipeCard).toContainText('맥락');
-    await expect(recipeCard).toContainText('핵심');
-    await expect(recipeCard).toContainText('의미');
-    await recipeCard.getByRole('button', { name: '내용 수정' }).click();
+    await expect(recipeCard).toContainText('배경 설명');
+    await expect(recipeCard).toContainText('핵심 사실 제시');
+    await expect(recipeCard).toContainText('의미 해설');
+    await expect(recipeCard.locator('.recipe-card-route li')).toHaveCount(3);
+    if (testInfo.project.name === 'desktop') {
+      expect((await recipeCard.boundingBox()).width).toBeLessThanOrEqual(305);
+    }
+    await recipeCard.getByRole('button', { name: '수정', exact: true }).click();
     await page.locator('.recipe-edit-form').getByLabel('이름').fill('징후에서 결론으로 개정');
     await page.locator('.recipe-edit-form').getByRole('button', { name: '저장', exact: true }).click();
     await expect(page.locator('.recipe-settings-card').filter({ hasText: '징후에서 결론으로 개정' })).toBeVisible();
@@ -517,8 +528,12 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
   const causalPattern = page.locator('.recipe-option').filter({ hasText: '원인에서 파급으로' });
   await causalPattern.click();
   await expect(causalPattern).toHaveAttribute('aria-pressed', 'true');
-  await expect(causalPattern).toContainText('시작 원인');
-  await expect(causalPattern).toContainText('사회의 파급');
+  await expect(causalPattern).toContainText('배경 설명');
+  await expect(causalPattern).toContainText('핵심 사실 제시');
+  await expect(causalPattern).toContainText('사례 제시');
+  await expect(causalPattern).toContainText('긴장 고조');
+  await expect(causalPattern).toContainText('의미 해설');
+  await expect(causalPattern).not.toContainText('시작 원인');
   await page.getByRole('button', { name: /결과물 형태로 계속/ }).click();
 
   await expectStepHelp(page, '결과물 형태 단계 설명', '어떤 결과물로 만들까요');

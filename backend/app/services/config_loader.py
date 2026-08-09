@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models import CategoryDefinition, Project, WritingRecipe
+from app.services.writing_moves import canonicalize_recipe_json
 
 
 def _load_yaml_files(directory: Path) -> list[dict[str, Any]]:
@@ -80,7 +81,7 @@ def seed_builtin_recipes(db: Session) -> None:
                 WritingRecipe.project_id.is_(None),
             )
         )
-        clean = {k: v for k, v in data.items() if not k.startswith("_")}
+        clean = canonicalize_recipe_json({k: v for k, v in data.items() if not k.startswith("_")})
         if existing:
             existing.name = str(data.get("name", key))
             existing.description = str(data.get("description", ""))
@@ -98,4 +99,12 @@ def seed_builtin_recipes(db: Session) -> None:
                     is_builtin=True,
                 )
             )
+    db.flush()
+    for recipe in db.scalars(select(WritingRecipe)).all():
+        try:
+            normalized = canonicalize_recipe_json(recipe.recipe_json or {})
+        except ValueError:
+            continue
+        if normalized != recipe.recipe_json:
+            recipe.recipe_json = normalized
     db.commit()

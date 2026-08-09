@@ -3,11 +3,6 @@ version: "1.0.0"
 name: 증거에서 판단으로
 description: 관찰된 사실과 서로 다른 증거를 쌓은 뒤, 해석의 한계를 밝히고 판단이나 결론에 도달합니다.
 best_for: 사건 조사, 인물 평가, 미스터리, 상반된 기록처럼 근거를 비교해야 하는 소재
-pattern_preview:
-  - 관찰 사실
-  - 증거 비교
-  - 모순·빈틈
-  - 판단
 philosophy:
   - 관찰과 해석과 판단을 같은 어조로 섞지 않는다.
   - 독자가 결론에 이르는 근거를 순서대로 확인할 수 있게 한다.
@@ -22,17 +17,6 @@ optional_moves:
   - EXEMPLIFY
   - WITHHOLD
   - TURN
-moves:
-  - id: ANCHOR
-    purpose: 가장 확실하게 관찰된 사실이나 증거부터 제시한다.
-  - id: COMPARE
-    purpose: 출처가 다른 기록·증언·결과가 일치하거나 갈리는 지점을 비교한다.
-  - id: COMPLICATE
-    purpose: 공식 설명으로 풀리지 않는 모순이나 누락을 드러낸다.
-  - id: INTERPRET
-    purpose: 증거가 허용하는 범위 안에서 의미와 가능한 결론을 설명한다.
-  - id: WITHHOLD
-    purpose: 증거가 부족한 결론은 확정하지 않고 남겨 둔다.
 planner_rules:
   - 각 해석이 어떤 증거에 기대는지 블록 목적에 드러낸다.
   - 자료가 말하지 않는 작성자·기관·출처를 임의로 만들지 않는다.

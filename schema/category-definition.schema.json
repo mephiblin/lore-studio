@@ -7,7 +7,6 @@
     "project_id",
     "key",
     "name",
-    "description",
     "template_json"
   ],
   "properties": {
@@ -27,7 +26,9 @@
       "maxLength": 200
     },
     "description": {
-      "type": "string"
+      "type": "string",
+      "deprecated": true,
+      "description": "이전 데이터 호환용이며 기본 자료 종류 화면에서는 사용하지 않음"
     },
     "template_json": {
       "type": "object",

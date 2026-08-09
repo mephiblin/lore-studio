@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from app.services import config_loader
+from app.services.writing_moves import canonicalize_recipe_json
 
 
 def test_yaml_loader_reads_recipe_directory(tmp_path: Path, monkeypatch) -> None:
@@ -21,6 +22,12 @@ def test_builtin_recipes_are_shared_progression_patterns() -> None:
     assert len(recipes) >= 5
     assert len({recipe["key"] for recipe in recipes}) == len(recipes)
     for recipe in recipes:
-        assert recipe["pattern_preview"]
         assert recipe["best_for"]
         assert recipe["required_moves"]
+        assert "pattern_preview" not in recipe
+        assert "moves" not in recipe
+        canonical = canonicalize_recipe_json(recipe)
+        assert len(canonical["pattern_preview"]) == len(recipe["required_moves"])
+        assert [move["id"] for move in canonical["moves"][: len(recipe["required_moves"])]] == recipe[
+            "required_moves"
+        ]

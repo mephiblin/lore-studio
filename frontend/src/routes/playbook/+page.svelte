@@ -306,8 +306,8 @@
             <strong>{recipe.name}</strong>
             <p>{recipe.description}</p>
             <span class="recipe-flow" aria-label={`${recipe.name} 순서`}>
-              {#each recipe.recipe_json?.pattern_preview || [] as part, index}
-                <span>{part}</span>{#if index < (recipe.recipe_json?.pattern_preview || []).length - 1}<i>→</i>{/if}
+              {#each recipe.recipe_json?.required_moves || [] as move, index}
+                <span>{moveLabels[move] || move}</span>{#if index < (recipe.recipe_json?.required_moves || []).length - 1}<i>→</i>{/if}
               {/each}
             </span>
             {#if recipe.recipe_json?.best_for}<small><b>잘 맞는 글</b> {recipe.recipe_json.best_for}</small>{/if}

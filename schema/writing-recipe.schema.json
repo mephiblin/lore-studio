@@ -6,9 +6,7 @@
     "key",
     "version",
     "name",
-    "pattern_preview",
     "required_moves",
-    "moves",
     "planner_rules",
     "audit_rules"
   ],
@@ -36,6 +34,8 @@
       "type": "string"
     },
     "pattern_preview": {
+      "readOnly": true,
+      "description": "required_moves의 화면 표시명을 서버가 자동 생성한 호환 필드",
       "type": "array",
       "minItems": 3,
       "items": {
@@ -43,6 +43,8 @@
       }
     },
     "moves": {
+      "readOnly": true,
+      "description": "각 문단 방식의 고정 목적을 서버가 자동 생성한 호환 필드",
       "type": "array",
       "minItems": 1,
       "items": {
@@ -62,6 +64,7 @@
       }
     },
     "required_moves": {
+      "description": "글의 흐름과 감사에서 강제하는 실제 문단 방식 순서",
       "type": "array",
       "minItems": 3,
       "items": {

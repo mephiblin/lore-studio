@@ -108,6 +108,7 @@ from app.services.utility_tools import (
     suggest_direction,
     suggest_writing_boundaries,
 )
+from app.services.writing_moves import MOVE_LABELS, canonicalize_recipe_json
 
 router = APIRouter()
 harness = LoreHarness()
@@ -133,21 +134,6 @@ def _require_recipe_for_project(recipe: WritingRecipe, project_id: str) -> None:
         )
 
 
-RECIPE_MOVE_LABELS = {
-    "ORIENT": "배경 설명",
-    "NARROW": "주제로 초점 이동",
-    "ANCHOR": "핵심 사실 제시",
-    "COMPLICATE": "문제·예외 추가",
-    "COMPARE": "차이 비교",
-    "EXEMPLIFY": "사례 제시",
-    "ESCALATE": "긴장 고조",
-    "INTERPRET": "의미 해설",
-    "WITHHOLD": "의문 남기기",
-    "TURN": "관점 전환",
-    "STING": "마지막 여운",
-}
-
-
 def _recipe_json_with_identity(
     recipe_json: dict[str, Any], *, key: str, version: str, name: str, description: str
 ) -> dict[str, Any]:
@@ -162,7 +148,7 @@ def _recipe_json_with_identity(
 
 def _normalize_reference_recipe(analysis: ReferenceAnalysis) -> dict[str, Any]:
     candidate = dict(analysis.recipe_candidate_json or {})
-    allowed = set(RECIPE_MOVE_LABELS)
+    allowed = set(MOVE_LABELS)
     required = [
         str(move).strip().upper()
         for move in candidate.get("required_moves", [])
@@ -179,32 +165,17 @@ def _normalize_reference_recipe(analysis: ReferenceAnalysis) -> dict[str, Any]:
             break
         required.append(fallback)
 
-    preview = [str(item).strip() for item in candidate.get("pattern_preview", []) if str(item).strip()]
-    if len(preview) != len(required):
-        preview = [RECIPE_MOVE_LABELS[move] for move in required]
-
-    defined_moves = {
-        str(item.get("id", "")).strip().upper(): str(item.get("purpose", "")).strip()
-        for item in candidate.get("moves", [])
-        if isinstance(item, dict) and str(item.get("id", "")).strip().upper() in allowed
-    }
-    moves = [
-        {"id": move, "purpose": defined_moves.get(move) or RECIPE_MOVE_LABELS[move]}
-        for move in dict.fromkeys(required)
-    ]
-    return {
+    return canonicalize_recipe_json({
         **candidate,
-        "pattern_preview": preview,
         "required_moves": required,
         "optional_moves": [
             str(move).strip().upper()
             for move in candidate.get("optional_moves", [])
             if str(move).strip().upper() in allowed and str(move).strip().upper() not in required
         ],
-        "moves": moves,
         "planner_rules": [str(rule) for rule in candidate.get("planner_rules", [])],
         "audit_rules": [str(rule) for rule in candidate.get("audit_rules", [])],
-    }
+    })
 
 
 def _draft_document_or_404(db: Session, document_id: str) -> LoreDocument:

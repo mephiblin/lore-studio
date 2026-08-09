@@ -3,11 +3,6 @@ version: "1.0.0"
 name: 원인에서 파급으로
 description: 일이 시작된 원인과 작동 원리를 설명한 뒤, 개인의 변화에서 사회 전체의 파급으로 범위를 넓힙니다.
 best_for: 재난, 저주, 제도, 기술처럼 하나의 원인이 여러 층위에 영향을 주는 소재
-pattern_preview:
-  - 시작 원인
-  - 작동 과정
-  - 개인의 결과
-  - 사회의 파급
 philosophy:
   - 원인과 결과 사이의 작동 과정을 생략하지 않는다.
   - 추상적인 영향 뒤에는 구체적인 사람·장소·사건의 변화를 둔다.
@@ -22,17 +17,6 @@ optional_moves:
   - COMPLICATE
   - WITHHOLD
   - STING
-moves:
-  - id: ORIENT
-    purpose: 변화가 시작된 조건과 원인을 제시한다.
-  - id: ANCHOR
-    purpose: 원인이 결과를 만드는 작동 과정이나 규칙을 설명한다.
-  - id: EXEMPLIFY
-    purpose: 개인·사건·장소 하나에서 나타난 구체적인 결과를 보여 준다.
-  - id: ESCALATE
-    purpose: 영향이 집단·제도·지역으로 퍼지는 과정을 확장한다.
-  - id: INTERPRET
-    purpose: 이 파급이 세계의 질서나 인식에 남긴 의미를 정리한다.
 planner_rules:
   - 자료가 상관관계만 말한다면 원인으로 단정하지 않는다.
   - 작동 과정에 근거가 없으면 미지 또는 가설임을 표시한다.

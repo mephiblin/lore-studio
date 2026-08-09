@@ -156,6 +156,14 @@ def test_project_category_page_recipe_and_authority_api() -> None:
         assert recipe_response.json()["key"].startswith("custom-")
         assert recipe_response.json()["recipe_json"]["key"] == recipe_response.json()["key"]
         assert recipe_response.json()["recipe_json"]["version"] == "1.0.0"
+        assert recipe_response.json()["recipe_json"]["pattern_preview"] == [
+            "배경 설명",
+            "핵심 사실 제시",
+            "의미 해설",
+        ]
+        assert recipe_response.json()["recipe_json"]["moves"][0]["purpose"] == (
+            "독자가 상황을 이해하도록 장소·시대·배경부터 설명합니다."
+        )
 
         shared_recipe = WritingRecipe(
             project_id=None,

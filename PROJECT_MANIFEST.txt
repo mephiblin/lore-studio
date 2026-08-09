@@ -32,6 +32,7 @@ backend/app/services/model_gateway.py
 backend/app/services/revisions.py
 backend/app/services/search.py
 backend/app/services/utility_tools.py
+backend/app/services/writing_moves.py
 backend/pyproject.toml
 backend/tests/conftest.py
 backend/tests/test_api_integration.py
@@ -44,6 +45,7 @@ backend/tests/test_generation_pipeline.py
 backend/tests/test_local_models.py
 backend/tests/test_model_gateway.py
 backend/tests/test_search.py
+backend/tests/test_writing_recipes.py
 config/direction_card_presets/misclassified_by_institution.yaml
 config/direction_card_presets/solution_becomes_dependency.yaml
 config/output_profiles/in_universe_report.yaml
