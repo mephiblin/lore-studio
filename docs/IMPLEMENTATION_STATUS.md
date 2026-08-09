@@ -49,7 +49,7 @@ Utility 9-case 결과는 Qwen3.5-4B가 namespace 누출로 탈락했고 Gemma4-2
 - 실제 모델 opt-in `3 passed` (Writer/Utility, Embedding, Vision)
 - bundle/schema/YAML PASS
 - Svelte production build PASS
-- 실제 데이터 Playwright `30 passed, 6 skipped` (1600×900/390×844·360×844, 문체·필력 탭·모달·명시 선택, 세계관 자료 AI 수정·작성, 73개 자료 카드 스크롤·더 보기 고정, 확인 수정 복귀·결과물 요약, 삭제 UI, 단계 이동·설명 툴팁, 프로젝트별 자료 종류 편집, 모바일 프로젝트 생성 창, 읽기/편집 모드, 기존 생성 gate·원고 저장·완성 설정·로어북 분리 포함)
+- 실제 데이터 Playwright `31 passed, 7 skipped` (1600×900/390×844·360×844, 문체·필력 탭·모달·명시 선택·100개 카드 높이 보존과 내부 스크롤, 세계관 자료 AI 수정·작성, 73개 자료 카드 스크롤·더 보기 고정, 확인 수정 복귀·결과물 요약, 삭제 UI, 단계 이동·설명 툴팁, 프로젝트별 자료 종류 편집, 모바일 프로젝트 생성 창, 읽기/편집 모드, 기존 생성 gate·원고 저장·완성 설정·로어북 분리 포함)
 - 모델 서비스 미연결 UI E2E `10 passed`
 - Compose build/up 및 DB health PASS
 - PostgreSQL Alembic `20260809_0006` 기존 데이터 upgrade, 프로젝트 삭제 감사 묘비 보존 및 임시 fresh DB upgrade/downgrade/upgrade PASS

@@ -65,7 +65,9 @@ for (const route of routes) {
       const navigation = page.locator('.playbook-page > .playbook-navigation');
       await expect(navigation).toBeVisible();
       await expect(page.locator('.playbook-workspace .wizard-actions')).toHaveCount(0);
+      expect(parseFloat(await navigation.evaluate((element) => getComputedStyle(element).paddingTop))).toBeLessThanOrEqual(10);
       const navigationBox = await navigation.boundingBox();
+      expect(navigationBox.height).toBeLessThanOrEqual(65);
       expect(navigationBox.y + navigationBox.height).toBeLessThanOrEqual(page.viewportSize().height);
       if (testInfo.project.name === 'mobile') {
         const appNavBox = await page.locator('.app-nav').boundingBox();
@@ -155,13 +157,64 @@ test('voice profiles use a local tab and a bounded review modal', async ({ page 
   const voiceTab = page.getByRole('button', { name: /문체·필력/ }).first();
   await voiceTab.click();
   await expect(page.getByRole('heading', { name: '문체·필력' })).toBeVisible();
-  await expect(page.locator('.voice-profile-list')).toBeVisible();
+  const voiceManager = page.locator('.voice-manager');
+  const voiceList = page.locator('.voice-profile-list');
+  await expect(voiceManager).toHaveCSS('display', 'grid');
+  await expect(voiceManager).toHaveCSS('gap', '10px');
+  await expect(voiceList).toBeVisible();
+  if (page.viewportSize().width > 820) {
+    expect((await voiceManager.boundingBox()).height).toBeGreaterThan(500);
+    await expect(voiceList).toHaveCSS('overflow-y', 'auto');
+  }
   await page.getByRole('button', { name: '+ 새 문체 프로필' }).click();
   const dialog = await expectWorkspaceDialog(page, '새 문체 프로필');
   await expect(dialog.getByLabel('사용 범위')).toHaveValue('PROJECT');
   await expect(dialog.getByRole('button', { name: '검토본 만들기' })).toBeDisabled();
   await dialog.getByRole('button', { name: '취소' }).click();
   await expect(dialog).toBeHidden();
+});
+
+test('dense voice profile galleries preserve card height and scroll inside the workspace', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'desktop bounded gallery check only');
+  const profiles = Array.from({ length: 100 }, (_, index) => ({
+    id: `dense-voice-${index}`,
+    project_id: 'dense-audit-project',
+    name: `밀도 검증 문체 ${String(index + 1).padStart(3, '0')}`,
+    description: '문장 호흡과 묘사 밀도를 검증하는 표시 자료',
+    status: 'DRAFT',
+    version: 1,
+    is_builtin: false,
+    profile_json: {
+      reader_effect: '절제된 긴장',
+      sentence_rhythm: '중간 호흡',
+      sensory_balance: '시각보다 촉각',
+      dialogue_style: '짧고 간접적',
+    },
+  }));
+  await page.route('**/api/v1/voice-profiles?**', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(profiles),
+  }));
+
+  await page.goto('/editor');
+  await page.getByRole('button', { name: /문체·필력/ }).first().click();
+  const gallery = page.locator('.voice-profile-list');
+  const firstCard = gallery.locator('.voice-profile-card').first();
+  const fifthCard = gallery.locator('.voice-profile-card').nth(4);
+  await expect(gallery.locator('.voice-profile-card')).toHaveCount(100);
+  const galleryMetrics = await gallery.evaluate((element) => ({
+    clientHeight: element.clientHeight,
+    scrollHeight: element.scrollHeight,
+    overflow: getComputedStyle(element).overflowY,
+  }));
+  expect(galleryMetrics.scrollHeight).toBeGreaterThan(galleryMetrics.clientHeight);
+  expect(galleryMetrics.overflow).toBe('auto');
+  const firstBox = await firstCard.boundingBox();
+  const fifthBox = await fifthCard.boundingBox();
+  expect(firstBox.height).toBeGreaterThan(180);
+  expect(firstBox.width).toBeLessThanOrEqual(305);
+  expect(fifthBox.y).toBeGreaterThanOrEqual(firstBox.y + firstBox.height);
 });
 
 test('world material AI edits stay reviewable and use temporary references', async ({ page }) => {

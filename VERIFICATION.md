@@ -10,7 +10,7 @@
 - pytest: `23 passed, 3 skipped` (Writer/Utility, Embedding, Vision 실제 endpoint tests는 기본 suite에서 의도적으로 skip)
 - 실제 모델 opt-in: `3 passed` (Writer/Utility structured output, BGE-M3 1024차원, Vision data URL)
 - SvelteKit adapter-node production build: PASS
-- Playwright Chromium desktop 1600×900/mobile 390×844 실제 인수 자료 포함 회귀: `30 passed, 6 skipped`
+- Playwright Chromium desktop 1600×900/mobile 390×844 실제 인수 자료 포함 회귀: `31 passed, 7 skipped`
 - 문체·필력: DRAFT 명시 승인·사용 후 새 버전·공용/프로젝트 범위·권리별 짧은 예시 격리 API, 다섯 번째 로컬 탭과 내부 스크롤·고정 footer 모달, 글 만들기 `모델 기본 문체`/승인 프로필 명시 선택, profile/version/example GenerationRun snapshot, 원고 필력 점검과 승인형 수정 제안 PASS
 - 프로젝트 전개 방식 생성·수정·글 만들기 선택·삭제 desktop/mobile 집중 회귀: `2 passed`
 - 세계관 자료의 전개 방식 목록: 검은 항로/신규 프로젝트 모두 공용 기본 6개 노출, 프로젝트 전용 항목과 출처 구분 PASS
@@ -23,6 +23,7 @@
 - 결과물 견본의 `형식 / 시점 / 시제 / 분량` 즉시 요약과 1600×900 viewport 내 전체 노출, 확인 카드의 `수정 → 확인·작성으로 돌아가기`, `수정 취소` 시 기존 선택 복원, 실행 전 완료 녹색 0개·실행 후 순차 완료 상태 PASS
 - 저장된 세계관 자료의 기본 읽기 모드·명시적 `글 편집`·저장/취소 복귀, 프로젝트·세계관 자료·로어북 삭제 동작, 로어북 삭제 시 출처 초안 보존·AuditLog PASS
 - 73개 자료의 카드 행 비겹침 없음, 독립 스크롤, `자료 더 보기`가 전역 하단 이동 바와 겹치지 않음을 desktop/mobile 숫자·스크린샷으로 확인
+- UI 안전성 재감사: 글 만들기 하단 바 77px→61px(상하 padding 18px→10px, 버튼 40px 유지), 문체·필력의 공통 grid 10px 간격·desktop 812px 작업면·독립 스크롤 복구 PASS. mocked API 100개 문체 카드에서 카드 높이 366.5px, list `9475/752px` 내부 스크롤, 폭 300px·행 비겹침을 확인했으며 실제 DB는 변경하지 않음
 - 원고 작성 경계 AI 제안: 실제 Utility가 유지 사실 4·공개 유보 2·금지 변경 2개와 근거 구절을 반환, `persisted=false`; 선택 항목만 병합하고 사용자 저장 전 DB 미변경 PASS
 - 세계관 자료 AI 본문 편집: 선택 범위 수정·전체/현재 위치/이어쓰기·연결 자료 기본 선택·실행별 참고 자료·CANDIDATE 비교/반영을 desktop/mobile `2 passed`; API는 DB 미변경·GenerationRun·교차 프로젝트 차단·참고 사실 격리 PASS
 - AI 수정 문맥·확장 계약: 전체 본문과 선택부 앞뒤 전달, 문맥 요약·연결 조건 필수 응답, `더 자세히 (약 2배)` 최소 길이 JSON Schema와 4,200–8,000 출력 토큰 예산, GenerationRun 프롬프트 버전 기록 PASS. 실제 Gemma Writer에서 `기억세` 120자 선택부가 앞뒤 제도 맥락을 유지한 241자 제안으로 확장됐고 `persisted=false`, 저장 본문 120자 유지 PASS

@@ -14,7 +14,7 @@ Overall status: COMPLETE
 ## Product snapshot
 
 - Repository / surface: `/home/inri/문서/lore-studio`; FastAPI, SvelteKit, Tiptap, PostgreSQL, llama.cpp.
-- Baseline: `facfc4f` starter, 2026-08-05. Current audited revision: `65c44fb`, 2026-08-06.
+- Baseline: `facfc4f` starter, 2026-08-05. Current UI safety audit baseline: `a48864e`, 2026-08-09.
 - Runtime / test entry points: `docker compose`, `make test`, `make e2e`, `make test-models`, `/api/v1`, browser UI.
 - Existing documentation: README, TASKS, VERIFICATION, acceptance, architecture/data/harness, local operation guides, UI information architecture, model evaluation JSON/Markdown.
 
@@ -22,7 +22,7 @@ Overall status: COMPLETE
 
 Lore Studio는 starter가 아니라 실제 local-first v1.0으로 신뢰할 수 있다. 운영 DB는 Alembic과 전용 vector schema를 사용하고, 권위·reference·namespace 경계는 모델 판단이 아닌 서비스 코드와 테스트가 강제한다. 현재 Compose는 가상 생성 경로 없이 Gemma Writer/Utility/Vision과 BGE-M3로 대표 생성·검색·이미지·수정·후보·export를 완료했다. 초안은 전체 문단 단위로 저장되고 최신 초안은 별도 완성 단계를 거쳐 로어북 문서가 된다. 외부 TTS/ComfyUI가 없을 때는 명시된 fallback만 사용한다.
 
-2026-08-06 후속 UX 재점검에서는 프로젝트 생성, 자료 선택 후 본문 이동, 설문형 글 만들기, 전개 방식/집필 지침 분리, 모바일 레이아웃, 초안 자동 저장, 별도 로어북, UI 용어 통합을 검증했습니다. 원고 수정이 단계 이동 시 저장되지 않던 문제는 전체 초안 원자 저장 API와 새로고침 회귀 테스트로 해소했습니다.
+2026-08-09에는 `CHANGE_SAFETY_CHECKLIST.md`와 `UI_PAGE_CONTRACT.md`를 기준으로 현재 다섯 페이지의 UI 안전성을 재감사했습니다. 글 만들기 하단 바의 과도한 수직 padding, 문체·필력 화면의 공통 설정 작업면 grid·스크롤 누락, 다량 설정 카드의 행 압축을 재현하고 수정했습니다. 실제 데이터 전체 E2E, 빈 데이터 E2E, desktop/mobile/narrow viewport, 100개 카드 stress 상태에서 모두 검증됐습니다.
 
 ## Cycle 1
 
@@ -72,6 +72,61 @@ Lore Studio는 starter가 아니라 실제 local-first v1.0으로 신뢰할 수 
 
 - Regressions checked: build, API startup/migration, authority invariant, reference fact exclusion, search filters, model-offline explicit failure, desktop/mobile viewport, 프로젝트 응답 경합, 전체 초안 저장과 curated data reload.
 - New or changed findings: no remaining in-scope correctness finding. Static Playwright session tool was unavailable, so equivalent Chromium runner evidence and screenshots were reviewed.
+- Remaining `FIX_NOW` items: none.
+- Recursion decision: STOP_COMPLETE
+
+## Cycle 2 — 페이지 UI 안전성
+
+### Completion contract
+
+- Primary user: 로컬에서 세계관 자료를 축적하고 초안과 로어북 글을 반복 작성하는 단일 사용자.
+- Top job: 각 내부 페이지를 넓은 주 작업면으로 사용하면서 저장·취소·선택·생성·삭제 상태를 잃지 않고 다음 단계로 진행한다.
+- In scope: 프로젝트, 세계관 자료의 다섯 탭, 글 만들기, 원고 작업, 로어북의 레이아웃·스크롤·고정 바·고아 UI·상태 복원과 관련 회귀 테스트.
+- Non-goals: 신규 기능, 시각 브랜드 교체, 외부 모델·TTS·ComfyUI 기능 확장.
+- Constraints: 기존 녹색·금색 시각 언어, project-first IA, desktop 1600×900, mobile 390×844와 360×844, 실제 사용자 데이터 보존.
+- Completion gates: 아래 모든 `FIX_NOW`가 `VERIFIED`; 체크리스트 자동 검증과 실제 Chromium 핵심 경로 PASS; desktop/mobile clipping·가로 overflow·고정 바 중첩 없음; 최종 report validator PASS.
+
+### Audit findings
+
+| ID | Severity | Domain | Finding | Evidence | Disposition | Acceptance criterion | Status |
+|---|---|---|---|---|---|---|---|
+| F-008 | P3 | Playbook UI | `.playbook-navigation`이 40px 버튼에 상하 18px padding을 사용해 총 77px이며 작업면 높이를 불필요하게 차지한다. | Chromium 1600×900 computed style: `height=77`, `paddingTop=18`, `paddingBottom=18`, buttons `40/40`; `frontend/src/styles.css`. | FIX_NOW | 상하 padding을 10px 안팎으로 줄이고 버튼 접근성·desktop/mobile 고정 위치·겹침 검증을 통과한다. | VERIFIED |
+| F-009 | P2 | Editor UI | 문체·필력만 공통 설정 manager selector에서 빠져 `display:block`, header/list 간격 0px, 콘텐츠 높이 220px이며 전체 높이·독립 스크롤을 쓰지 못한다. | Chromium 비교: 자료 종류·집필 지침·전개 방식 `display:grid`, gap 10px, height 812px; 문체·필력 `display:block`, gap 0px, height 220.1875px. `.voice-manager`가 desktop manager/scroll selector에서 누락됨. | FIX_NOW | 문체·필력이 다른 설정 탭과 같은 grid 10px 간격, 전체 작업면 높이와 `voice-profile-list` 독립 스크롤을 사용한다. | VERIFIED |
+| F-010 | P2 | Editor density | 고정 높이 설정 gallery에 많은 카드가 들어오면 implicit grid row가 축소되어 카드 내용이 잘린 막대가 된다. | Chromium route interception으로 문체 프로필 100개 표시: list `752px`, `scrollHeight=752px`, 첫 카드 높이 약 17.6px; `/tmp/lore-audit-voice-dense-after.png`. 실제 DB 미변경. | FIX_NOW | 설정 gallery의 implicit row가 카드 content 높이를 보존하고, overflow는 list scroll로 처리되며 카드 폭·행 비겹침 검증을 통과한다. | VERIFIED |
+
+### Research log
+
+| Question | Conclusion | Sources | Inference / limits |
+|---|---|---|---|
+| 하단 바 전체 공통 padding을 줄여야 하는가? | 사용자가 지적한 대상은 글 만들기이며 원고 작업 footer는 저장 상태 문구도 수용한다. 공통 `.wizard-actions`를 바꾸지 않고 `.playbook-navigation`만 축소해야 회귀 범위가 작다. | 실제 computed style; `UI_PAGE_CONTRACT.md` 7·8절; `frontend/src/styles.css`. | 10px은 40px 버튼과 1px border를 합쳐 약 61px bar를 만드는 현재 token 기반 선택이다. |
+| 문체·필력 빈 상태에 margin만 추가하면 충분한가? | 아니다. 0px 간격은 부모 manager가 공통 grid selector에서 빠진 증상이며, margin만 추가하면 실제 카드가 많을 때 독립 스크롤 누락은 남는다. `.voice-manager`와 `.voice-profile-list`를 공통 작업면 selector에 포함해야 한다. | 동일 viewport 네 탭 수치 비교; `frontend/src/styles.css` manager selectors. | 현재 프로젝트에 문체 프로필이 0개라 빈 상태를 직접 측정했고, 다량 목록은 CSS 구조와 회귀 fixture로 확인해야 한다. |
+| 다량 카드 문제를 문체·필력에만 고칠 것인가? | 아니다. 자료 종류·전개 방식·문체·필력은 같은 제한 높이 gallery selector를 공유한다. `grid-auto-rows:max-content`를 공통 selector에 두어 콘텐츠 높이를 보존하고 list가 스크롤을 소유하게 해야 한다. | 100개 mocked profile 시각·수치 재현; 기존 `.wizard-card-grid`의 동일 회귀 방지 규칙; `UI_PAGE_CONTRACT.md` 6·11절. | 실제 운영 프로필은 현재 0개지만 사용자가 계속 추가할 수 있으므로 정상 수명주기에서 도달 가능한 상태다. |
+
+### Decision and implementation
+
+- Selected approach: 공통 작업면 규칙에 문체·필력을 편입하고, 글 만들기 전용 footer만 수직 밀도를 줄인다.
+- Alternatives considered: 빈 상태에만 margin을 추가하는 방식은 목록 스크롤 결함을 남겨 배제했다. 모든 `.wizard-actions`를 줄이는 방식은 원고 작업 footer의 정보 밀도까지 바꿔 배제했다.
+- Changes made: 글 만들기 전용 footer padding을 상하 10px로 축소했다. `.voice-manager`를 공통 설정 grid와 desktop full-height 작업면에 편입하고 `.voice-profile-list`가 독립 scroll을 소유하게 했다. 설정 gallery에 `grid-auto-rows:max-content`를 적용해 카드 높이를 보존했다.
+- Files / migrations / documentation: `frontend/src/styles.css`, `frontend/tests/workspace.spec.js`, `VERIFICATION.md`, `docs/DEVELOPMENT.md`, `docs/IMPLEMENTATION_STATUS.md`, `docs/ACCEPTANCE_TESTS.md`, `docs/UI_PAGE_CONTRACT.md`, 이 감사 보고서.
+
+### Verification
+
+| Check | Command or method | Result | Artifact / evidence |
+|---|---|---|---|
+| Baseline spacing | Playwright Chromium computed style, 1600×900 | FAIL reproduced | `/tmp/lore-audit-editor-before.png`, 수치 로그 |
+| Footer density | Chromium desktop/mobile computed style | PASS; 77px→61px, padding 18px→10px, button 40px 유지 | `/tmp/lore-audit-desktop-playbook-after.png` |
+| Voice manager alignment | 네 설정 탭 computed style 비교 | PASS; grid, gap 10px, desktop height 812px, list overflow auto | `/tmp/lore-audit-desktop-voice-after.png` |
+| Dense settings gallery | mocked API 100개, 실제 DB 미변경 | PASS; card 366.5px, list scrollHeight 9475px/clientHeight 752px, width 300px, 행 비겹침 | `/tmp/lore-audit-voice-dense-final.png`; dedicated E2E |
+| 실제 데이터 UI E2E | `make e2e` | PASS; 31 passed, 7 intentional viewport skips | five routes, create/edit/cancel/delete, AI candidate, workflow, dense data |
+| 빈 데이터 UI E2E | `npm --prefix frontend run test:e2e` | PASS; 19 passed, 19 data/viewport skips | offline-safe route and focused layout coverage |
+| Python·DB | `make test`; `alembic current` | PASS; 23 passed, 3 opt-in model skips; `20260809_0006 (head)` | API, authority, deletion audit, persistence |
+| Static·bundle·production | `make lint`; `make validate`; Svelte build; Compose rebuild/health | PASS | Ruff, schema/YAML, Docker config, adapter-node |
+| Viewport·orphan controls | Chromium 1600×900, 390×844, 360×844 DOM/visual pass | PASS; horizontal overflow 0, page/console error 0, unnamed visible control 0, fixed bars non-overlap | `/tmp/lore-audit-{desktop,mobile,narrow}-*.png` |
+
+### Re-audit
+
+- Regressions checked: 다섯 route의 빈/실데이터, 프로젝트 접기, 세계관 자료 읽기·편집·AI 제안, 설정 modal, 글 만들기 선택·수정 복귀·고정 footer, 원고 저장, 로어북 읽기·편집·삭제, 100개 설정 카드, desktop/mobile/narrow overflow와 이름 없는 조작 요소.
+- New or changed findings: F-010은 1차 수정 후 고밀도 재감사에서 발견해 같은 cycle에서 수정·검증했다. 이후 새 결함은 발견되지 않았다.
 - Remaining `FIX_NOW` items: none.
 - Recursion decision: STOP_COMPLETE
 
