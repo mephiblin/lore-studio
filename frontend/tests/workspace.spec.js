@@ -280,7 +280,9 @@ test('a project can be added after projects already exist', async ({ page }, tes
     await expect(writingBoundaries.getByRole('button', { name: '유지할 사실 설명' })).toBeVisible();
     await expect(writingBoundaries.getByRole('button', { name: '공개 유보 설명' })).toBeVisible();
     await expect(writingBoundaries.getByRole('button', { name: '금지된 변경 설명' })).toBeVisible();
-    await expect(writingBoundaries.getByRole('button', { name: '본문에서 AI 제안' })).toBeVisible();
+    const boundaryAiButton = writingBoundaries.getByRole('button', { name: 'AI 제안', exact: true });
+    await expect(boundaryAiButton).toBeVisible();
+    await expect.poll(() => boundaryAiButton.evaluate((element) => element.getBoundingClientRect().width === element.parentElement.getBoundingClientRect().width)).toBe(true);
 
     await page.getByRole('navigation', { name: '세계관 자료 관리' }).getByRole('button', { name: /^전개 방식/ }).click();
     await expectStepHelp(page, '전개 방식 설명', '프로젝트 전용 흐름');
@@ -347,7 +349,7 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
   }
   await expect(page.getByText('연결된 자료')).toBeVisible();
   await expect(page.getByText('원고 작성 경계', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: '본문에서 AI 제안' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'AI 제안', exact: true })).toBeVisible();
   await expect(page.locator('text=/[0-9a-f]{8}-[0-9a-f]{4}-/')).toHaveCount(0);
   await page.getByRole('navigation', { name: '세계관 자료 관리' }).getByRole('button', { name: /^집필 지침/ }).click();
   await expect(page.locator('.direction-intro')).toHaveCount(0);

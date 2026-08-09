@@ -582,13 +582,7 @@
             <details open class="writing-boundaries">
               <summary>원고 작성 경계</summary>
               <div class="stack details-body">
-                <div class="boundary-actions">
-                  <div class="heading-with-help">
-                    <span>AI가 현재 본문의 근거만 읽고 제안합니다.</span>
-                    <HelpTip label="원고 작성 경계 설명" text="유지할 사실은 참으로 지키고, 공개 유보는 답을 만들지 않으며, 금지된 변경은 전개에서 발생시키지 않습니다." />
-                  </div>
-                  <button class="secondary compact" disabled={!!busy} on:click={suggestWritingBoundaries}>본문에서 AI 제안</button>
-                </div>
+                <button class="primary boundary-ai-button" disabled={!!busy} on:click={suggestWritingBoundaries}>AI 제안</button>
 
                 {#if boundarySuggestion}
                   <section class="boundary-review" aria-label="AI 작성 경계 제안">

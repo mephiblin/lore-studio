@@ -271,9 +271,8 @@ input.manuscript-summary-input:hover, input.manuscript-summary-input:focus { bac
 details { border-top: 1px solid var(--line); }
 details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-weight: 750; cursor: pointer; }
 .details-body { padding: 2px 0 12px; }
-.boundary-actions { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.boundary-actions > .heading-with-help { min-width: 0; color: var(--muted-text); font-size: 10px; line-height: 1.5; }
-.boundary-actions .secondary { flex: 0 0 auto; }
+.boundary-ai-button { width: 100%; color: var(--nav-accent); background: var(--nav-deep); }
+.boundary-ai-button:hover { background: var(--nav-active); }
 .writing-boundaries label > .heading-with-help { min-height: 20px; justify-content: flex-start; color: var(--ink-soft); font-size: 11px; font-weight: 720; }
 .boundary-review { display: grid; gap: 10px; padding: 11px; border: 1px solid #8faea3; border-radius: 6px; background: #f1f6f4; }
 .boundary-review-heading { display: grid; gap: 2px; }
