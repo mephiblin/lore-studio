@@ -12,7 +12,7 @@
   let subjectIds = [], backgroundIds = [], elementIds = [], conflictIds = [], directionCardIds = [];
   let length = 'normal', customLength = 4000, detailLevel = 3, contextDepth = 'balanced', creativity = 'conservative', mystery = 4, seed = 42;
   let viewpoint = 'omniscient', tense = 'present';
-  let conceptSearch = '', categoryFilter = 'all', conceptScope = 'recommended', pageLimit = 18;
+  let conceptSearch = '', categoryFilter = 'all', pageLimit = 18;
   let session = null, preview = null, plan = null, generatedDocument = null;
   let busy = '', error = '', planDirty = false;
   let wizardStep = 0, furthestStep = 0;
@@ -42,7 +42,7 @@
   $: activeIds = activeSlot === 'subject' ? subjectIds : activeSlot === 'background' ? backgroundIds : activeSlot === 'elements' ? elementIds : activeSlot === 'conflicts' ? conflictIds : [];
   $: wizardCandidates = visiblePages
     .filter((page) => !slotFor(page.id) || slotFor(page.id) === activeSlot)
-    .filter((page) => conceptScope === 'all' || !!conceptSearch || activeIds.includes(page.id) || recommendedForSlot(page, activeSlot));
+    .sort((a, b) => Number(recommendedForSlot(b, activeSlot)) - Number(recommendedForSlot(a, activeSlot)));
   $: wizardPages = wizardCandidates.slice(0, pageLimit);
   $: totalSupporting = backgroundIds.length + elementIds.length + conflictIds.length;
   $: hasCurrentSelection = activeIds.length || activeStep?.key === 'settings' || activeStep?.key === 'guidance' && directionCardIds.length || activeStep?.key === 'recipe' && !!recipeId;
@@ -89,7 +89,7 @@
         api.get(`/categories?project_id=${projectId}`)
       ]);
       subjectIds = []; backgroundIds = []; elementIds = []; conflictIds = []; directionCardIds = [];
-      wizardStep = 0; furthestStep = 0; conceptScope = 'recommended'; pageLimit = 18;
+      wizardStep = 0; furthestStep = 0; pageLimit = 18;
       resetRun();
     } catch (e) { error = e.message; }
   }
@@ -102,15 +102,19 @@
     return !Array.isArray(slots) || slots.includes(slot);
   }
 
-  function recommendationCopy(slot) {
-    const names = categories
-      .filter((category) => (category.template_json?.recommended_slots || []).includes(slot))
-      .map((category) => category.name);
-    return names.length ? `${names.join(' · ')} 종류로 지정한 자료` : '현재 단계에 추천하도록 지정한 자료';
-  }
-
   function categoryName(page) {
     return categories.find((item) => item.key === page?.category_key)?.name || page?.custom_category || page?.category_key || '종류 없음';
+  }
+
+  function conceptCover(page) {
+    const propertyCover = page?.properties_json?.cover_image;
+    const attachment = (page?.attachment_refs || []).find((item) => item?.kind === 'image' || String(item?.mime_type || '').startsWith('image/'));
+    const source = propertyCover || attachment?.data_url || attachment?.external_uri || '';
+    return typeof source === 'string' && (source.startsWith('data:image/') || source.startsWith('/')) ? source : '';
+  }
+
+  function conceptInitial(page) {
+    return page.title.trim().slice(0, 2).toUpperCase() || '자료';
   }
 
   function slotFor(pageId) {
@@ -155,7 +159,7 @@
     if (index < 0 || index >= wizardSteps.length) return;
     wizardStep = index;
     furthestStep = Math.max(furthestStep, index);
-    conceptSearch = ''; categoryFilter = 'all'; conceptScope = 'recommended'; pageLimit = 18;
+    conceptSearch = ''; categoryFilter = 'all'; pageLimit = 18;
     setTimeout(() => window.document.querySelector('.wizard-shell')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
   }
 
@@ -259,16 +263,21 @@
             <input aria-label={`${activeStep.short} 자료 검색`} bind:value={conceptSearch} on:input={() => pageLimit = 18} placeholder="제목·태그·요약 검색" />
             <select aria-label="자료 종류" bind:value={categoryFilter} on:change={() => pageLimit = 18}><option value="all">모든 종류</option>{#each categories as category}<option value={category.key}>{category.name}</option>{/each}</select>
           </div>
-          <div class="wizard-scope-bar">
-            <div><strong>{conceptScope === 'recommended' ? '이 단계의 추천 자료' : '모든 세계관 자료'}</strong><small>{conceptScope === 'recommended' ? recommendationCopy(activeSlot) : '종류나 역할과 관계없이 배정되지 않은 자료 전체'}</small></div>
-            <div class="scope-switch" role="group" aria-label="자료 표시 범위"><button class:active={conceptScope === 'recommended'} on:click={() => { conceptScope = 'recommended'; pageLimit = 18; }}>추천</button><button class:active={conceptScope === 'all'} on:click={() => { conceptScope = 'all'; pageLimit = 18; }}>전체</button></div>
-          </div>
           <div class="wizard-card-grid">
             {#each wizardPages as page}
               <button class:selected={activeIds.includes(page.id)} class="wizard-choice-card" aria-pressed={activeIds.includes(page.id)} on:click={() => toggleConcept(page.id)}>
-                <span class="selection-mark">{activeIds.includes(page.id) ? '✓' : activeSlot === 'subject' ? '○' : '+'}</span>
-                <span class="row spread"><span class="badge">{categoryName(page)}</span><small>{roleLabel(page.usage_role)}</small></span>
-                <strong>{page.title}</strong><p>{page.summary || '요약이 없습니다.'}</p>
+                <span class="wizard-card-cover">
+                  {#if conceptCover(page)}
+                    <img src={conceptCover(page)} alt={`${page.title} 자료 이미지`} />
+                  {:else}
+                    <span class="project-cover-placeholder" aria-hidden="true"><span>{conceptInitial(page)}</span></span>
+                  {/if}
+                </span>
+                <span class="wizard-card-copy"><strong>{page.title}</strong><span class="wizard-card-summary">{page.summary || '요약이 없습니다.'}</span></span>
+                <span class="row spread wizard-card-meta">
+                  <span class="badge">{categoryName(page)}</span>
+                  <span class="wizard-card-authority"><small>{roleLabel(page.usage_role)}</small><span class="selection-mark">{activeIds.includes(page.id) ? '✓' : activeSlot === 'subject' ? '○' : '+'}</span></span>
+                </span>
               </button>
             {/each}
             {#if !wizardPages.length}<div class="empty-state">검색 조건에 맞는 자료가 없거나, 모든 자료가 앞 단계에 배정됐습니다.</div>{/if}

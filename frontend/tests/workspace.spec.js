@@ -141,17 +141,23 @@ test('dense Diablo materials stay bounded and use its project taxonomy', async (
 
   await page.goto('/playbook');
   await page.getByLabel('현재 프로젝트').selectOption({ label: 'Diablo' });
-  await expect(page.getByText('이 단계의 추천 자료')).toBeVisible();
+  await expect(page.locator('.wizard-scope-bar')).toHaveCount(0);
+  await expect(page.locator('.scope-switch')).toHaveCount(0);
   expect(await page.locator('.wizard-choice-card').count()).toBeLessThanOrEqual(18);
   if (testInfo.project.name === 'mobile') {
     const grid = await page.locator('.wizard-card-grid').boundingBox();
     expect(grid.height).toBeLessThanOrEqual(461);
     expect(await page.locator('.wizard-card-grid').evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
   } else {
-    expect((await page.locator('.wizard-choice-card').first().boundingBox()).width).toBeLessThanOrEqual(305);
+    const firstCard = page.locator('.wizard-choice-card').first();
+    const cardBox = await firstCard.boundingBox();
+    const coverBox = await firstCard.locator('.wizard-card-cover').boundingBox();
+    const copyBox = await firstCard.locator('.wizard-card-copy').boundingBox();
+    const metaBox = await firstCard.locator('.wizard-card-meta').boundingBox();
+    expect(cardBox.width).toBeLessThanOrEqual(305);
+    expect(Math.abs(coverBox.width / coverBox.height - 16 / 9)).toBeLessThan(0.02);
+    expect(metaBox.y).toBeGreaterThan(copyBox.y);
   }
-  await page.getByRole('button', { name: '전체', exact: true }).click();
-  await expect(page.getByText('모든 세계관 자료')).toBeVisible();
   await page.getByLabel('자료 종류').selectOption({ label: '일반 몬스터 종족' });
   await expect(page.locator('.wizard-choice-card').first()).toContainText('일반 몬스터 종족');
   await page.locator('.wizard-choice-card').first().click();
@@ -284,7 +290,10 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
   await lighthouse.click();
   await expect(lighthouse).toHaveAttribute('aria-pressed', 'true');
   await expect.poll(() => lighthouse.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(32, 66, 62)');
-  await expect.poll(() => lighthouse.locator('strong').evaluate((element) => getComputedStyle(element).color)).toBe('rgb(240, 188, 101)');
+  await expect.poll(() => lighthouse.locator('.wizard-card-copy strong').evaluate((element) => getComputedStyle(element).color)).toBe('rgb(240, 188, 101)');
+  const lighthouseCopy = await lighthouse.locator('.wizard-card-copy').boundingBox();
+  const lighthouseMeta = await lighthouse.locator('.wizard-card-meta').boundingBox();
+  expect(lighthouseMeta.y).toBeGreaterThan(lighthouseCopy.y);
   await page.getByRole('button', { name: /배경으로 계속/ }).click();
 
   await expectStepHelp(page, '배경 단계 설명', '어디서, 어떤 상황에서');
