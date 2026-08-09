@@ -428,7 +428,7 @@
 
 <style>
   .editor-shell {
-    min-height: 460px;
+    width: 100%; max-width: 100%; min-width: 0; min-height: 460px;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -479,10 +479,10 @@
   .editor-content :global(section[data-lore-block]) { position:relative; margin:14px 0; padding:10px 18px; border-left:3px solid var(--signal); background:#f6f8f6; }
   .editor-content :global(section[data-lore-block][locked="true"]) { border-left-color:var(--lichen); }
 
-  .ai-inline-panel, .proposal-panel { flex:0 0 auto; padding:12px 14px; border-bottom:1px solid var(--line); background:#fffdf8; }
+  .ai-inline-panel, .proposal-panel { min-width:0; flex:0 0 auto; padding:12px 14px; border-bottom:1px solid var(--line); background:#fffdf8; }
   .selection-preview { display:flex; align-items:baseline; gap:10px; min-width:0; margin-bottom:10px; }
   .selection-preview span, .proposal-copy > span, .proposal-original > span { flex:0 0 auto; color:var(--muted); font-size:11px; font-weight:800; letter-spacing:.06em; }
-  .selection-preview q { overflow:hidden; color:var(--ink); font:13px/1.5 Georgia, "Noto Serif KR", serif; text-overflow:ellipsis; white-space:nowrap; }
+  .selection-preview q { min-width:0; overflow:hidden; color:var(--ink); font:13px/1.5 Georgia, "Noto Serif KR", serif; text-overflow:ellipsis; white-space:nowrap; }
   .rewrite-controls { display:grid; grid-template-columns:minmax(150px, .8fr) minmax(180px, 1.2fr); gap:10px; }
   .rewrite-controls label, .prompt-field { display:grid; gap:5px; color:var(--muted-text); font-size:12px; font-weight:700; }
   .rewrite-controls select, .rewrite-controls input { width:100%; min-height:34px; }
@@ -546,6 +546,14 @@
   @media (min-width: 821px) {
     .editor-shell { height: 100%; min-height: 0; }
     .editor-content :global(.ProseMirror) { min-height: 100%; }
+  }
+  @media (max-width: 820px) {
+    .editor-shell { overflow: visible; }
+    .editor-content { flex: 0 0 auto; overflow-y: visible; overscroll-behavior-y: auto; }
+    .ai-inline-panel, .proposal-panel {
+      width: 100%; max-width: 100%; position: sticky; z-index: 12; top: 8px; max-height: calc(100dvh - 92px); overflow-y: auto;
+      border: 1px solid var(--line); box-shadow: 0 12px 30px rgba(20,43,53,.13);
+    }
   }
   @media (max-width: 540px) {
     .editor-toolbar { flex-wrap:wrap; }

@@ -366,7 +366,7 @@
         </div>
       {/each}
     </nav>
-    <div class="project-tools"><label style="min-width:260px">현재 프로젝트<select bind:value={projectId} on:change={changeProject}>{#each projects as project}<option value={project.id}>{project.name}</option>{/each}</select></label><ProjectCreator onCreated={projectCreated} /></div>
+    <div class="project-tools"><label>현재 프로젝트<select bind:value={projectId} on:change={changeProject}>{#each projects as project}<option value={project.id}>{project.name}</option>{/each}</select></label><ProjectCreator onCreated={projectCreated} /></div>
   </div>
 
   {#if error}<p class="notice-error">{error}</p>{/if}

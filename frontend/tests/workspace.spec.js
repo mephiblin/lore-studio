@@ -28,6 +28,16 @@ async function expectWorkspaceDialog(page, name) {
   return dialog;
 }
 
+async function openLorebookReaderOnMobile(page, testInfo, title = '') {
+  if (testInfo.project.name !== 'mobile') return;
+  const toc = page.getByRole('navigation', { name: '로어북 글 목록' });
+  await expect(toc).toBeVisible();
+  const link = title ? toc.getByRole('link').filter({ hasText: title }).first() : toc.getByRole('link').first();
+  await expect(link).toBeVisible();
+  await link.click();
+  await expect(page.getByRole('link', { name: '← 목차로' })).toBeVisible();
+}
+
 async function removeProjectFixture(request, apiOrigin, projectId) {
   const pagesResponse = await request.get(`${apiOrigin}/api/v1/concept-pages?project_id=${projectId}`);
   if (pagesResponse.ok()) {
@@ -321,6 +331,11 @@ test('small mobile navigation and workflow steps stay inside the viewport', asyn
     if (await page.locator('.wizard-progress').count()) {
       expect(await page.locator('.wizard-progress').evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     }
+    const projectSelect = await page.locator('.page-tools .project-tools > label select').boundingBox();
+    const createButton = await page.locator('.page-tools .project-creator > button').boundingBox();
+    expect(Math.abs(projectSelect.y - createButton.y)).toBeLessThanOrEqual(1);
+    const commandbarHeight = (await page.locator('.page-tools').boundingBox()).height;
+    expect(commandbarHeight).toBeLessThanOrEqual(route === '/playbook' ? 190 : route === '/documents' ? 145 : 130);
   }
 });
 
@@ -397,10 +412,11 @@ test('dense Diablo materials stay bounded and use its project taxonomy', async (
   await expect.poll(() => browserErrors).toEqual([]);
 });
 
-test('lorebook defaults to reading and edit mode is reversible', async ({ page }) => {
+test('lorebook defaults to a mobile index or desktop reading and edit mode is reversible', async ({ page }, testInfo) => {
   test.skip(process.env.E2E_EXPECT_DATA !== 'true', 'requires a Diablo lorebook entry');
   await page.goto('/lorebook');
   await page.getByLabel('현재 프로젝트').selectOption({ label: 'Diablo' });
+  await openLorebookReaderOnMobile(page, testInfo);
   await expect(page.locator('.lorebook-body-reader')).toBeVisible();
   await expect(page.getByRole('button', { name: '글 삭제' })).toBeVisible();
   await expect(page.getByLabel('로어북 글 제목')).toHaveCount(0);
@@ -416,10 +432,12 @@ test('lorebook long article owns its scroll and keeps provenance with the source
   test.skip(process.env.E2E_EXPECT_DATA !== 'true', 'requires a Diablo lorebook entry');
   await page.goto('/lorebook');
   await page.getByLabel('현재 프로젝트').selectOption({ label: 'Diablo' });
-  const namedEntry = page.locator('.lorebook-list button').filter({
-    hasText: '시간의 층위가 머무는 곳: 크리핑 피처(Creeping Feature) 분석 보고서'
-  });
-  if (await namedEntry.count()) await namedEntry.click();
+  const longTitle = '시간의 층위가 머무는 곳: 크리핑 피처(Creeping Feature) 분석 보고서';
+  if (testInfo.project.name === 'mobile') await openLorebookReaderOnMobile(page, testInfo, longTitle);
+  else {
+    const namedEntry = page.locator('.lorebook-list button').filter({ hasText: longTitle });
+    if (await namedEntry.count()) await namedEntry.click();
+  }
 
   const sourceCard = page.getByLabel('로어북 글 출처');
   await expect(sourceCard.locator('.lorebook-provenance')).toHaveCount(1);
@@ -436,15 +454,15 @@ test('lorebook long article owns its scroll and keeps provenance with the source
   }
 });
 
-test('lorebook reading themes switch, persist, and leave content actions unchanged', async ({ page }) => {
+test('lorebook reading themes switch, persist, and leave content actions unchanged', async ({ page }, testInfo) => {
   test.skip(process.env.E2E_EXPECT_DATA !== 'true', 'requires a Diablo lorebook entry');
   await page.goto('/lorebook');
   await page.getByLabel('현재 프로젝트').selectOption({ label: 'Diablo' });
 
   const lorebookPage = page.locator('.lorebook-page');
-  const reader = page.getByLabel('로어북 글 내용');
-  const originalBody = await reader.textContent();
-  const originalMarkdownHref = await page.getByRole('link', { name: 'Markdown' }).getAttribute('href');
+  let reader = page.getByLabel('로어북 글 내용');
+  let originalBody = testInfo.project.name === 'desktop' ? await reader.textContent() : '';
+  let originalMarkdownHref = testInfo.project.name === 'desktop' ? await page.getByRole('link', { name: 'Markdown' }).getAttribute('href') : '';
   const themes = [
     ['노말', 'normal', null],
     ['판타지아', 'fantasia', 'lorebook-fantasia.webp'],
@@ -472,31 +490,86 @@ test('lorebook reading themes switch, persist, and leave content actions unchang
     await page.getByRole('button', { name: `로어북 테마: ${name}` }).click();
     await expect(lorebookPage).toHaveAttribute('data-lorebook-theme', id);
     await expect(page.getByRole('button', { name: `로어북 테마: ${name}` })).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.getByRole('heading', { name: '책장' })).toHaveCSS('color', shelfTitleColors[id]);
-    await expect(page.getByRole('button', { name: '글 편집' })).toHaveCSS('background-color', 'rgb(20, 50, 46)');
-    await expect(page.getByRole('button', { name: '글 편집' })).toHaveCSS('color', 'rgb(240, 188, 101)');
+    if (testInfo.project.name === 'desktop') {
+      await expect(page.getByRole('heading', { name: '책장' })).toHaveCSS('color', shelfTitleColors[id]);
+      await expect(page.getByRole('button', { name: '글 편집' })).toHaveCSS('background-color', 'rgb(20, 50, 46)');
+      await expect(page.getByRole('button', { name: '글 편집' })).toHaveCSS('color', 'rgb(240, 188, 101)');
+    } else {
+      await expect(page.locator('.lorebook-index-heading h1')).toHaveCSS('color', shelfTitleColors[id]);
+    }
     if (asset) {
-      const backgroundImage = await page.locator('.lorebook-sheet').evaluate((node) => getComputedStyle(node).backgroundImage);
+      const backgroundImage = await page.locator(testInfo.project.name === 'mobile' ? '.lorebook-index-heading' : '.lorebook-sheet').evaluate((node) => getComputedStyle(node).backgroundImage);
       expect(backgroundImage).toContain(asset);
       await expect(page.locator('.workspace-main')).toHaveCSS('background-color', workspaceColors[id]);
     }
-    if (id === 'mechanical') {
+    if (id === 'mechanical' && testInfo.project.name === 'desktop') {
       const glitchAnimation = await page.locator('.lorebook-sheet').evaluate((node) => getComputedStyle(node, '::after').animationName);
       expect(glitchAnimation).toBe('lorebook-crt-glitch');
     }
+  }
+
+  if (testInfo.project.name === 'mobile') {
+    await openLorebookReaderOnMobile(page, testInfo);
+    reader = page.getByLabel('로어북 글 내용');
+    originalBody = await reader.textContent();
+    originalMarkdownHref = await page.getByRole('link', { name: 'Markdown' }).getAttribute('href');
+    await expect(page.locator('.lorebook-sheet')).toHaveCSS('background-color', 'rgb(7, 22, 48)');
+    await expect(page.getByRole('button', { name: '글 편집' })).toHaveCSS('background-color', 'rgb(20, 50, 46)');
+    await expect(page.getByRole('button', { name: '글 편집' })).toHaveCSS('color', 'rgb(240, 188, 101)');
   }
 
   expect(await reader.textContent()).toBe(originalBody);
   await expect(page.getByRole('link', { name: 'Markdown' })).toHaveAttribute('href', originalMarkdownHref);
   await page.reload();
   await expect(lorebookPage).toHaveAttribute('data-lorebook-theme', 'urban');
-  await expect(page.getByRole('button', { name: '로어북 테마: 어반 판타지' })).toHaveAttribute('aria-pressed', 'true');
+  if (testInfo.project.name === 'desktop') await expect(page.getByRole('button', { name: '로어북 테마: 어반 판타지' })).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: '글 편집' }).click();
   await expect(page.getByLabel('로어북 글 내용')).toHaveJSProperty('tagName', 'TEXTAREA');
   await expect(page.getByLabel('로어북 글 내용')).toHaveCSS('color', 'rgb(230, 237, 255)');
   await page.getByRole('button', { name: '취소' }).click();
   await page.goto('/documents');
   await expect(page.locator('html')).not.toHaveAttribute('data-lorebook-theme');
+});
+
+test('mobile lorebook uses an index to reader flow and returns without rendering both surfaces', async ({ page }, testInfo) => {
+  test.skip(process.env.E2E_EXPECT_DATA !== 'true', 'requires a Diablo lorebook entry');
+  test.skip(testInfo.project.name !== 'mobile', 'mobile information architecture check only');
+  await page.goto('/lorebook');
+  await page.getByLabel('현재 프로젝트').selectOption({ label: 'Diablo' });
+
+  const index = page.getByLabel('로어북 목차');
+  await expect(index).toBeVisible();
+  await expect(page.locator('.lorebook-body-reader')).toBeHidden();
+  const firstTitle = await index.getByRole('link').first().locator('strong').textContent();
+  await index.getByRole('link').first().click();
+  await expect(page).toHaveURL(/\/lorebook\?entry=/);
+  await expect(index).toBeHidden();
+  await expect(page.locator('.lorebook-body-reader')).toBeVisible();
+  await expect(page.locator('.lorebook-title-block h2')).toContainText(firstTitle.trim());
+  await expect(page.locator('.lorebook-commandbar')).toBeHidden();
+  await page.evaluate(() => window.scrollTo(0, Math.min(700, document.documentElement.scrollHeight)));
+  expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+  await page.getByRole('link', { name: '← 목차로' }).click();
+  await expect(page).toHaveURL(/\/lorebook$/);
+  await expect(index).toBeVisible();
+  await expect(page.locator('.lorebook-body-reader')).toBeHidden();
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+});
+
+test('mobile world material body passes vertical gestures to the page scroll owner', async ({ page }, testInfo) => {
+  test.skip(process.env.E2E_EXPECT_DATA !== 'true', 'requires the curated Diablo project');
+  test.skip(testInfo.project.name !== 'mobile', 'mobile scroll ownership check only');
+  await page.goto('/editor');
+  await page.getByLabel('현재 프로젝트').selectOption({ label: 'Diablo' });
+  await page.locator('.archive-page-list button').filter({ hasText: '크리핑 피처' }).first().click();
+  await expect(page.getByLabel('세계관 자료 본문')).toBeVisible();
+  await expect(page.locator('.editor-content')).toHaveCSS('overflow-y', 'visible');
+  await expect(page.locator('.editor-content')).toHaveCSS('overscroll-behavior-y', 'auto');
+  const body = await page.locator('.editor-content').boundingBox();
+  await page.mouse.move(body.x + body.width / 2, Math.min(page.viewportSize().height - 100, Math.max(120, body.y + 120)));
+  const before = await page.evaluate(() => window.scrollY);
+  await page.mouse.wheel(0, 520);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(before);
 });
 
 test('a project can be added after projects already exist', async ({ page }, testInfo) => {

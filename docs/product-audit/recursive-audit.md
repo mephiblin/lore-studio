@@ -130,6 +130,38 @@ Lore Studio는 starter가 아니라 실제 local-first v1.0으로 신뢰할 수 
 - Remaining `FIX_NOW` items: none.
 - Recursion decision: STOP_COMPLETE
 
+## Cycle 3 — 모바일 스크롤·로어북 정보구조
+
+### Completion contract
+
+- Primary user: 360–390px 폭의 모바일에서 세계관 자료를 읽고 편집하며 완성본을 책처럼 읽는 사용자.
+- Top job: 스와이프가 멈추거나 하단 메뉴에 조작이 가리지 않고, 로어북 목차에서 하나의 글을 골라 본문에 집중한다.
+- In scope: 다섯 route 390×844·360×844, 모바일 command bar, 세계관 본문·AI 패널, 로어북 목차→읽기→목차 상태.
+- Non-goals: 백엔드 데이터 모델, 로어북 본문·테마 asset 교체, desktop 책장+본문 2열 제거.
+- Completion gates: `MOBILE_UI_AUDIT.md` 발견 4건 `VERIFIED`, mobile/desktop Chromium 회귀, 가로 overflow·pointer interception·본문 dead scroll 0건.
+
+### Audit findings
+
+| ID | Severity | Domain | Finding | Evidence | Disposition | Acceptance criterion | Status |
+|---|---|---|---|---|---|---|---|
+| F-011 | P1 | Mobile scroll | 실제 내부 scroll가 없는 세계관 본문이 `overscroll-behavior:contain`으로 페이지 제스처를 차단했다. | 390px 본문 중앙 wheel 후 `window.scrollY 704→704`. | FIX_NOW | mobile 본문은 문서 scroll을 사용하고 중앙 제스처로 `scrollY`가 증가한다. | VERIFIED |
+| F-012 | P2 | Lorebook IA | select 목록과 11,969자 본문이 동시 노출되어 목차와 읽기 역할이 섞였다. | 360px 초기 `scrollHeight=18,160px`, 본문 y=375. | FIX_NOW | `/lorebook`은 목차, `?entry=<id>`는 읽기만 보이고 `목차로`로 복귀한다. | VERIFIED |
+| F-013 | P2 | Mobile hierarchy | 글 만들기 command bar가 360px에서 292px로 본문을 밀어냈다. | 9단계 4+4+1 배치·프로젝트 도구 줄바꿈. | FIX_NOW | 5+4 두 행·프로젝트 한 행, command bar 210px 이하이며 가로 overflow가 없다. | VERIFIED |
+| F-014 | P1 | Mobile AI UI | 긴 AI 선택 문장이 editor min-content 폭을 3,393.7px로 늘리고 submit 터치를 다른 영역이 가로챈다. | 실제 Chromium `scrollWidth=3,406px`; normal click pointer interception timeout. | FIX_NOW | panel이 부모 폭을 넘지 않고 viewport 내 sticky 검토면에서 submit·apply가 터치된다. | VERIFIED |
+
+### Decision and implementation
+
+- Selected approach: mobile 자연 문서 scroll을 복원하고, 로어북을 객체 중심 `목차→상세` 상태로 분리했다. desktop 로어북 2열과 네 테마는 유지했다.
+- Alternatives considered: select picker 유지는 탐색 비용과 본문 동시 렌더링을 남겨 배제했다. mobile 편집기 내부 scroll 유지는 스와이프 dead zone을 다시 만들어 배제했다.
+- Changes made: Tiptap mobile scroll/min-width/sticky AI review, command bar 360px 밀도, lorebook query 상태·목차 card·sticky 복귀 bar·mobile theme surfaces.
+- Durable checklist: `docs/MOBILE_UI_AUDIT.md`, `UI_PAGE_CONTRACT.md`, `CHANGE_SAFETY_CHECKLIST.md`, `INFORMATION_ARCHITECTURE.md`, Playwright.
+
+### Re-audit
+
+- Regressions checked: 다섯 route 가로 overflow, 하단 메뉴, 세계관 자료 선택·본문 wheel·AI 수정/작성, 글 만들기 고정 footer, 원고 도구, 로어북 목차·직접 URL·복귀·네 테마·긴 본문.
+- Remaining `FIX_NOW` items: none.
+- Recursion decision: STOP_COMPLETE
+
 ## Residual risks
 
 | Risk | Impact | Mitigation / owner | Revisit trigger |

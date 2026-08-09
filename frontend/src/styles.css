@@ -762,6 +762,7 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
 
 /* Lorebook: a quiet reading sheet, visibly detached from draft controls. */
 .lorebook-layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 16px; align-items: start; }
+.lorebook-mobile-index, .lorebook-mobile-readerbar { display: none; }
 .lorebook-shelf { position: sticky; top: 26px; max-height: calc(100vh - 52px); overflow: auto; background: #eaf0ee; }
 .lorebook-commandbar { justify-content: space-between; gap: 16px; }
 .lorebook-theme-toolbar { min-width: 0; display: flex; align-items: center; gap: 12px; }
@@ -949,6 +950,60 @@ html[data-lorebook-theme] .app-main.workspace-main { transition: background-colo
 .lorebook-page:not([data-lorebook-theme="normal"]) .lorebook-sheet .ghost { color: var(--nav-accent); border-color: currentColor; background: rgba(10,20,18,.24); }
 .lorebook-page:not([data-lorebook-theme="normal"]) .lorebook-sheet .danger-button { color: #ffaaa3; border-color: rgba(255,170,163,.6); background: rgba(35,10,14,.28); }
 
+.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-index-heading,
+.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-mobile-toc,
+.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-mobile-readerbar {
+  border-color: #aa7658; background-color: #f2d8a5;
+  background-image: linear-gradient(rgba(255,247,222,.36), rgba(241,221,180,.3)), url('/themes/lorebook-fantasia.webp');
+}
+.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-toc-copy strong,
+.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-mobile-readerbar a { color: #652820; font-weight: 750; }
+.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-index-heading h1 { color: #7b2d25; font-weight: 800; }
+.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-index-heading p:not(.eyebrow),
+.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-toc-copy small,
+.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-mobile-readerbar span { color: #805249; }
+.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-mobile-toc a,
+.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-toc-number { border-color: rgba(91,54,27,.28); }
+.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-toc-number,
+.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-toc-arrow,
+.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-index-count { color: #8b3f33; }
+
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-index-heading,
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-mobile-toc,
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-mobile-readerbar {
+  border-color: #276b4a; background-color: #020d09;
+  background-image: linear-gradient(rgba(0,13,7,.25), rgba(0,12,7,.35)), url('/themes/lorebook-mechanical.webp');
+}
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-index-heading h1,
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-toc-copy strong,
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-mobile-readerbar a { color: #7dffa4; font-family: "SFMono-Regular", Consolas, monospace; text-shadow: 0 0 8px rgba(58,255,133,.3); }
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-index-heading p:not(.eyebrow),
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-toc-copy small,
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-mobile-readerbar span { color: #5fcd83; }
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-mobile-toc a,
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-toc-number { border-color: rgba(74,218,143,.25); }
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-toc-number,
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-toc-arrow,
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-index-count { color: #60f396; }
+
+.lorebook-page[data-lorebook-theme="urban"] .lorebook-index-heading,
+.lorebook-page[data-lorebook-theme="urban"] .lorebook-mobile-toc,
+.lorebook-page[data-lorebook-theme="urban"] .lorebook-mobile-readerbar {
+  border-color: #315489; background-color: #07162f;
+  background-image: linear-gradient(rgba(5,17,42,.58), rgba(6,18,45,.64)), url('/themes/lorebook-urban.webp');
+}
+.lorebook-page[data-lorebook-theme="urban"] .lorebook-index-heading h1,
+.lorebook-page[data-lorebook-theme="urban"] .lorebook-toc-copy strong,
+.lorebook-page[data-lorebook-theme="urban"] .lorebook-mobile-readerbar a { color: #eef2ff; text-shadow: 0 0 12px rgba(98,196,255,.28); }
+.lorebook-page[data-lorebook-theme="urban"] .lorebook-index-heading p:not(.eyebrow),
+.lorebook-page[data-lorebook-theme="urban"] .lorebook-toc-copy small,
+.lorebook-page[data-lorebook-theme="urban"] .lorebook-mobile-readerbar span { color: #91abd7; }
+.lorebook-page[data-lorebook-theme="urban"] .lorebook-mobile-toc a,
+.lorebook-page[data-lorebook-theme="urban"] .lorebook-toc-number { border-color: rgba(100,212,243,.2); }
+.lorebook-page[data-lorebook-theme="urban"] .lorebook-toc-number,
+.lorebook-page[data-lorebook-theme="urban"] .lorebook-toc-arrow,
+.lorebook-page[data-lorebook-theme="urban"] .lorebook-index-count { color: #ffca78; }
+
 @keyframes lorebook-crt-glitch {
   0%, 89%, 94%, 100% { clip-path: inset(0); opacity: .13; transform: translateX(0); }
   90% { clip-path: inset(16% 0 76%); opacity: .28; transform: translateX(9px); }
@@ -979,8 +1034,10 @@ html[data-lorebook-theme] .app-main.workspace-main { transition: background-colo
   .project-create-panel { position: fixed; z-index: 52; inset: auto 12px calc(74px + env(safe-area-inset-bottom)) 12px; width: auto; max-height: calc(100vh - 98px - env(safe-area-inset-bottom)); margin: 0; overflow-y: auto; align-content: start; padding: 20px; }
   .project-create-panel textarea { min-height: 130px; }
   .project-cover-tools { opacity: 1; transform: translateY(0); }
-  .project-tools { width: 100%; flex-wrap: wrap; }
-  .project-tools > label { min-width: 0; flex: 1 1 210px; }
+  .project-tools { width: 100%; flex-wrap: nowrap; }
+  .project-tools > label { min-width: 0 !important; flex: 1 1 0; }
+  .project-tools > .project-creator { flex: 0 0 auto; }
+  .project-tools > .project-creator > button { padding-inline: 9px; white-space: nowrap; }
   .page-tools .project-tools > label { display: grid; gap: 6px; white-space: normal; }
   .page-tools .project-tools > label select { min-width: 0; }
   .lorebook-commandbar { align-items: stretch; flex-direction: column; gap: 10px; }
@@ -1000,13 +1057,18 @@ html[data-lorebook-theme] .app-main.workspace-main { transition: background-colo
   .review-dock { position: static; align-items: stretch; flex-direction: column; }
   .review-summary { flex-wrap: wrap; }
   .run-actions { display: grid; grid-template-columns: 1fr 1fr; }
-  .wizard-progress { grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: visible; }
-  .workflow-commandbar .wizard-progress { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .wizard-progress { grid-template-columns: repeat(5, minmax(0, 1fr)); overflow: visible; }
+  .workflow-commandbar .wizard-progress { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   .workflow-commandbar .document-wizard-progress { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .wizard-progress-item { border-bottom: 1px solid var(--line); }
-  .wizard-progress-item:nth-child(4n) { border-right: 0; }
+  .wizard-progress-item:nth-child(4n) { border-right: 1px solid var(--line); }
+  .wizard-progress-item:nth-child(5n) { border-right: 0; }
   .wizard-progress-item:nth-last-child(-n+4) { border-bottom: 0; }
-  .wizard-step-button { min-width: 0; min-height: 64px; justify-content: center; flex-direction: column; gap: 5px; padding: 8px 24px 8px 4px; text-align: center; }
+  .wizard-step-button { min-width: 0; min-height: 48px; justify-content: center; flex-direction: column; gap: 3px; padding: 5px 18px 5px 3px; text-align: center; }
+  .workflow-commandbar .wizard-step-button { min-height: 48px; padding: 5px 18px 5px 3px; }
+  .workflow-commandbar .wizard-step-button span { width: 18px; height: 18px; flex-basis: 18px; font-size: 9px; }
+  .workflow-commandbar .wizard-progress-item > .help-tip-wrap { top: 1px; right: 1px; }
+  .workflow-commandbar .wizard-progress-item > .help-tip-wrap .help-tip-button { width: 20px; height: 20px; }
   .wizard-step-button > div { gap: 0; }
   .wizard-step-button small { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
   .output-studio { grid-template-columns: 1fr; }
@@ -1040,6 +1102,33 @@ html[data-lorebook-theme] .app-main.workspace-main { transition: background-colo
   .lorebook-shelf { position: static; max-height: none; }
   .lorebook-list { display: none; }
   .lorebook-provenance .details-body { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  .lorebook-mobile-index { display: grid; gap: 12px; }
+  .lorebook-index-heading { display: flex; align-items: end; justify-content: space-between; gap: 18px; padding: 22px 20px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); }
+  .lorebook-index-heading h1 { margin: 2px 0 0; color: var(--ink); font: 650 34px/1.05 Georgia, "Noto Serif KR", serif; letter-spacing: -.045em; }
+  .lorebook-index-heading p:not(.eyebrow) { margin: 8px 0 0; color: var(--muted-text); font-size: 11px; line-height: 1.55; }
+  .lorebook-index-count { flex: 0 0 auto; display: grid; justify-items: end; gap: 3px; color: var(--signal); }
+  .lorebook-index-count b { font: 600 28px/1 Georgia, "Noto Serif KR", serif; }
+  .lorebook-index-count small { color: var(--muted-text); font: 700 8px/1 monospace; letter-spacing: .1em; }
+  .lorebook-mobile-toc { display: grid; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); }
+  .lorebook-mobile-toc a { min-width: 0; min-height: 82px; display: grid; grid-template-columns: 34px minmax(0, 1fr) 20px; gap: 12px; align-items: center; padding: 14px 15px; border-bottom: 1px solid var(--line); color: var(--ink); }
+  .lorebook-mobile-toc a:last-child { border-bottom: 0; }
+  .lorebook-mobile-toc a:active { background: var(--paper-deep); }
+  .lorebook-toc-number { align-self: stretch; display: grid; place-items: center; border-right: 1px solid var(--line); color: var(--signal); font: 700 10px/1 monospace; }
+  .lorebook-toc-copy { min-width: 0; display: grid; gap: 6px; }
+  .lorebook-toc-copy strong { overflow: hidden; font: 600 17px/1.35 Georgia, "Noto Serif KR", serif; text-overflow: ellipsis; white-space: nowrap; }
+  .lorebook-toc-copy small { color: var(--muted-text); font-size: 9px; }
+  .lorebook-toc-arrow { color: var(--signal); font-size: 16px; }
+  .lorebook-mobile-empty { background: var(--paper); }
+  .lorebook-layout { display: none; height: auto; overflow: visible; }
+  .lorebook-layout.mobile-reader-open { display: block; }
+  .lorebook-layout.mobile-reader-open .lorebook-shelf { display: none; }
+  .lorebook-page.mobile-reader-view > .lorebook-commandbar,
+  .lorebook-page.mobile-reader-view > .lorebook-mobile-index { display: none; }
+  .lorebook-layout.mobile-reader-open .lorebook-reader { overflow: visible; padding: 0; }
+  .lorebook-mobile-readerbar { position: sticky; z-index: 12; top: 0; min-height: 46px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 7px; background: color-mix(in srgb, var(--paper) 94%, transparent); box-shadow: 0 8px 22px rgba(16,43,54,.09); backdrop-filter: blur(12px); }
+  .lorebook-mobile-readerbar a { min-height: 30px; display: inline-flex; align-items: center; color: var(--ink); font-size: 12px; font-weight: 780; }
+  .lorebook-mobile-readerbar span { color: var(--muted-text); font: 700 9px/1 monospace; letter-spacing: .08em; }
 }
 
 @media (max-width: 540px) {
@@ -1113,6 +1202,10 @@ html[data-lorebook-theme] .app-main.workspace-main { transition: background-colo
   .lorebook-body-reader { min-height: 45vh; }
   .lorebook-actions > div { display: grid; grid-template-columns: 1fr; }
   .lorebook-provenance .details-body { grid-template-columns: 1fr; }
+  .lorebook-index-heading { align-items: start; padding: 19px 17px; }
+  .lorebook-index-heading h1 { font-size: 30px; }
+  .lorebook-mobile-toc a { min-height: 78px; grid-template-columns: 30px minmax(0, 1fr) 18px; gap: 10px; padding: 12px; }
+  .lorebook-toc-copy strong { font-size: 16px; }
 }
 
 /* Full-height writing desk: global chrome stays still while each working surface owns its scroll. */

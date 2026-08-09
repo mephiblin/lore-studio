@@ -1,6 +1,6 @@
 # 검증 기록
 
-최신 갱신: 2026-08-09
+최신 갱신: 2026-08-10
 기준 브랜치: `agent/project-taxonomy-and-ui-polish`
 환경: DGX Spark, 실제 로컬 모델 endpoint
 
@@ -11,7 +11,8 @@
 - pytest: `30 passed, 3 skipped` (Writer/Utility, Embedding, Vision 실제 endpoint tests는 기본 suite에서 의도적으로 skip)
 - 실제 모델 opt-in: `3 passed` (Writer/Utility structured output, BGE-M3 1024차원, Vision data URL)
 - SvelteKit adapter-node production build: PASS
-- Playwright Chromium desktop 1600×900/mobile 390×844 실제 인수 자료 포함 회귀: `35 passed, 7 skipped`
+- Playwright Chromium desktop 1600×900/mobile 390×844 실제 인수 자료 포함 회귀: `37 passed, 9 skipped`
+- 빈 데이터/기능별 조건 skip UI 회귀: `19 passed, 27 skipped`
 - 문체·필력: DRAFT 명시 승인·사용 후 새 버전·공용/프로젝트 범위·권리별 짧은 예시 격리 API, 다섯 번째 로컬 탭과 내부 스크롤·고정 footer 모달, 글 만들기 `모델 기본 문체`/승인 프로필 명시 선택, profile/version/example GenerationRun snapshot, 원고 필력 점검과 승인형 수정 제안 PASS
 - 프로젝트 전개 방식 생성·수정·글 만들기 선택·삭제 desktop/mobile 집중 회귀: `2 passed`
 - 세계관 자료의 전개 방식 목록: 검은 항로/신규 프로젝트 모두 세계관·소설·수필·보고서를 포괄하는 공용 기본 8개 노출, 프로젝트 전용 항목과 출처 구분 PASS
@@ -39,6 +40,9 @@
 - 73개 Diablo 자료에서 글 만들기 카드 18개 제한, 모바일 선택 영역 456px, 데스크톱 자료 목록 848px/내부 스크롤, `종족·생물` 필터, 단계 이동 pageerror 없음 PASS
 - 매우 길게 실제 분량 복구: `시간의 층위가 머무는 곳: 크리핑 피처(Creeping Feature) 분석 보고서`의 계획 12,000자 대비 기존 초안 3,064자·완성본 2,838자 미달을 재현. `필요한 곳 보강`을 실제 Chromium에서 실행해 36회 OpenAI 호환 Writer 호출·블록별 1,780/1,962/2,861/2,424/2,636/296자, 최종 11,969자(99.7%)를 저장했고 유사 문단 0개·GenerationRun target/actual/call audit를 확인
 - 긴 로어북 UI: 위 11,969자 글에서 desktop reader `clientHeight=808`, `scrollHeight=7,577`, `scrollTop 0→500`, provenance가 출처 카드 내부 1개임을 실제 Chromium으로 확인. 읽기/편집·스크롤/출처·네 테마 desktop/mobile 집중 회귀 `6 passed`
+- 모바일 UI 재감사: 390×844·360×844 다섯 route에서 세계관 본문의 dead scroll zone을 제거하고 본문 중앙 wheel이 문서 `scrollY`를 이동함을 확인. 360px command bar는 글 만들기 `292→184px`, 원고 작업 `186→134px`, 로어북 목차 `171→122px`; 프로젝트 도구 한 행·가로 overflow 0px PASS
+- 모바일 로어북: `/lorebook` 목차 → `?entry=<id>` 독립 읽기 → `← 목차로` 복귀, 직접 URL·새로고침, 11,969자 문서 scroll, 네 테마, 글 편집 왕복 PASS. desktop은 mobile 목차 `display:none`, 책장+본문 grid, reader `808/7,577px` 유지
+- 모바일 세계관 AI 패널: 긴 선택 문장으로 편집기가 `3,393.7px`로 늘어나던 min-content 폭과 submit pointer interception을 재현·수정. shell/panel `min-width:0`·sticky review 후 정상 click, AI 수정→반영→AI 작성→반영 실제 Chromium PASS
 - 모바일 프로젝트 생성 창 366×758(하단 메뉴 위), 프로젝트 제목 첫 화면 y=408, 로어북 읽기 기본/편집 왕복, 원고 도구 점프 PASS
 - 원고 저장 회귀: 제목·문단 수정과 새 문단 추가 → 다음 단계 자동 저장 → 새로고침 복원 → 테스트 데이터 원상복구 PASS
 - JSON Schema/YAML/Python bundle validation: PASS

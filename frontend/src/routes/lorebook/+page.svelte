@@ -1,5 +1,6 @@
 <script>
   import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import ProjectCreator from '$lib/components/ProjectCreator.svelte';
   import { api, API_BASE } from '$lib/api';
@@ -19,6 +20,9 @@
   let lorebookTheme = 'normal';
   $: readingBlocks = readerBlocks(selected?.body_markdown || '');
   $: activeThemeName = lorebookThemes.find((theme) => theme.id === lorebookTheme)?.name || '노말';
+  $: requestedEntryId = $page.url.searchParams.get('entry') || '';
+  $: mobileReaderOpen = !!selected && requestedEntryId === selected.id;
+  $: selectedEntryNumber = Math.max(0, entries.findIndex((entry) => entry.id === selected?.id)) + 1;
 
   onMount(() => {
     const storedTheme = localStorage.getItem(LOREBOOK_THEME_KEY);
@@ -68,6 +72,18 @@
     if (!selected?.source_document_id) return;
     try { sourceState = await api.get(`/documents/${selected.source_document_id}/finalization`); }
     catch { sourceState = null; }
+  }
+
+  async function openMobileEntry(entry) {
+    await selectEntry(entry);
+    await goto(`/lorebook?entry=${entry.id}`, { keepFocus: true, noScroll: true });
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }
+
+  async function showMobileIndex() {
+    editing = false;
+    await goto('/lorebook', { keepFocus: true, noScroll: true });
+    window.scrollTo({ top: 0, behavior: 'auto' });
   }
 
   async function saveEntry() {
@@ -122,13 +138,14 @@
       await api.delete(`/lorebook/${deletedId}`);
       entries = entries.filter((entry) => entry.id !== deletedId);
       await selectEntry(entries[0] || null);
+      if (requestedEntryId === deletedId) await goto('/lorebook', { replaceState: true, keepFocus: true, noScroll: true });
       message = '로어북 글을 삭제했습니다.';
     } catch (e) { error = e.message; }
     finally { busy = ''; }
   }
 </script>
 
-<div class="page lorebook-page workspace-page" data-lorebook-theme={lorebookTheme}>
+<div class="page lorebook-page workspace-page" class:mobile-reader-view={mobileReaderOpen} data-lorebook-theme={lorebookTheme}>
   <div class="page-tools lorebook-commandbar">
     <div class="lorebook-theme-toolbar">
       <div class="lorebook-theme-heading"><span>열람 테마</span><strong>{activeThemeName}</strong></div>
@@ -146,16 +163,35 @@
         {/each}
       </div>
     </div>
-    <div class="project-tools"><label style="min-width:260px">현재 프로젝트<select bind:value={projectId} on:change={loadEntries}>{#each projects as project}<option value={project.id}>{project.name}</option>{/each}</select></label><ProjectCreator onCreated={projectCreated} /></div>
+    <div class="project-tools"><label>현재 프로젝트<select bind:value={projectId} on:change={loadEntries}>{#each projects as project}<option value={project.id}>{project.name}</option>{/each}</select></label><ProjectCreator onCreated={projectCreated} /></div>
   </div>
 
   {#if error}<p class="notice-error">{error}</p>{/if}
   {#if busy}<div class="notice" role="status">{busy}…</div>{/if}
 
-  <div class="lorebook-layout">
+  <section class="lorebook-mobile-index" aria-label="로어북 목차">
+    <header class="lorebook-index-heading">
+      <div><p class="eyebrow">완성된 글</p><h1>책장</h1><p>제목을 고르면 읽기 화면으로 이동합니다.</p></div>
+      <span class="lorebook-index-count"><b>{entries.length}</b><small>ARTICLES</small></span>
+    </header>
+    {#if entries.length}
+      <nav class="lorebook-mobile-toc" aria-label="로어북 글 목록">
+        {#each entries as entry, index}
+          <a href={`/lorebook?entry=${entry.id}`} on:click|preventDefault={() => openMobileEntry(entry)}>
+            <span class="lorebook-toc-number">{String(index + 1).padStart(2, '0')}</span>
+            <span class="lorebook-toc-copy"><strong>{entry.title}</strong><small>{entry.body_markdown.length.toLocaleString()}자 · {new Date(entry.published_at || entry.updated_at).toLocaleDateString('ko-KR')}</small></span>
+            <span class="lorebook-toc-arrow" aria-hidden="true">→</span>
+          </a>
+        {/each}
+      </nav>
+    {:else}
+      <section class="empty-state lorebook-mobile-empty"><strong>아직 로어북에 완성된 글이 없습니다.</strong><p>원고 작업에서 초안을 다듬어 로어북에 저장하세요.</p><a class="primary" href="/documents">원고 작업으로 이동</a></section>
+    {/if}
+  </section>
+
+  <div class="lorebook-layout" class:mobile-reader-open={mobileReaderOpen}>
     <aside class="card stack lorebook-shelf">
       <div class="row spread"><div><p class="eyebrow">완성된 글</p><h3 class="lorebook-shelf-title">책장</h3></div><span class="badge">{entries.length}</span></div>
-      <label class="mobile-document-picker">읽을 글<select value={selected?.id || ''} on:change={(event) => selectEntry(entries.find((entry) => entry.id === event.currentTarget.value) || null)}>{#each entries as entry}<option value={entry.id}>{entry.title}</option>{/each}</select></label>
       <div class="list lorebook-list">
         {#each entries as entry}
           <button class:active={selected?.id === entry.id} on:click={() => selectEntry(entry)}><strong>{entry.title}</strong><small>{entry.body_markdown.length.toLocaleString()}자 · {new Date(entry.published_at || entry.updated_at).toLocaleDateString('ko-KR')}</small></button>
@@ -166,6 +202,10 @@
 
     <main class="stack lorebook-reader">
       {#if selected}
+        <nav class="lorebook-mobile-readerbar" aria-label="로어북 읽기 이동">
+          <a href="/lorebook" on:click|preventDefault={showMobileIndex}>← 목차로</a>
+          <span>{String(selectedEntryNumber).padStart(2, '0')} / {String(entries.length).padStart(2, '0')}</span>
+        </nav>
         {#if sourceState?.status === 'stale'}<div class="notice-error"><strong>연결된 초안이 바뀌었습니다.</strong> 이 글은 이전 초안을 바탕으로 만든 버전입니다. <a href={`/documents?document=${selected.source_document_id}`}>원고 작업에서 다시 만들기 →</a></div>{/if}
         <article class="card lorebook-sheet" class:editing>
           <header class="lorebook-sheet-heading">
