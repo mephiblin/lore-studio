@@ -121,6 +121,9 @@ frontend/src/routes/editor/+page.svelte
 frontend/src/routes/lorebook/+page.svelte
 frontend/src/routes/playbook/+page.svelte
 frontend/src/styles.css
+frontend/static/themes/lorebook-fantasia.webp
+frontend/static/themes/lorebook-mechanical.webp
+frontend/static/themes/lorebook-urban.webp
 frontend/svelte.config.js
 frontend/tests/workspace.spec.js
 frontend/vite.config.js

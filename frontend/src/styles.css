@@ -742,6 +742,24 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
 /* Lorebook: a quiet reading sheet, visibly detached from draft controls. */
 .lorebook-layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 16px; align-items: start; }
 .lorebook-shelf { position: sticky; top: 26px; max-height: calc(100vh - 52px); overflow: auto; background: #eaf0ee; }
+.lorebook-theme-toolbar { display: grid; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.lorebook-theme-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.lorebook-theme-heading span { color: var(--muted-text); font-size: 9px; font-weight: 800; letter-spacing: .08em; }
+.lorebook-theme-heading strong { color: var(--ink); font-size: 10px; }
+.lorebook-theme-options { display: flex; align-items: center; gap: 9px; }
+.lorebook-theme-button {
+  position: relative; width: 30px; height: 30px; flex: 0 0 30px; padding: 0;
+  display: grid; place-items: center; border: 1px solid rgba(20,50,46,.42); border-radius: 50%;
+  color: rgba(255,255,255,.84); background: #29534d; box-shadow: inset 0 0 0 2px rgba(255,255,255,.16), 0 2px 7px rgba(20,43,53,.13);
+  font: 750 9px/1 ui-monospace, "SFMono-Regular", Consolas, monospace;
+  transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+.lorebook-theme-button:hover { transform: translateY(-1px); }
+.lorebook-theme-button.active { border-color: var(--nav-accent); box-shadow: 0 0 0 3px var(--nav-deep), 0 0 0 5px var(--nav-accent); transform: scale(.88); }
+.lorebook-theme-button.theme-normal { color: #f0bc65; background: radial-gradient(circle at 35% 30%, #3f6c63, #14322e 72%); }
+.lorebook-theme-button.theme-fantasia { color: #352012; background: radial-gradient(circle at 35% 30%, #efc87d, #9a5228 72%); }
+.lorebook-theme-button.theme-mechanical { color: #baffd6; background: repeating-linear-gradient(0deg, #071b17 0 2px, #0d402f 2px 3px); }
+.lorebook-theme-button.theme-urban { color: #ffd283; background: radial-gradient(circle at 30% 25%, #d52d87, #4c102f 58%, #170d1b); }
 .lorebook-list button { display: grid; gap: 5px; padding: 12px; border-left: 3px solid transparent; }
 .lorebook-list button.active { border-left-color: var(--signal); background: #fff; }
 .lorebook-list strong { font: 600 14px/1.35 Georgia, "Noto Serif KR", serif; }
@@ -773,6 +791,128 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
 .lorebook-provenance p { margin: 6px 0 0; font-size: 12px; white-space: pre-wrap; }
 .lorebook-source-link { color: var(--muted-text); font-size: 11px; }
 .lorebook-empty { min-height: 480px; display: grid; place-content: center; justify-items: start; }
+
+/* Lorebook themes are a browser-local reading lens; content and export data remain unchanged. */
+.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-shelf {
+  color: #3d2718; border-color: #9b6d3c;
+  background-color: #cda66c;
+  background-image: linear-gradient(rgba(232,198,133,.7), rgba(205,159,91,.64)), url('/themes/lorebook-fantasia.webp');
+  background-size: cover;
+}
+.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-theme-toolbar,
+.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-sheet-heading,
+.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-actions { border-color: rgba(91,54,27,.42); }
+.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-theme-heading span,
+.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-list small,
+.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-title-block > span,
+.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-read-note { color: #664428; }
+.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-theme-heading strong,
+.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-list strong,
+.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-title-block h2,
+.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-body-reader h2,
+.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-body-reader h3,
+.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-body-reader h4 { color: #352013; }
+.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-list button { color: #3d2718; }
+.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-list button:hover,
+.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-list button.active { border-color: rgba(91,54,27,.38); background: rgba(255,240,200,.56); }
+.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-list button.active { border-left-color: #8e3e23; }
+.lorebook-page[data-lorebook-theme="fantasia"] .badge { color: #5a3b21; border-color: #9f7246; background: rgba(247,222,170,.58); }
+.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-sheet {
+  color: #40291a; border-color: #9b4727;
+  background-color: #d8ae6c;
+  background-image: linear-gradient(rgba(244,214,154,.69), rgba(222,177,104,.71)), url('/themes/lorebook-fantasia.webp');
+  background-size: cover; background-attachment: local;
+  box-shadow: inset 0 0 70px rgba(83,42,17,.12), 0 12px 32px rgba(72,43,21,.15);
+}
+.lorebook-page[data-lorebook-theme="fantasia"] .eyebrow { color: #7a3d20; }
+.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-mark { color: #71381d; border-color: #814521; }
+.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-body-editor,
+.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-sheet-heading input,
+.lorebook-page[data-lorebook-theme="fantasia"] .lorebook-actions select { color: #352013; border-color: #9f7246; background: rgba(255,239,198,.66); }
+
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-shelf {
+  color: #a9f5ca; border-color: #287b5b;
+  background-color: #061713;
+  background-image: linear-gradient(rgba(3,22,18,.56), rgba(3,22,18,.74)), url('/themes/lorebook-mechanical.webp');
+  background-size: cover;
+}
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-theme-toolbar,
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-sheet-heading,
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-actions { border-color: rgba(74,218,143,.38); }
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-theme-heading span,
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-list small,
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-title-block > span,
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-read-note { color: #71bd97; }
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-theme-heading strong,
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-shelf h3,
+.lorebook-page[data-lorebook-theme="mechanical"] .mobile-document-picker,
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-list strong,
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-title-block h2,
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-body-reader h2,
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-body-reader h3,
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-body-reader h4 { color: #b9ffd8; text-shadow: 0 0 12px rgba(46,255,151,.18); }
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-list button { color: #a9f5ca; }
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-list button:hover,
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-list button.active { border-color: #246d52; background: rgba(15,71,51,.7); }
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-list button.active { border-left-color: #52f3a3; }
+.lorebook-page[data-lorebook-theme="mechanical"] .badge { color: #9affc6; border-color: #2b7558; background: rgba(6,40,29,.82); }
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-sheet {
+  color: #a9efc7; border-color: #45e698;
+  background-color: #031713;
+  background-image: linear-gradient(rgba(2,22,17,.78), rgba(2,24,18,.81)), url('/themes/lorebook-mechanical.webp');
+  background-size: cover; background-attachment: local;
+  box-shadow: inset 0 0 80px rgba(24,205,119,.05), 0 0 24px rgba(19,125,82,.13);
+  font-family: ui-monospace, "SFMono-Regular", Consolas, "Noto Sans KR", monospace;
+}
+.lorebook-page[data-lorebook-theme="mechanical"] .eyebrow { color: #68eaae; }
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-mark { color: #90ffbf; border-color: #45b77c; }
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-body { font-family: ui-monospace, "SFMono-Regular", Consolas, "Noto Sans KR", monospace; letter-spacing: .015em; }
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-body-editor,
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-sheet-heading input,
+.lorebook-page[data-lorebook-theme="mechanical"] .lorebook-actions select { color: #b9ffd8; border-color: #287b5b; background: rgba(2,28,20,.82); caret-color: #f0bc65; }
+
+.lorebook-page[data-lorebook-theme="urban"] .lorebook-shelf {
+  color: #f0c6d5; border-color: #7c365c;
+  background-color: #24101e;
+  background-image: linear-gradient(rgba(34,11,29,.68), rgba(45,13,34,.7)), url('/themes/lorebook-urban.webp');
+  background-size: cover;
+}
+.lorebook-page[data-lorebook-theme="urban"] .lorebook-theme-toolbar,
+.lorebook-page[data-lorebook-theme="urban"] .lorebook-sheet-heading,
+.lorebook-page[data-lorebook-theme="urban"] .lorebook-actions { border-color: rgba(225,89,151,.35); }
+.lorebook-page[data-lorebook-theme="urban"] .lorebook-theme-heading span,
+.lorebook-page[data-lorebook-theme="urban"] .lorebook-list small,
+.lorebook-page[data-lorebook-theme="urban"] .lorebook-title-block > span,
+.lorebook-page[data-lorebook-theme="urban"] .lorebook-read-note { color: #cf94ad; }
+.lorebook-page[data-lorebook-theme="urban"] .lorebook-theme-heading strong,
+.lorebook-page[data-lorebook-theme="urban"] .lorebook-shelf h3,
+.lorebook-page[data-lorebook-theme="urban"] .mobile-document-picker,
+.lorebook-page[data-lorebook-theme="urban"] .lorebook-list strong,
+.lorebook-page[data-lorebook-theme="urban"] .lorebook-title-block h2,
+.lorebook-page[data-lorebook-theme="urban"] .lorebook-body-reader h2,
+.lorebook-page[data-lorebook-theme="urban"] .lorebook-body-reader h3,
+.lorebook-page[data-lorebook-theme="urban"] .lorebook-body-reader h4 { color: #ffd5e3; text-shadow: 0 0 16px rgba(229,58,142,.18); }
+.lorebook-page[data-lorebook-theme="urban"] .lorebook-list button { color: #f0c6d5; }
+.lorebook-page[data-lorebook-theme="urban"] .lorebook-list button:hover,
+.lorebook-page[data-lorebook-theme="urban"] .lorebook-list button.active { border-color: #783257; background: rgba(87,24,61,.72); }
+.lorebook-page[data-lorebook-theme="urban"] .lorebook-list button.active { border-left-color: #e35b9d; }
+.lorebook-page[data-lorebook-theme="urban"] .badge { color: #ffd28a; border-color: #8c4968; background: rgba(54,15,42,.8); }
+.lorebook-page[data-lorebook-theme="urban"] .lorebook-sheet {
+  color: #f0cad5; border-color: #d94f90;
+  background-color: #230d20;
+  background-image: linear-gradient(rgba(35,9,29,.76), rgba(39,9,31,.78)), url('/themes/lorebook-urban.webp');
+  background-size: cover; background-attachment: local;
+  box-shadow: inset 0 0 76px rgba(215,46,128,.07), 0 12px 34px rgba(56,9,41,.17);
+}
+.lorebook-page[data-lorebook-theme="urban"] .eyebrow { color: #f0bc65; }
+.lorebook-page[data-lorebook-theme="urban"] .lorebook-mark { color: #ffd08a; border-color: #cc6a74; }
+.lorebook-page[data-lorebook-theme="urban"] .lorebook-body-editor,
+.lorebook-page[data-lorebook-theme="urban"] .lorebook-sheet-heading input,
+.lorebook-page[data-lorebook-theme="urban"] .lorebook-actions select { color: #ffd5e3; border-color: #84385f; background: rgba(42,10,34,.82); caret-color: #f0bc65; }
+
+.lorebook-page:not([data-lorebook-theme="normal"]) .lorebook-sheet .secondary,
+.lorebook-page:not([data-lorebook-theme="normal"]) .lorebook-sheet .ghost { color: var(--nav-accent); border-color: currentColor; background: rgba(10,20,18,.24); }
+.lorebook-page:not([data-lorebook-theme="normal"]) .lorebook-sheet .danger-button { color: #ffaaa3; border-color: rgba(255,170,163,.6); background: rgba(35,10,14,.28); }
 
 @media (max-width: 1240px) {
   .archive-layout { grid-template-columns: 280px minmax(0, 1fr); }

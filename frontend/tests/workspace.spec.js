@@ -314,7 +314,7 @@ test('world material AI edits stay reviewable and use temporary references', asy
 test('small mobile navigation and workflow steps stay inside the viewport', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'mobile', 'small-viewport check only');
   await page.setViewportSize({ width: 360, height: 844 });
-  for (const route of ['/editor', '/playbook', '/documents']) {
+  for (const route of ['/editor', '/playbook', '/documents', '/lorebook']) {
     await page.goto(route);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     expect(await page.locator('.app-nav').evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
@@ -410,6 +410,46 @@ test('lorebook defaults to reading and edit mode is reversible', async ({ page }
   await page.getByRole('button', { name: '취소' }).click();
   await expect(page.locator('.lorebook-body-reader')).toBeVisible();
   await expect(page.getByLabel('로어북 글 제목')).toHaveCount(0);
+});
+
+test('lorebook reading themes switch, persist, and leave content actions unchanged', async ({ page }) => {
+  test.skip(process.env.E2E_EXPECT_DATA !== 'true', 'requires a Diablo lorebook entry');
+  await page.goto('/lorebook');
+  await page.getByLabel('현재 프로젝트').selectOption({ label: 'Diablo' });
+
+  const lorebookPage = page.locator('.lorebook-page');
+  const reader = page.getByLabel('로어북 글 내용');
+  const originalBody = await reader.textContent();
+  const originalMarkdownHref = await page.getByRole('link', { name: 'Markdown' }).getAttribute('href');
+  const themes = [
+    ['노말', 'normal', null],
+    ['판타지아', 'fantasia', 'lorebook-fantasia.webp'],
+    ['메카니컬', 'mechanical', 'lorebook-mechanical.webp'],
+    ['어반 판타지', 'urban', 'lorebook-urban.webp']
+  ];
+
+  await expect(page.getByRole('group', { name: '로어북 열람 테마' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '로어북 테마: 노말' })).toHaveAttribute('aria-pressed', 'true');
+  for (const [name, id, asset] of themes) {
+    await page.getByRole('button', { name: `로어북 테마: ${name}` }).click();
+    await expect(lorebookPage).toHaveAttribute('data-lorebook-theme', id);
+    await expect(page.getByRole('button', { name: `로어북 테마: ${name}` })).toHaveAttribute('aria-pressed', 'true');
+    if (asset) {
+      const backgroundImage = await page.locator('.lorebook-sheet').evaluate((node) => getComputedStyle(node).backgroundImage);
+      expect(backgroundImage).toContain(asset);
+    }
+  }
+
+  expect(await reader.textContent()).toBe(originalBody);
+  await expect(page.getByRole('link', { name: 'Markdown' })).toHaveAttribute('href', originalMarkdownHref);
+  await page.reload();
+  await expect(lorebookPage).toHaveAttribute('data-lorebook-theme', 'urban');
+  await expect(page.getByRole('button', { name: '로어북 테마: 어반 판타지' })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: '글 편집' }).click();
+  await expect(page.getByLabel('로어북 글 내용')).toHaveJSProperty('tagName', 'TEXTAREA');
+  await expect(page.getByLabel('로어북 글 내용')).toHaveCSS('color', 'rgb(255, 213, 227)');
+  await page.getByRole('button', { name: '취소' }).click();
+  await page.getByRole('button', { name: '로어북 테마: 노말' }).click();
 });
 
 test('a project can be added after projects already exist', async ({ page }, testInfo) => {

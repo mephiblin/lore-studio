@@ -35,6 +35,7 @@
 - 결과물 견본의 형식·시점·시제·분량 실시간 요약, 확인 항목의 수정 후 즉시 복귀, 실제 작성 진행에 따른 3단계 완료 색상
 - 세계관 자료의 저장 후 읽기 모드·명시적 글 편집, 프로젝트·세계관 자료·로어북 삭제, 출처 초안을 보존하는 로어북 삭제 API·감사 기록
 - 글 만들기 대규모 자료 카드의 비겹침 방지·독립 스크롤·전역 하단 바와 겹치지 않는 고정 `자료 더 보기`
+- 로어북 책장 상단의 브라우저 로컬 열람 테마 4종: 기존 노말, 생성·최적화한 양피지 판타지아, CRT 메카니컬, 네온 누아르 어반 판타지 질감과 읽기/편집 고대비, 번호·금색 ring·ARIA 선택 표현
 - `$lore-studio-ui-safety` 프로젝트 로컬 skill과 읽기 전용 정적 preflight: UI 계약·변경 체크리스트 기반 반복 점검, 5개 route·migration head·manifest·API 경유 규칙 확인, 기능 계약과 점검 절차의 변경 범위에 따른 문서·테스트·skill 동기화
 
 ## 실제 환경 증거
@@ -50,7 +51,7 @@ Utility 9-case 결과는 Qwen3.5-4B가 namespace 누출로 탈락했고 Gemma4-2
 - 실제 모델 opt-in `3 passed` (Writer/Utility, Embedding, Vision)
 - bundle/schema/YAML PASS
 - Svelte production build PASS
-- 실제 데이터 Playwright `31 passed, 7 skipped` (1600×900/390×844·360×844, 문체·필력 탭·모달·명시 선택·100개 카드 높이 보존과 내부 스크롤, 세계관 자료 AI 수정·작성, 73개 자료 카드 스크롤·더 보기 고정, 확인 수정 복귀·결과물 요약, 삭제 UI, 단계 이동·설명 툴팁, 프로젝트별 자료 종류 편집, 모바일 프로젝트 생성 창, 읽기/편집 모드, 기존 생성 gate·원고 저장·완성 설정·로어북 분리 포함)
+- 실제 데이터 Playwright `33 passed, 7 skipped` (1600×900/390×844·360×844, 문체·필력 탭·모달·명시 선택·100개 카드 높이 보존과 내부 스크롤, 세계관 자료 AI 수정·작성, 73개 자료 카드 스크롤·더 보기 고정, 확인 수정 복귀·결과물 요약, 삭제 UI, 단계 이동·설명 툴팁, 프로젝트별 자료 종류 편집, 모바일 프로젝트 생성 창, 로어북 읽기/편집·열람 테마, 기존 생성 gate·원고 저장·완성 설정·로어북 분리 포함)
 - 모델 서비스 미연결 UI E2E `10 passed`
 - Compose build/up 및 DB health PASS
 - PostgreSQL Alembic `20260809_0006` 기존 데이터 upgrade, 프로젝트 삭제 감사 묘비 보존 및 임시 fresh DB upgrade/downgrade/upgrade PASS

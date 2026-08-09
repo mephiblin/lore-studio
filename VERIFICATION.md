@@ -11,7 +11,7 @@
 - pytest: `23 passed, 3 skipped` (Writer/Utility, Embedding, Vision 실제 endpoint tests는 기본 suite에서 의도적으로 skip)
 - 실제 모델 opt-in: `3 passed` (Writer/Utility structured output, BGE-M3 1024차원, Vision data URL)
 - SvelteKit adapter-node production build: PASS
-- Playwright Chromium desktop 1600×900/mobile 390×844 실제 인수 자료 포함 회귀: `31 passed, 7 skipped`
+- Playwright Chromium desktop 1600×900/mobile 390×844 실제 인수 자료 포함 회귀: `33 passed, 7 skipped`
 - 문체·필력: DRAFT 명시 승인·사용 후 새 버전·공용/프로젝트 범위·권리별 짧은 예시 격리 API, 다섯 번째 로컬 탭과 내부 스크롤·고정 footer 모달, 글 만들기 `모델 기본 문체`/승인 프로필 명시 선택, profile/version/example GenerationRun snapshot, 원고 필력 점검과 승인형 수정 제안 PASS
 - 프로젝트 전개 방식 생성·수정·글 만들기 선택·삭제 desktop/mobile 집중 회귀: `2 passed`
 - 세계관 자료의 전개 방식 목록: 검은 항로/신규 프로젝트 모두 공용 기본 6개 노출, 프로젝트 전용 항목과 출처 구분 PASS
@@ -32,6 +32,7 @@
 - 모바일 전개 방식 화면 390×844: 문서/탭 가로 넘침 없음, 네 탭 `nowrap`, browser pageerror 없음 PASS
 - 글 만들기·원고 작업 단계 메뉴의 `page-tools` 결합, 글 만들기 본문 외곽 여백 0, 자료 종류 추천 설정 제거를 1600×900/390×844/360×844에서 확인; 가로 넘침·pageerror 없음 PASS
 - 원고 작업 3단계 표현 개편: 초안 제목 toolbar 상단 padding 4px·제목/동작 하단 정렬·문단/카드 내부 간격 8px, `재작성 / 문장 점검 / 설정 후보` 단일 활성 원고 도구, 글 만들기와 같은 완성본 견본·선택 deck, 항목별 수정 버튼이 없는 완성본 요약을 실제 데이터 desktop/mobile `2 passed`; 390×844·360×844 단계 전환 뒤 견본 y=97px·최종 요약 y=91px, 가로 overflow·pageerror 없음 PASS
+- 로어북 로컬 열람 테마: 노말·판타지아·메카니컬·어반 판타지 원형 선택, 새로고침 유지, 본문·내보내기 불변과 어반 편집 입력 대비를 실제 데이터 desktop/mobile `2 passed`; 생성 WebP 40–260KB, 1600×900·390×844·360×844 스크린샷에서 버튼/책장/reader 잘림·가로 overflow·pageerror 없음 PASS
 - 73개 Diablo 자료에서 글 만들기 카드 18개 제한, 모바일 선택 영역 456px, 데스크톱 자료 목록 848px/내부 스크롤, `종족·생물` 필터, 단계 이동 pageerror 없음 PASS
 - 모바일 프로젝트 생성 창 366×758(하단 메뉴 위), 프로젝트 제목 첫 화면 y=408, 로어북 읽기 기본/편집 왕복, 원고 도구 점프 PASS
 - 원고 저장 회귀: 제목·문단 수정과 새 문단 추가 → 다음 단계 자동 저장 → 새로고침 복원 → 테스트 데이터 원상복구 PASS
