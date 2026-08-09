@@ -9,7 +9,7 @@ import markdown
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import Response, StreamingResponse
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -509,7 +509,22 @@ def update_project(project_id: str, payload: ProjectUpdate, db: Session = Depend
 @router.delete("/projects/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_project(project_id: str, db: Session = Depends(get_db)) -> None:
     project = _get_or_404(db, Project, project_id, "프로젝트")
-    db.delete(project)
+    db.add(
+        AuditLog(
+            project_id=project.id,
+            action="DELETE",
+            entity_type="Project",
+            entity_id=project.id,
+            before_json={"name": project.name, "slug": project.slug},
+            reason="사용자 명시 삭제",
+        )
+    )
+    db.flush()
+    # ConceptPage uses a project/category composite RESTRICT key so that a category
+    # cannot be removed while in use. Remove the project's pages first; their own
+    # revisions, relations, index jobs, and analyses still follow DB cascades.
+    db.execute(delete(ConceptPage).where(ConceptPage.project_id == project_id))
+    db.execute(delete(Project).where(Project.id == project_id))
     db.commit()
 
 
@@ -1944,6 +1959,27 @@ def update_lorebook_entry(
     db.commit()
     db.refresh(entry)
     return entry
+
+
+@router.delete("/lorebook/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_lorebook_entry(entry_id: str, db: Session = Depends(get_db)) -> None:
+    entry = get_lorebook_entry(entry_id, db)
+    db.add(
+        AuditLog(
+            project_id=entry.project_id,
+            action="DELETE",
+            entity_type="LoreDocument",
+            entity_id=entry.id,
+            before_json={
+                "title": entry.title,
+                "document_kind": entry.document_kind,
+                "source_document_id": entry.source_document_id,
+            },
+            reason="사용자 명시 삭제",
+        )
+    )
+    db.delete(entry)
+    db.commit()
 
 
 @router.post("/blocks/{block_id}/rewrite", response_model=AuditFindingRead)

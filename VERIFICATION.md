@@ -7,7 +7,7 @@
 ## 자동 검증
 
 - Ruff: `All checks passed`
-- pytest: `22 passed, 3 skipped` (Writer/Utility, Embedding, Vision 실제 endpoint tests는 기본 suite에서 의도적으로 skip)
+- pytest: `23 passed, 3 skipped` (Writer/Utility, Embedding, Vision 실제 endpoint tests는 기본 suite에서 의도적으로 skip)
 - 실제 모델 opt-in: `3 passed` (Writer/Utility structured output, BGE-M3 1024차원, Vision data URL)
 - SvelteKit adapter-node production build: PASS
 - Playwright Chromium desktop 1600×900/mobile 390×844 실제 인수 자료 포함 회귀: `30 passed, 6 skipped`
@@ -20,6 +20,9 @@
 - 자료 종류·집필 지침·전개 방식 편집: 생성·수정 6개 흐름이 viewport 안의 모달로 열리고 내부 폼만 스크롤되며 고정 footer가 보이는지 desktop/mobile `2 passed`; 집필 지침 세부 규칙은 접기 요소 없이 상시 노출, 도움말은 `position:fixed` 최상위 오버레이로 viewport 안에 표시됨을 확인
 - 글 만들기 하단 이동 바: `.playbook-workspace` 밖의 형제 영역이며 desktop viewport 안에 유지되고 mobile에서는 전역 하단 메뉴 위에 고정됨을 확인; 본문·브라우저를 끝까지 스크롤하기 전후 y 좌표가 동일한 desktop/mobile route 회귀 `2 passed`
 - 글 만들기 결과물 형태·최종 확인 개편: 결과물 종류·시점·시제·분량 의미 카드와 실시간 원고 견본, 주제·소재·집필 원칙·표현 설계 카드, `설정 경계 정리 → 글의 흐름 설계 → 초안 작성` 경로를 desktop/mobile 실제 데이터에서 확인. 별도 ‘이 글이 참고할 세계관’ 패널 제거, 설정 경계 완료 요약, 최종 단계 고정 하단 동작, 선택 시점·시제의 세션 요청 반영 집중 회귀 `2 passed`
+- 결과물 견본의 `형식 / 시점 / 시제 / 분량` 즉시 요약과 1600×900 viewport 내 전체 노출, 확인 카드의 `수정 → 확인·작성으로 돌아가기`, `수정 취소` 시 기존 선택 복원, 실행 전 완료 녹색 0개·실행 후 순차 완료 상태 PASS
+- 저장된 세계관 자료의 기본 읽기 모드·명시적 `글 편집`·저장/취소 복귀, 프로젝트·세계관 자료·로어북 삭제 동작, 로어북 삭제 시 출처 초안 보존·AuditLog PASS
+- 73개 자료의 카드 행 비겹침 없음, 독립 스크롤, `자료 더 보기`가 전역 하단 이동 바와 겹치지 않음을 desktop/mobile 숫자·스크린샷으로 확인
 - 원고 작성 경계 AI 제안: 실제 Utility가 유지 사실 4·공개 유보 2·금지 변경 2개와 근거 구절을 반환, `persisted=false`; 선택 항목만 병합하고 사용자 저장 전 DB 미변경 PASS
 - 세계관 자료 AI 본문 편집: 선택 범위 수정·전체/현재 위치/이어쓰기·연결 자료 기본 선택·실행별 참고 자료·CANDIDATE 비교/반영을 desktop/mobile `2 passed`; API는 DB 미변경·GenerationRun·교차 프로젝트 차단·참고 사실 격리 PASS
 - AI 수정 문맥·확장 계약: 전체 본문과 선택부 앞뒤 전달, 문맥 요약·연결 조건 필수 응답, `더 자세히 (약 2배)` 최소 길이 JSON Schema와 4,200–8,000 출력 토큰 예산, GenerationRun 프롬프트 버전 기록 PASS. 실제 Gemma Writer에서 `기억세` 120자 선택부가 앞뒤 제도 맥락을 유지한 241자 제안으로 확장됐고 `persisted=false`, 저장 본문 120자 유지 PASS
@@ -31,7 +34,7 @@
 - 원고 저장 회귀: 제목·문단 수정과 새 문단 추가 → 다음 단계 자동 저장 → 새로고침 복원 → 테스트 데이터 원상복구 PASS
 - JSON Schema/YAML/Python bundle validation: PASS
 - Docker Compose build/up: DB healthy, backend 18000, frontend 5173
-- Alembic PostgreSQL head `20260809_0005`: 기존 데이터 backup 후 upgrade PASS; 별도 fresh DB에서 전체 upgrade → `20260808_0004` downgrade → head 재-upgrade PASS
+- Alembic PostgreSQL head `20260809_0006`: 기존 데이터 backup 후 upgrade PASS; 프로젝트 삭제 후 `project_id=NULL` 감사 묘비 보존 PASS; 별도 fresh DB에서 전체 upgrade → `20260808_0004` downgrade → head 재-upgrade PASS
 
 ## 2026-08-06 실행 상태
 

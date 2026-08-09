@@ -33,5 +33,8 @@
 | 29 | 문체 프로필 수명주기·격리 | PASS | DRAFT 명시 승인, 사용 후 새 버전, 공용/프로젝트 범위, 사용 기록 삭제 차단, 권리별 예시 격리 API test |
 | 30 | 문체·필력 생성 연결 | PASS | 글 만들기 명시 선택, Context compiler의 비사실 expression/style pack, Writer·Finalizer·부분 재작성 snapshot |
 | 31 | 필력 점검과 사용자 승인 | PASS | 원고 해시 gate, 결정론·Utility finding, 항목별 REWRITE 제안, 명시 apply 전 원고 불변 |
+| 32 | 확인 수정 복귀·순차 진행 | PASS | 소재·집필 원칙·표현 설계 수정 후 확인·작성 복귀, 설정 경계→흐름→초안 실행별 완료 색상 |
+| 33 | 저장 자료 읽기 모드·안전 삭제 | PASS | 세계관 자료 글 편집 gate, 프로젝트·자료·로어북 명시 확인 삭제, 출처 초안 보존·AuditLog |
+| 34 | 대규모 자료 하단 동작 | PASS | 73개 카드 행 비겹침 방지·독립 스크롤, `자료 더 보기`와 전역 하단 바 desktop/mobile 비겹침 |
 
 대표 실제 프로젝트 slug는 `black-route-chronicle`이며 로컬 전용 DB에 정식 세계관 자료 9개와 관계·집필 지침을 보관합니다. 기본 전개 방식 프리셋은 공용이고, 사용자가 만든 전개 방식과 참고 분석 승인 결과는 프로젝트에 귀속됩니다. 최신 자동 검증 수치는 루트 `VERIFICATION.md`를 권위 기록으로 사용합니다.

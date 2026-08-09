@@ -127,6 +127,9 @@ test('world material editor keeps writing primary and metadata compact', async (
   const commandbar = page.locator('.editor-commandbar');
   await expect(commandbar.getByRole('navigation', { name: '세계관 자료 관리' })).toBeVisible();
   await expect(commandbar.getByLabel('현재 프로젝트')).toBeVisible();
+  await expect(page.getByLabel('세계관 자료 본문')).toBeVisible();
+  await expect(page.getByLabel('자료 제목')).toHaveCount(0);
+  await page.getByRole('button', { name: '글 편집' }).click();
   await expect(page.getByLabel('자료 제목')).toBeEditable();
   await expect(page.getByLabel('한 줄 요약')).toBeEditable();
   await expect(page.locator('.archive-inspector').getByLabel('시대')).toHaveCount(0);
@@ -211,6 +214,7 @@ test('world material AI edits stay reviewable and use temporary references', asy
   const memoryTaxPage = page.locator('.archive-page-list button').filter({ has: page.getByText('기억세', { exact: true }) });
   await memoryTaxPage.click();
   await expect(page.locator('.relation-card').first()).toBeVisible();
+  await page.getByRole('button', { name: '글 편집' }).click();
 
   const rewriteButton = page.getByRole('button', { name: 'AI 수정' });
   await expect(rewriteButton).toBeDisabled();
@@ -319,6 +323,13 @@ test('dense Diablo materials stay bounded and use its project taxonomy', async (
     expect(cardBox.width).toBeLessThanOrEqual(305);
     expect(Math.abs(coverBox.width / coverBox.height - 16 / 9)).toBeLessThan(0.02);
     expect(metaBox.y).toBeGreaterThan(copyBox.y);
+    if (await page.getByRole('button', { name: /자료 더 보기/ }).count()) {
+      const moreBox = await page.getByRole('button', { name: /자료 더 보기/ }).boundingBox();
+      const navigationBox = await page.locator('.playbook-navigation').boundingBox();
+      expect(moreBox.y + moreBox.height).toBeLessThanOrEqual(navigationBox.y);
+      const fifthCardBox = await page.locator('.wizard-choice-card').nth(4).boundingBox();
+      expect(fifthCardBox.y).toBeGreaterThanOrEqual(cardBox.y + cardBox.height);
+    }
     const cardTitle = (await firstCard.locator('.wizard-card-copy strong').textContent()).trim();
     const placeholder = firstCard.locator('.project-cover-placeholder > span');
     if (await placeholder.count()) await expect(placeholder).toHaveText(cardTitle.slice(0, 5).toUpperCase());
@@ -338,6 +349,7 @@ test('lorebook defaults to reading and edit mode is reversible', async ({ page }
   await page.goto('/lorebook');
   await page.getByLabel('현재 프로젝트').selectOption({ label: 'Diablo' });
   await expect(page.locator('.lorebook-body-reader')).toBeVisible();
+  await expect(page.getByRole('button', { name: '글 삭제' })).toBeVisible();
   await expect(page.getByLabel('로어북 글 제목')).toHaveCount(0);
   await page.getByRole('button', { name: '글 편집' }).click();
   await expect(page.getByLabel('로어북 글 제목')).toBeVisible();
@@ -443,6 +455,12 @@ test('a project can be added after projects already exist', async ({ page }, tes
     const boundaryAiButton = writingBoundaries.getByRole('button', { name: 'AI 제안', exact: true });
     await expect(boundaryAiButton).toBeVisible();
     await expect.poll(() => boundaryAiButton.evaluate((element) => element.getBoundingClientRect().width === element.parentElement.getBoundingClientRect().width)).toBe(true);
+    await page.getByRole('button', { name: '변경 저장' }).click();
+    await expect(page.getByLabel('세계관 자료 본문')).toBeVisible();
+    await expect(page.getByLabel('자료 제목')).toHaveCount(0);
+    await page.getByRole('button', { name: '글 편집' }).click();
+    await expect(page.getByLabel('자료 제목')).toBeEditable();
+    await page.getByRole('button', { name: '취소', exact: true }).click();
 
     await page.getByRole('navigation', { name: '세계관 자료 관리' }).getByRole('button', { name: /^집필 지침/ }).click();
     await expectStepHelp(page, '집필 지침 설명', '이 프로젝트의 글에서 반복해 지킬');
@@ -523,6 +541,21 @@ test('a project can be added after projects already exist', async ({ page }, tes
     page.once('dialog', (dialog) => dialog.accept());
     await page.locator('.recipe-settings-card').filter({ hasText: '징후에서 결론으로 개정' }).getByRole('button', { name: '삭제' }).click();
     await expect(page.getByText("'징후에서 결론으로 개정' 전개 방식을 삭제했습니다.")).toBeVisible();
+
+    await page.getByRole('navigation', { name: '세계관 자료 관리' }).getByRole('button', { name: /^세계관 자료/ }).click();
+    await page.locator('.archive-page-list button').filter({ hasText: '경계 관측소' }).click();
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.getByRole('button', { name: '자료 삭제' }).click();
+    await expect(page.locator('.archive-page-list')).not.toContainText('경계 관측소');
+
+    await page.goto('/');
+    const disposableCard = page.locator('.project-card').filter({ has: page.getByRole('heading', { name: projectName }) });
+    page.once('dialog', (dialog) => dialog.accept());
+    const deleteProjectResponse = page.waitForResponse((response) => response.request().method() === 'DELETE' && response.url().endsWith(`/api/v1/projects/${project.id}`));
+    await disposableCard.getByRole('button', { name: `${projectName} 프로젝트 삭제` }).click();
+    expect((await deleteProjectResponse).status()).toBe(204);
+    await expect(disposableCard).toHaveCount(0);
+    project = null;
   } finally {
     if (project && apiOrigin) await removeProjectFixture(page.request, apiOrigin, project.id);
   }
@@ -546,7 +579,7 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
   await expect(page.locator('.editor-content')).toContainText('통과에는 대가가 필요하다');
   await memoryTaxPage.click();
   await expect(memoryTaxPage).toHaveClass(/active/);
-  await expect(page.locator('.manuscript-toolbar').getByLabel('자료 제목')).toHaveValue('기억세');
+  await expect(page.locator('.manuscript-read-title')).toHaveText('기억세');
   await expect(page.locator('.editor-content')).toContainText('기억세는 돈이 아니라 손실 가능성을 시민에게 배분하는 제도다');
   await expect(page.locator('.editor-content')).not.toContainText('통과에는 대가가 필요하다');
   if (testInfo.project.name === 'mobile') {
@@ -631,8 +664,12 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
   await expect(tenseGroup.getByRole('button', { name: /현재형 중심/ })).toHaveAttribute('aria-pressed', 'true');
   await viewpointGroup.getByRole('button', { name: /3인칭 제한/ }).click();
   await tenseGroup.getByRole('button', { name: /과거형 중심/ }).click();
+  await page.getByRole('group', { name: '분량' }).getByRole('button', { name: /^길게/ }).click();
   await expect(page.locator('.output-specimen')).toContainText('3인칭 제한');
   await expect(page.locator('.output-specimen')).toContainText('과거형 중심');
+  await expect(page.locator('.specimen-selection-summary')).toContainText('형식');
+  await expect(page.locator('.specimen-selection-summary')).toContainText('분량');
+  await expect(page.locator('.specimen-selection-summary')).toContainText('길게 · 약 6,500자');
   await page.getByRole('button', { name: /확인·작성으로 계속/ }).click();
 
   await expectStepHelp(page, '확인·작성 단계 설명', '선택을 확인하고 초안을 만드세요');
@@ -645,6 +682,18 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
   await expect(reviewStudio).toContainText('글의 흐름 설계');
   await expect(page.getByRole('heading', { name: '이 글이 참고할 세계관' })).toHaveCount(0);
   await expect(page.locator('.playbook-page > .playbook-navigation')).toBeVisible();
+  await expect(page.locator('.generation-route li.complete')).toHaveCount(0);
+  const originalBackground = (await reviewStudio.locator('.review-manifest-card.material dd').first().textContent()).trim();
+  await reviewStudio.locator('.review-manifest-card.material').getByRole('button', { name: '수정' }).click();
+  await expect(page.locator('.playbook-page > .playbook-navigation').getByRole('button', { name: /확인·작성으로 돌아가기/ })).toBeVisible();
+  const candidateTitles = await page.locator('.wizard-choice-card .wizard-card-copy strong').allTextContents();
+  const alternativeIndex = candidateTitles.findIndex((title) => !originalBackground.includes(title.trim()));
+  if (alternativeIndex >= 0) await page.locator('.wizard-choice-card').nth(alternativeIndex).click();
+  await page.locator('.playbook-page > .playbook-navigation').getByRole('button', { name: '수정 취소' }).click();
+  await expect(reviewStudio.locator('.review-manifest-card.material dd').first()).toHaveText(originalBackground);
+  await reviewStudio.locator('.review-manifest-card.material').getByRole('button', { name: '수정' }).click();
+  await page.locator('.playbook-page > .playbook-navigation').getByRole('button', { name: /확인·작성으로 돌아가기/ }).click();
+  await expect(reviewStudio).toBeVisible();
   await page.getByRole('button', { name: '사용할 설정 확인 설명' }).click();
   await expect(page.getByRole('tooltip').filter({ hasText: 'AI 입력으로 정리' })).toBeVisible();
   const sessionRequestPromise = page.waitForRequest((request) =>

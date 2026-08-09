@@ -86,6 +86,20 @@
     editing = false;
     message = '';
   }
+
+  async function deleteEntry() {
+    if (!selected || busy) return;
+    if (!confirm(`'${selected.title}' 로어북 글을 삭제할까요?\n\n출처 초안은 보존되지만, 이 완성본과 수정 기록은 되돌릴 수 없습니다.`)) return;
+    const deletedId = selected.id;
+    busy = '로어북 글 삭제 중'; error = ''; message = '';
+    try {
+      await api.delete(`/lorebook/${deletedId}`);
+      entries = entries.filter((entry) => entry.id !== deletedId);
+      await selectEntry(entries[0] || null);
+      message = '로어북 글을 삭제했습니다.';
+    } catch (e) { error = e.message; }
+    finally { busy = ''; }
+  }
 </script>
 
 <div class="page lorebook-page workspace-page">
@@ -135,7 +149,7 @@
           <footer class="lorebook-actions">
             {#if editing}<label>보관 상태<select bind:value={selected.status}><option value="approved">완료</option><option value="review">검토 중</option><option value="archived">보관</option></select></label>{:else}<span class="lorebook-read-note">읽기 모드 · 편집할 때만 입력란이 열립니다.</span>{/if}
             <div>
-              {#if !editing}<a class="ghost" href={`${API_BASE}/lorebook/${selected.id}/export?format=markdown`} target="_blank">Markdown</a><a class="ghost" href={`${API_BASE}/lorebook/${selected.id}/export?format=html`} target="_blank">HTML</a><a class="ghost" href={`${API_BASE}/lorebook/${selected.id}/export?format=json`} target="_blank">JSON</a>
+              {#if !editing}<button class="danger-button" on:click={deleteEntry}>글 삭제</button><a class="ghost" href={`${API_BASE}/lorebook/${selected.id}/export?format=markdown`} target="_blank">Markdown</a><a class="ghost" href={`${API_BASE}/lorebook/${selected.id}/export?format=html`} target="_blank">HTML</a><a class="ghost" href={`${API_BASE}/lorebook/${selected.id}/export?format=json`} target="_blank">JSON</a>
               {:else}<button class="ghost" on:click={cancelEdit}>취소</button><button class="primary" on:click={saveEntry}>변경 저장</button>{/if}
             </div>
           </footer>

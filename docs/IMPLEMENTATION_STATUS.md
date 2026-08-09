@@ -32,6 +32,9 @@
 - 반응형 한국어 UI, 가로 잘림 없는 모바일 하단 메뉴·단계 그리드, 자료 선택 후 본문 이동, 모바일 원고 선택·문단 편집, 자료 종류·집필 지침·전개 방식 카드 갤러리와 생성·수정 모달, 단계별 호버/클릭 설명, desktop/mobile Playwright, 정보 구조 문서, Makefile/CI/운영 문서
 - 73개 이상 자료에서도 전체 미배정 자료를 18개씩 점진적으로 여는 글 만들기와 높이가 제한된 자료 보관함
 - 모바일 전체 화면 프로젝트 생성 창, 첫 화면 프로젝트 우선 배치, 원고 도구 바로 가기, 로어북 읽기/편집 모드 분리와 줄바꿈 제목
+- 결과물 견본의 형식·시점·시제·분량 실시간 요약, 확인 항목의 수정 후 즉시 복귀, 실제 작성 진행에 따른 3단계 완료 색상
+- 세계관 자료의 저장 후 읽기 모드·명시적 글 편집, 프로젝트·세계관 자료·로어북 삭제, 출처 초안을 보존하는 로어북 삭제 API·감사 기록
+- 글 만들기 대규모 자료 카드의 비겹침 방지·독립 스크롤·전역 하단 바와 겹치지 않는 고정 `자료 더 보기`
 
 ## 실제 환경 증거
 
@@ -42,14 +45,14 @@ Utility 9-case 결과는 Qwen3.5-4B가 namespace 누출로 탈락했고 Gemma4-2
 ## 최종 검증
 
 - Ruff PASS
-- pytest `22 passed, 3 skipped` (실제 endpoint opt-in tests는 기본 run에서 skip)
+- pytest `23 passed, 3 skipped` (실제 endpoint opt-in tests는 기본 run에서 skip)
 - 실제 모델 opt-in `3 passed` (Writer/Utility, Embedding, Vision)
 - bundle/schema/YAML PASS
 - Svelte production build PASS
-- 실제 데이터 Playwright `30 passed, 6 skipped` (1600×900/390×844·360×844, 문체·필력 탭·모달·명시 선택, 세계관 자료 AI 수정·작성, 73개 자료 목록 높이, 단계 이동·설명 툴팁, 프로젝트별 자료 종류 편집, 모바일 프로젝트 생성 창, 읽기/편집 모드, 기존 생성 gate·원고 저장·완성 설정·로어북 분리 포함)
+- 실제 데이터 Playwright `30 passed, 6 skipped` (1600×900/390×844·360×844, 문체·필력 탭·모달·명시 선택, 세계관 자료 AI 수정·작성, 73개 자료 카드 스크롤·더 보기 고정, 확인 수정 복귀·결과물 요약, 삭제 UI, 단계 이동·설명 툴팁, 프로젝트별 자료 종류 편집, 모바일 프로젝트 생성 창, 읽기/편집 모드, 기존 생성 gate·원고 저장·완성 설정·로어북 분리 포함)
 - 모델 서비스 미연결 UI E2E `10 passed`
 - Compose build/up 및 DB health PASS
-- PostgreSQL Alembic `20260809_0005` 기존 데이터 upgrade 및 임시 fresh DB upgrade/downgrade/upgrade PASS
+- PostgreSQL Alembic `20260809_0006` 기존 데이터 upgrade, 프로젝트 삭제 감사 묘비 보존 및 임시 fresh DB upgrade/downgrade/upgrade PASS
 
 ## 남은 제한
 

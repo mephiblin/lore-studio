@@ -16,6 +16,7 @@
   let voiceExamples = [];
   let categories = [];
   let selectedPage = null;
+  let pageEditing = false;
   let activeTab = 'pages';
   let error = '';
   let message = '';
@@ -179,7 +180,7 @@
       pages = [page, ...pages];
       pageForm = { title: '', category_key: categories[0]?.key || '' };
       newPageOpen = false;
-      await selectPage(page, { reveal: true });
+      await selectPage(page, { reveal: true, edit: true });
       message = '새 자료를 만들었습니다. 본문과 핵심 사실을 채워 보세요.';
     } catch (e) { error = e.message; }
   }
@@ -203,6 +204,7 @@
       });
       selectedPage = decoratePage(updated);
       pages = pages.map((item) => item.id === updated.id ? updated : item);
+      pageEditing = false;
       message = '변경 내용을 저장했습니다.';
     } catch (e) { error = e.message; }
     finally { busy = ''; }
@@ -552,8 +554,9 @@
     };
   }
 
-  async function selectPage(page, { reveal = false } = {}) {
+  async function selectPage(page, { reveal = false, edit = false } = {}) {
     selectedPage = decoratePage(page);
+    pageEditing = edit;
     boundarySuggestion = null;
     relations = [];
     relationForm = { target_page_id: '', relation_type: 'RELATED_TO', notes: '' };
@@ -567,6 +570,29 @@
     catch (e) { error = e.message; }
     referenceAnalysis = null;
     message = '';
+  }
+
+  function cancelPageEdit() {
+    const persisted = pages.find((page) => page.id === selectedPage?.id);
+    if (persisted) selectedPage = decoratePage(persisted);
+    pageEditing = false;
+    boundarySuggestion = null;
+    message = '';
+  }
+
+  async function deletePage(page) {
+    if (!page || busy) return;
+    if (!confirm(`'${page.title}' 세계관 자료를 삭제할까요?\n\n이 자료의 연결·검색 인덱스·수정 기록도 함께 삭제되며 되돌릴 수 없습니다.`)) return;
+    const deletedId = page.id;
+    error = ''; message = ''; busy = '세계관 자료 삭제 중';
+    try {
+      await api.delete(`/concept-pages/${deletedId}`);
+      pages = pages.filter((item) => item.id !== deletedId);
+      if (pages[0]) await selectPage(pages[0]);
+      else { selectedPage = null; relations = []; pageEditing = false; }
+      message = `'${page.title}' 자료를 삭제했습니다.`;
+    } catch (e) { error = e.message; }
+    finally { busy = ''; }
   }
 
   function pageName(pageId) {
@@ -859,14 +885,23 @@
             <div class="card manuscript-toolbar">
               <div class="manuscript-heading-fields">
                 <span class="badge">{categoryName(selectedPage)}</span>
-                <input class="manuscript-title-input" aria-label="자료 제목" bind:value={selectedPage.title} />
-                <input class="manuscript-summary-input" aria-label="한 줄 요약" bind:value={selectedPage.summary} placeholder="이 자료를 한 문장으로 설명해 보세요." />
+                {#if pageEditing}
+                  <input class="manuscript-title-input" aria-label="자료 제목" bind:value={selectedPage.title} />
+                  <input class="manuscript-summary-input" aria-label="한 줄 요약" bind:value={selectedPage.summary} placeholder="이 자료를 한 문장으로 설명해 보세요." />
+                {:else}
+                  <h1 class="manuscript-read-title">{selectedPage.title}</h1>
+                  <p class="manuscript-read-summary">{selectedPage.summary || '한 줄 요약이 없습니다.'}</p>
+                {/if}
               </div>
-              <button class="primary" on:click={savePage}>변경 저장</button>
+              <div class="manuscript-toolbar-actions">
+                <button class="danger-button" on:click={() => deletePage(selectedPage)}>자료 삭제</button>
+                {#if pageEditing}<button class="ghost" on:click={cancelPageEdit}>취소</button><button class="primary" on:click={savePage}>변경 저장</button>{:else}<button class="primary" on:click={() => pageEditing = true}>글 편집</button>{/if}
+              </div>
             </div>
             {#key selectedPage.id}
               <TiptapEditor
                 value={selectedPage.body_json}
+                editable={pageEditing}
                 onChange={(body) => selectedPage = { ...selectedPage, body_json: body }}
                 aiPageId={selectedPage.id}
                 aiBoundaries={{
@@ -885,14 +920,14 @@
         <aside class="card archive-inspector stack">
           {#if selectedPage}
             <h2>핵심 정보</h2>
-            <label>자료 종류<select bind:value={selectedPage.category_key}>{#each categories as category}<option value={category.key}>{category.name}</option>{/each}</select></label>
-            <label>태그 <input bind:value={selectedPage.tagsText} list="known-tags" placeholder="쉼표로 구분" /></label>
+            <label>자료 종류<select disabled={!pageEditing} bind:value={selectedPage.category_key}>{#each categories as category}<option value={category.key}>{category.name}</option>{/each}</select></label>
+            <label>태그 <input disabled={!pageEditing} bind:value={selectedPage.tagsText} list="known-tags" placeholder="쉼표로 구분" /></label>
             <datalist id="known-tags">{#each allTags as tag}<option value={tag}></option>{/each}</datalist>
 
             <details open class="writing-boundaries">
               <summary>원고 작성 경계</summary>
               <div class="stack details-body">
-                <button class="primary boundary-ai-button" disabled={!!busy} on:click={suggestWritingBoundaries}>AI 제안</button>
+                <button class="primary boundary-ai-button" disabled={!pageEditing || !!busy} on:click={suggestWritingBoundaries}>AI 제안</button>
 
                 {#if boundarySuggestion}
                   <section class="boundary-review" aria-label="AI 작성 경계 제안">
@@ -919,15 +954,15 @@
 
                 <label>
                   <span class="heading-with-help">유지할 사실 <HelpTip label="유지할 사실 설명" text="원고에서 반드시 참으로 유지할 설정입니다." /></span>
-                  <textarea bind:value={selectedPage.lockedFactsText} placeholder="예: 왕은 이미 죽었다. 한 줄에 하나씩"></textarea>
+                  <textarea disabled={!pageEditing} bind:value={selectedPage.lockedFactsText} placeholder="예: 왕은 이미 죽었다. 한 줄에 하나씩"></textarea>
                 </label>
                 <label>
                   <span class="heading-with-help">공개 유보 <HelpTip label="공개 유보 설명" text="아직 정답이나 정체를 만들거나 독자에게 공개하지 않을 정보입니다." /></span>
-                  <textarea bind:value={selectedPage.openQuestionsText} placeholder="예: 범인의 정체는 아직 밝히지 않는다. 한 줄에 하나씩"></textarea>
+                  <textarea disabled={!pageEditing} bind:value={selectedPage.openQuestionsText} placeholder="예: 범인의 정체는 아직 밝히지 않는다. 한 줄에 하나씩"></textarea>
                 </label>
                 <label>
                   <span class="heading-with-help">금지된 변경·전개 <HelpTip label="금지된 변경 설명" text="흥미를 위해서도 발생시키거나 뒤집으면 안 되는 변경입니다." /></span>
-                  <textarea bind:value={selectedPage.forbiddenChangesText} placeholder="예: 왕을 다시 살리지 않는다. 한 줄에 하나씩"></textarea>
+                  <textarea disabled={!pageEditing} bind:value={selectedPage.forbiddenChangesText} placeholder="예: 왕을 다시 살리지 않는다. 한 줄에 하나씩"></textarea>
                 </label>
               </div>
             </details>
@@ -941,29 +976,29 @@
                     <strong>{pageName(otherPage(relation))}</strong>
                     {#if relation.notes}<span>{relation.notes}</span>{/if}
                   </button>
-                  <button class="icon-button" aria-label="연결 삭제" on:click={() => removeRelation(relation)}>×</button>
+                  <button class="icon-button" aria-label="연결 삭제" disabled={!pageEditing} on:click={() => removeRelation(relation)}>×</button>
                 </div>
               {/each}
               {#if !relations.length}<p class="empty-mini">아직 연결된 자료가 없습니다.</p>{/if}
               <div class="inline-create stack">
                 <strong>연결 추가</strong>
-                <label>대상 자료<select bind:value={relationForm.target_page_id}><option value="">선택하세요</option>{#each pages.filter((page) => page.id !== selectedPage.id) as page}<option value={page.id}>{page.title}</option>{/each}</select></label>
-                <label>관계<select bind:value={relationForm.relation_type}>{#each Object.entries(relationLabels) as [value, label]}<option {value}>{label}</option>{/each}</select></label>
-                <label>메모 <input bind:value={relationForm.notes} placeholder="연결 이유" /></label>
-                <button class="secondary" disabled={!relationForm.target_page_id} on:click={createRelation}>연결하기</button>
+                <label>대상 자료<select disabled={!pageEditing} bind:value={relationForm.target_page_id}><option value="">선택하세요</option>{#each pages.filter((page) => page.id !== selectedPage.id) as page}<option value={page.id}>{page.title}</option>{/each}</select></label>
+                <label>관계<select disabled={!pageEditing} bind:value={relationForm.relation_type}>{#each Object.entries(relationLabels) as [value, label]}<option {value}>{label}</option>{/each}</select></label>
+                <label>메모 <input disabled={!pageEditing} bind:value={relationForm.notes} placeholder="연결 이유" /></label>
+                <button class="secondary" disabled={!pageEditing || !relationForm.target_page_id} on:click={createRelation}>연결하기</button>
               </div>
             </section>
 
             <details>
               <summary>고급 정보</summary>
               <div class="stack details-body">
-                <label>자료 범위 <input bind:value={selectedPage.namespace} /></label>
+                <label>자료 범위 <input disabled={!pageEditing} bind:value={selectedPage.namespace} /></label>
                 <div class="notice"><strong>검색 상태</strong><div class="small">{indexStats?.indexed_pages || 0}개 자료 · {indexStats?.chunks || 0}개 조각</div></div>
-                <button class="secondary" on:click={reindexPage}>최신 내용을 검색에 반영</button>
+                <button class="secondary" disabled={!pageEditing} on:click={reindexPage}>최신 내용을 검색에 반영</button>
               </div>
             </details>
             {#if selectedPage.usage_role === 'DISCOURSE_REFERENCE'}
-              <button class="secondary" on:click={analyzeReference}>이 글의 구성·문체 분석</button>
+              <button class="secondary" disabled={!pageEditing} on:click={analyzeReference}>이 글의 구성·문체 분석</button>
               {#if referenceAnalysis}
                 <div class="rule-preview stack">
                   <strong>문단 구성 분석</strong>

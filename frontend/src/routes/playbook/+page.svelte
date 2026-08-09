@@ -16,6 +16,8 @@
   let session = null, preview = null, plan = null, generatedDocument = null;
   let busy = '', error = '', planDirty = false;
   let wizardStep = 0, furthestStep = 0;
+  let editingFromReview = false;
+  let reviewEditSnapshot = null;
 
   const slotLabels = { subject: '주제', background: '배경', elements: '주요 요소', conflicts: '갈등·변수' };
   const wizardSteps = [
@@ -71,6 +73,8 @@
   $: selectedOutputProfile = outputProfiles.find((item) => item.value === outputProfile) || outputProfiles[0];
   $: selectedViewpoint = viewpointOptions.find((item) => item.value === viewpoint) || viewpointOptions[0];
   $: selectedTense = tenseOptions.find((item) => item.value === tense) || tenseOptions[0];
+  $: selectedLength = lengthOptions.find((item) => item.value === length) || lengthOptions[1];
+  $: selectedLengthCopy = length === 'custom' ? `${Number(customLength || 0).toLocaleString()}자` : selectedLength.copy;
   $: hasCurrentSelection = activeIds.length || ['settings', 'voice'].includes(activeStep?.key) || activeStep?.key === 'guidance' && directionCardIds.length || activeStep?.key === 'recipe' && !!recipeId;
   $: nextButtonLabel = activeStep?.next ? `${hasCurrentSelection ? '' : '선택 없이 '}${activeStep.next}` : '';
   $: progressSummaries = [
@@ -122,6 +126,8 @@
       voiceProfileId = '';
       subjectIds = []; backgroundIds = []; elementIds = []; conflictIds = []; directionCardIds = [];
       wizardStep = 0; furthestStep = 0; pageLimit = 18;
+      editingFromReview = false;
+      reviewEditSnapshot = null;
       resetRun();
     } catch (e) { error = e.message; }
   }
@@ -191,6 +197,34 @@
     furthestStep = Math.max(furthestStep, index);
     conceptSearch = ''; categoryFilter = 'all'; pageLimit = 18;
     setTimeout(() => window.document.querySelector('.wizard-shell')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+  }
+
+  function editReviewSelection(index) {
+    reviewEditSnapshot = {
+      subjectIds: [...subjectIds], backgroundIds: [...backgroundIds], elementIds: [...elementIds], conflictIds: [...conflictIds],
+      directionCardIds: [...directionCardIds], recipeId, voiceProfileId, outputProfile, userDirection,
+      length, customLength, detailLevel, contextDepth, creativity, mystery, seed, viewpoint, tense,
+      session, preview, plan, generatedDocument, planDirty
+    };
+    setWizardStep(index);
+    editingFromReview = true;
+  }
+
+  function returnToReview() {
+    editingFromReview = false;
+    reviewEditSnapshot = null;
+    setWizardStep(wizardSteps.length - 1);
+  }
+
+  function cancelReviewEdit() {
+    if (reviewEditSnapshot) {
+      ({
+        subjectIds, backgroundIds, elementIds, conflictIds, directionCardIds, recipeId, voiceProfileId,
+        outputProfile, userDirection, length, customLength, detailLevel, contextDepth, creativity,
+        mystery, seed, viewpoint, tense, session, preview, plan, generatedDocument, planDirty
+      } = reviewEditSnapshot);
+    }
+    returnToReview();
   }
 
   function nextStep() {
@@ -334,7 +368,7 @@
             {/each}
             {#if !wizardPages.length}<div class="empty-state">검색 조건에 맞는 자료가 없거나, 모든 자료가 앞 단계에 배정됐습니다.</div>{/if}
           </div>
-          {#if wizardPages.length < wizardCandidates.length}<button class="secondary wizard-load-more" on:click={() => pageLimit += 18}>자료 더 보기 · {wizardCandidates.length - wizardPages.length}개 남음</button>{/if}
+          {#if wizardPages.length < wizardCandidates.length}<div class="wizard-picker-footer"><button class="secondary wizard-load-more" on:click={() => pageLimit += 18}>자료 더 보기 · {wizardCandidates.length - wizardPages.length}개 남음</button></div>{/if}
         </div>
       </div>
     {:else if activeStep.key === 'guidance'}
@@ -395,7 +429,13 @@
             <h2>{selectedOutputProfile.title}</h2>
             <blockquote>{selectedOutputProfile.copy}</blockquote>
           </div>
-          <footer><span>{selectedViewpoint.title}</span><span>{selectedTense.title}</span><span>예상 {estimatedTokens.toLocaleString()} tokens</span></footer>
+          <dl class="specimen-selection-summary" aria-label="현재 결과물 설정">
+            <div><dt>형식</dt><dd>{selectedOutputProfile.title}</dd></div>
+            <div><dt>시점</dt><dd>{selectedViewpoint.title}</dd></div>
+            <div><dt>시제</dt><dd>{selectedTense.title}</dd></div>
+            <div><dt>분량</dt><dd>{selectedLength.title} · {selectedLengthCopy}</dd></div>
+          </dl>
+          <footer><span>예상 {estimatedTokens.toLocaleString()} tokens</span><span>선택을 바꾸면 즉시 반영</span></footer>
         </aside>
 
         <div class="output-control-deck">
@@ -453,20 +493,20 @@
             {#if conceptCover(subject)}<img src={conceptCover(subject)} alt={`${subject?.title} 자료 이미지`} />{:else}<span>{conceptInitial(subject)}</span>{/if}
           </div>
           <div class="review-brief-copy"><span>원고 설계표</span><h2>{subject?.title}</h2><p>{selectedOutputProfile.title} · {selectedViewpoint.title} · {selectedTense.title}</p><small>보조 자료 {totalSupporting}개 · 집필 지침 {directionCardIds.length}개 · {selectedRecipe?.name} · {selectedVoiceProfile?.name || '모델 기본 문체'}</small></div>
-          <button class="ghost" on:click={() => setWizardStep(0)}>주제 수정</button>
+          <button class="ghost" on:click={() => editReviewSelection(0)}>주제 수정</button>
         </section>
 
         <div class="review-manifest-grid">
           <article class="review-manifest-card material">
-            <header><span>소재</span><button class="ghost" on:click={() => setWizardStep(1)}>수정</button></header>
+            <header><span>소재</span><button class="ghost" on:click={() => editReviewSelection(1)}>수정</button></header>
             <dl><div><dt>배경</dt><dd>{selectedPages(backgroundIds).map((page) => page.title).join(', ') || '선택 안 함'}</dd></div><div><dt>주요 요소</dt><dd>{selectedPages(elementIds).map((page) => page.title).join(', ') || '선택 안 함'}</dd></div><div><dt>갈등·변수</dt><dd>{selectedPages(conflictIds).map((page) => page.title).join(', ') || '선택 안 함'}</dd></div></dl>
           </article>
           <article class="review-manifest-card guidance">
-            <header><span>집필 원칙</span><button class="ghost" on:click={() => setWizardStep(4)}>수정</button></header>
+            <header><span>집필 원칙</span><button class="ghost" on:click={() => editReviewSelection(4)}>수정</button></header>
             {#if selectedCards.length}<ul>{#each selectedCards as card}<li><strong>{card.title}</strong><small>{card.body}</small></li>{/each}</ul>{:else}<p>별도 집필 지침 없이 자료의 사실 경계만 지킵니다.</p>{/if}
           </article>
           <article class="review-manifest-card expression">
-            <header><span>전개·표현 설계</span><button class="ghost" on:click={() => setWizardStep(5)}>수정</button></header>
+            <header><span>전개·표현 설계</span><button class="ghost" on:click={() => editReviewSelection(5)}>수정</button></header>
             <strong>{selectedRecipe?.name}</strong><p>{selectedRecipe?.description}</p><div><span>{selectedVoiceProfile?.name || '모델 기본 문체'}</span><span>{selectedOutputProfile.title}</span><span>{selectedViewpoint.title}</span><span>{selectedTense.title}</span></div>
           </article>
         </div>
@@ -517,11 +557,16 @@
   </div>
 
   <footer class="wizard-actions playbook-navigation">
+    {#if editingFromReview}
+      <button class="ghost" disabled={!!busy} on:click={cancelReviewEdit}>← 수정 취소</button>
+      <button class="primary" disabled={!!busy || wizardStep === 0 && !subject || activeStep.key === 'recipe' && !recipeId || activeStep.key === 'guidance' && cardConflicts.length} on:click={returnToReview}>수정 완료 · 확인·작성으로 돌아가기 →</button>
+    {:else}
     <button class="ghost" disabled={wizardStep === 0 || !!busy} on:click={() => setWizardStep(wizardStep - 1)}>← 이전</button>
     {#if activeStep.key === 'review'}
       <button class="primary" disabled={!!busy || !subject || !!plan && cardConflicts.length} on:click={runReviewNext}>{!preview ? '사용할 설정 확인' : !plan ? '글의 흐름 만들기' : '초안 작성'} →</button>
     {:else}
       <button class="primary" disabled={wizardStep === 0 && !subject || activeStep.key === 'guidance' && cardConflicts.length || activeStep.key === 'recipe' && !recipeId} on:click={nextStep}>{nextButtonLabel} →</button>
+    {/if}
     {/if}
   </footer>
 </div>

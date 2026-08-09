@@ -1,6 +1,6 @@
 # 데이터 모델
 
-현재 Alembic head는 `20260809_0005`입니다. `0001`이 PostgreSQL extension `vector`, schema `lore_app`/`lore_vector`, 기반 테이블을 만들고, `0002`~`0004`가 로어북 분리와 프로젝트 소유 자료 종류를 이관하며, `0005`가 버전형 문체 프로필·승인 예시·세션 선택 스냅샷을 추가합니다.
+현재 Alembic head는 `20260809_0006`입니다. `0001`이 PostgreSQL extension `vector`, schema `lore_app`/`lore_vector`, 기반 테이블을 만들고, `0002`~`0004`가 로어북 분리와 프로젝트 소유 자료 종류를 이관하며, `0005`가 버전형 문체 프로필·승인 예시·세션 선택 스냅샷을 추가합니다. `0006`은 프로젝트 삭제 뒤에도 감사 기록을 `project_id=NULL` 묘비로 보존합니다.
 
 | 영역 | 테이블 | 핵심 경계 |
 |---|---|---|
@@ -9,7 +9,7 @@
 | 지침/전개/표현 | direction_cards, direction_card_pools, writing_recipes, voice_profiles, voice_profile_examples | DirectionCard는 강조·금지, WritingRecipe는 정보 공개 순서, VoiceProfile은 문장 호흡·묘사·대화 원칙을 담당한다. 프로필은 상태·버전을 가지며 승인 예시는 권리 근거와 생성 사용 여부를 별도 보관한다. |
 | 실행 | playbook_sessions, generation_runs, generation_stages | seed/선택/설정/plan/evidence와 모델 감사 |
 | 문서 | lore_documents, lore_revisions, lore_blocks | `draft` 초안과 `lorebook` 완성본을 별도 행으로 저장, 출처 초안 ID·해시·최종 생성 설정, 위치/Move/근거/확실성/잠금, 전체 초안 원자 저장 리비전 |
-| 검토 | audit_findings, proposed_concept_updates, reference_analyses, audit_logs | proposal/apply/dismiss 및 명시 승인 |
+| 검토 | audit_findings, proposed_concept_updates, reference_analyses, audit_logs | proposal/apply/dismiss 및 명시 승인·삭제. 프로젝트 삭제 로그는 `project_id=NULL` 묘비 기록으로 남음 |
 | 검색 | index_jobs, lore_vector.embedding_chunks | project/source/version/hash 격리 |
 
 권위 전이는 `CANDIDATE → DRAFT_SETTING → PROJECT_CANON`만 허용합니다. 다른 source role은 근거 사용 정책이며 임의 승격 경로가 아닙니다. 후보 정사 승인은 내부적으로 두 단계를 모두 기록합니다.

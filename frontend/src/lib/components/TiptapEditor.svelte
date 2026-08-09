@@ -297,7 +297,7 @@
 <svelte:window on:keydown={closeDraftOnEscape} />
 
 <div class="editor-shell">
-  <div class="editor-toolbar" aria-label="본문 서식">
+  {#if editable}<div class="editor-toolbar" aria-label="본문 서식">
     <button type="button" on:click={() => editor?.chain().focus().toggleBold().run()} aria-label="굵게"><strong>B</strong></button>
     <button type="button" on:click={() => editor?.chain().focus().toggleItalic().run()} aria-label="기울임"><em>I</em></button>
     <button type="button" on:click={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}>제목</button>
@@ -320,7 +320,7 @@
       on:mousedown={keepSelection}
       on:click={openDraft}
     >AI 작성</button>
-  </div>
+  </div>{/if}
 
   {#if rewriteOpen}
     <form class="ai-inline-panel" aria-label="선택 영역 AI 수정" on:submit|preventDefault={submitRewrite}>
@@ -369,7 +369,7 @@
     </section>
   {/if}
 
-  <div bind:this={mount} class="editor-content"></div>
+  <div bind:this={mount} class:reader={!editable} class="editor-content" aria-label={editable ? '세계관 자료 본문 편집' : '세계관 자료 본문'}></div>
 </div>
 
 {#if draftOpen}
@@ -454,6 +454,7 @@
     color: var(--ink);
     font: 16px/1.85 Georgia, "Noto Serif KR", serif;
   }
+  .editor-content.reader :global(.ProseMirror) { cursor: default; }
   .editor-content :global(.ProseMirror > :first-child) { margin-top: 0; }
   .editor-content :global(.ProseMirror p.is-editor-empty:first-child::before) {
     color: var(--muted);

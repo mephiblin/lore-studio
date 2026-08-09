@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import ProjectCreator from '$lib/components/ProjectCreator.svelte';
   import { api } from '$lib/api';
-  import { rememberProject } from '$lib/project';
+  import { forgetProject, rememberProject } from '$lib/project';
 
   let projects = [];
   let loading = true;
@@ -121,6 +121,18 @@
       coverBusy = '';
     }
   }
+
+  async function deleteProject(project) {
+    if (!confirm(`'${project.name}' 프로젝트를 삭제할까요?\n\n이 프로젝트의 세계관 자료, 글 만들기 기록, 원고와 로어북 글이 함께 삭제됩니다. 이 작업은 되돌릴 수 없습니다.`)) return;
+    error = '';
+    try {
+      await api.delete(`/projects/${project.id}`);
+      projects = projects.filter((item) => item.id !== project.id);
+      forgetProject(project.id);
+    } catch (e) {
+      error = e.message;
+    }
+  }
 </script>
 
 <div class="page stack" style="gap:18px">
@@ -167,6 +179,7 @@
           <div class="project-actions">
             <a href="/editor" on:click={() => rememberProject(project.id)}>세계관 자료</a>
             <a href="/playbook" on:click={() => rememberProject(project.id)}>글 만들기 <span aria-hidden="true">→</span></a>
+            <button class="project-delete" aria-label={`${project.name} 프로젝트 삭제`} on:click={() => deleteProject(project)}>삭제</button>
           </div>
         </article>
       {/each}

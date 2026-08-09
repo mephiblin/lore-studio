@@ -3,7 +3,7 @@ from fastapi.testclient import TestClient
 
 from app.db import get_db
 from app.main import app
-from app.models import WritingRecipe
+from app.models import AuditLog, LoreDocument, Project, WritingRecipe
 
 
 def test_project_category_page_recipe_and_authority_api() -> None:
@@ -238,6 +238,54 @@ def test_project_category_page_recipe_and_authority_api() -> None:
         )
         assert used_recipe_delete.status_code == 409
         assert used_recipe_delete.json()["detail"]["code"] == "WRITING_RECIPE_IN_USE"
+        assert client.delete(f"/api/v1/projects/{project_id}").status_code == 204
+        assert client.get(f"/api/v1/projects/{project_id}").status_code == 404
+        project_audit = db.query(AuditLog).filter_by(
+            entity_id=project_id, entity_type="Project", action="DELETE"
+        ).one()
+        assert project_audit.before_json["name"] == "API 통합"
+    finally:
+        app.dependency_overrides.clear()
+        db.close()
+
+
+def test_lorebook_delete_keeps_source_draft_and_records_audit() -> None:
+    db = isolated_session()
+
+    def override_db():  # type: ignore[no-untyped-def]
+        yield db
+
+    project = Project(name="로어북 삭제", slug="lorebook-delete")
+    db.add(project)
+    db.flush()
+    draft = LoreDocument(
+        project_id=project.id,
+        title="보존할 초안",
+        body_markdown="초안 본문",
+        document_kind="draft",
+    )
+    db.add(draft)
+    db.flush()
+    entry = LoreDocument(
+        project_id=project.id,
+        title="삭제할 완성본",
+        body_markdown="완성본 본문",
+        document_kind="lorebook",
+        source_document_id=draft.id,
+    )
+    db.add(entry)
+    db.commit()
+    draft_id, entry_id = draft.id, entry.id
+
+    app.dependency_overrides[get_db] = override_db
+    client = TestClient(app)
+    try:
+        response = client.delete(f"/api/v1/lorebook/{entry_id}")
+        assert response.status_code == 204
+        assert db.get(LoreDocument, entry_id) is None
+        assert db.get(LoreDocument, draft_id) is not None
+        audit = db.query(AuditLog).filter_by(entity_id=entry_id, action="DELETE").one()
+        assert audit.before_json["source_document_id"] == draft_id
     finally:
         app.dependency_overrides.clear()
         db.close()
