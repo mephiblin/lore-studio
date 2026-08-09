@@ -3,8 +3,8 @@
 ```text
 SvelteKit/Tiptap (5173, trusted LAN)
   ├─ 세계관 자료 ─ 프로젝트 자료 종류/관계/권위/인덱스/Vision
-  ├─ 글 만들기 ─ seed/slots/guidance/recipe/settings/plan/SSE progress
-  ├─ 원고 작업 ─ LoreBlock/근거/audit/Diff/설정 후보/전체 초안 저장
+  ├─ 글 만들기 ─ seed/slots/guidance/recipe/voice/settings/plan/SSE progress
+  ├─ 원고 작업 ─ LoreBlock/근거/audit/Diff/필력 점검/설정 후보/전체 초안 저장
   └─ 로어북 ─ 완성본/출처 초안 계보/export
                          │
 FastAPI (18000, trusted LAN)
@@ -29,3 +29,5 @@ PostgreSQL/pgvector (55432, localhost)
 검색은 명시 선택을 우선 포함하고 lexical rank와 BGE-M3 cosine rank를 RRF로 합칩니다. factual role과 reference scope를 분리하며 embedding 장애는 FTS-only로 축소합니다.
 
 DGX NVMe에는 DB/index/current models를, NAS에는 원본/장기 모델/backup을 두는 것을 권장합니다. Compose는 Lore Studio 전용 network/volume만 사용합니다.
+
+VoiceProfile은 승인·버전이 있는 표현 원칙이며 WritingRecipe·OutputProfile과 독립적으로 선택됩니다. Context compiler는 문체 규칙과 권리가 확인된 짧은 예시를 사실 근거와 다른 예산·권위로 전달합니다. 초안, Finalizer, 부분 재작성, 필력 점검은 같은 profile/version snapshot을 사용합니다.

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import difflib
+import hashlib
 import json
 from typing import Any
 
@@ -30,10 +31,12 @@ from app.models import (
     ProposedConceptUpdate,
     ReferenceAnalysis,
     VoiceProfile,
+    VoiceProfileExample,
     WritingRecipe,
     new_id,
 )
 from app.schemas import (
+    VOICE_PROFILE_FIELDS,
     AuditFindingRead,
     AuthorityPromotion,
     CandidateCreate,
@@ -74,14 +77,27 @@ from app.schemas import (
     ProjectCreate,
     ProjectRead,
     ProjectUpdate,
+    ProseAuditRead,
+    ProseAuditRequest,
+    ProseRevisionRequest,
+    ReferenceAnalysisApprovalRequest,
     ReferenceAnalysisRead,
     ReindexRequest,
     RewriteRequest,
     SearchRequest,
+    VoiceProfileCreate,
+    VoiceProfileDuplicateRequest,
+    VoiceProfileExampleCreate,
+    VoiceProfileExampleRead,
+    VoiceProfileExampleUpdate,
+    VoiceProfileRead,
+    VoiceProfileUpdate,
     WritingRecipeCreate,
     WritingRecipeRead,
     WritingRecipeUpdate,
+    canonicalize_voice_profile_json,
 )
+from app.services.audits import prose_document_hash, run_prose_audits
 from app.services.authority import AUTHORITY_STATES, AuthorityTransitionError, promote_page
 from app.services.concept_ai import (
     ConceptAiError,
@@ -104,6 +120,7 @@ from app.services.search import hybrid_search, index_stats, run_index_job
 from app.services.utility_tools import (
     analyze_image,
     analyze_reference,
+    audit_prose,
     extract_candidates,
     suggest_direction,
     suggest_writing_boundaries,
@@ -132,6 +149,167 @@ def _require_recipe_for_project(recipe: WritingRecipe, project_id: str) -> None:
             "PROJECT_WRITING_RECIPE_REQUIRED",
             "현재 프로젝트의 전개 방식 또는 모든 프로젝트가 함께 쓰는 전개 방식만 선택할 수 있습니다.",
         )
+
+
+def _require_voice_profile_for_project(
+    profile: VoiceProfile,
+    project_id: str,
+    *,
+    approved_only: bool = True,
+) -> None:
+    allowed_statuses = {"APPROVED"} if approved_only else {"DRAFT", "APPROVED", "DEPRECATED"}
+    if profile.project_id not in {None, project_id} or profile.status not in allowed_statuses:
+        raise _error(
+            422,
+            "PROJECT_VOICE_PROFILE_REQUIRED",
+            "현재 프로젝트 또는 모든 프로젝트가 함께 쓰는 사용 가능한 문체 프로필만 선택할 수 있습니다.",
+        )
+
+
+def _next_voice_version(db: Session, profile: VoiceProfile) -> str:
+    parts = profile.version.split(".")
+    try:
+        parts[-1] = str(int(parts[-1]) + 1)
+        candidate = ".".join(parts)
+    except ValueError:
+        candidate = f"{profile.version}.1"
+    while db.scalar(
+        select(VoiceProfile.id).where(
+            VoiceProfile.project_id == profile.project_id,
+            VoiceProfile.key == profile.key,
+            VoiceProfile.version == candidate,
+        )
+    ):
+        candidate = f"{candidate}.1"
+    return candidate
+
+
+def _json_contains(value: Any, needle: str) -> bool:
+    if isinstance(value, dict):
+        return any(_json_contains(item, needle) for item in value.values())
+    if isinstance(value, list):
+        return any(_json_contains(item, needle) for item in value)
+    return value == needle
+
+
+def _voice_profile_in_use(db: Session, profile: VoiceProfile) -> bool:
+    if db.scalar(
+        select(PlaybookSession.id).where(PlaybookSession.voice_profile_id == profile.id)
+    ):
+        return True
+    runs = db.scalars(
+        select(GenerationRun).where(GenerationRun.project_id == profile.project_id)
+        if profile.project_id
+        else select(GenerationRun)
+    )
+    return any(_json_contains(run.input_json, profile.id) for run in runs)
+
+
+def _clone_voice_version(
+    db: Session,
+    profile: VoiceProfile,
+    *,
+    changes: dict[str, Any] | None = None,
+    key: str | None = None,
+    project_id: str | None | object = ...,
+) -> VoiceProfile:
+    changes = changes or {}
+    target_project_id = profile.project_id if project_id is ... else project_id
+    version = "1.0.0" if key and key != profile.key else _next_voice_version(db, profile)
+    clone = VoiceProfile(
+        project_id=target_project_id,
+        key=key or profile.key,
+        version=version,
+        name=changes.get("name", profile.name),
+        description=changes.get("description", profile.description),
+        profile_json=changes.get("profile_json", profile.profile_json),
+        source_analysis_id=profile.source_analysis_id,
+        is_builtin=False,
+        status="DRAFT",
+    )
+    db.add(clone)
+    db.flush()
+    examples = db.scalars(
+        select(VoiceProfileExample)
+        .where(VoiceProfileExample.voice_profile_id == profile.id)
+        .order_by(VoiceProfileExample.position, VoiceProfileExample.id)
+    )
+    for example in examples:
+        db.add(
+            VoiceProfileExample(
+                voice_profile_id=clone.id,
+                source_concept_page_id=(
+                    example.source_concept_page_id
+                    if target_project_id == profile.project_id
+                    else None
+                ),
+                label=example.label,
+                excerpt=example.excerpt,
+                teaches_json=example.teaches_json,
+                scene_tags=example.scene_tags,
+                rights_basis=example.rights_basis,
+                use_in_generation=example.use_in_generation,
+                position=example.position,
+                status=example.status,
+                excerpt_hash=example.excerpt_hash,
+            )
+        )
+    return clone
+
+
+def _validate_voice_examples(
+    db: Session,
+    profile: VoiceProfile,
+    example_ids: list[str],
+) -> list[VoiceProfileExample]:
+    unique_ids = list(dict.fromkeys(example_ids))
+    if not unique_ids:
+        return []
+    examples = list(
+        db.scalars(
+            select(VoiceProfileExample).where(VoiceProfileExample.id.in_(unique_ids))
+        ).all()
+    )
+    by_id = {example.id: example for example in examples}
+    if set(by_id) != set(unique_ids):
+        raise _error(422, "VOICE_EXAMPLE_NOT_FOUND", "선택한 문체 예시를 찾을 수 없습니다.")
+    ordered = [by_id[example_id] for example_id in unique_ids]
+    if any(
+        example.voice_profile_id != profile.id
+        or example.status != "ACTIVE"
+        or not example.use_in_generation
+        or example.rights_basis == "ANALYSIS_ONLY"
+        for example in ordered
+    ):
+        raise _error(
+            422,
+            "VOICE_EXAMPLE_NOT_AVAILABLE",
+            "이 프로필에서 생성 입력으로 승인된 활성 예시만 선택할 수 있습니다.",
+        )
+    return ordered
+
+
+def _apply_voice_selection(
+    db: Session,
+    *,
+    project_id: str,
+    profile_id: str | None,
+    selection_mode: str,
+    example_ids: list[str],
+) -> None:
+    if profile_id is None:
+        if selection_mode != "model_default" or example_ids:
+            raise _error(
+                422,
+                "VOICE_SELECTION_INVALID",
+                "모델 기본 문체에는 별도 문체 예시를 연결할 수 없습니다.",
+            )
+        return
+    profile = _get_or_404(db, VoiceProfile, profile_id, "문체 프로필")
+    _require_voice_profile_for_project(profile, project_id)
+    if selection_mode == "model_default":
+        raise _error(422, "VOICE_SELECTION_INVALID", "문체 프로필 선택 방식을 확인해 주세요.")
+    _validate_voice_examples(db, profile, example_ids)
 
 
 def _recipe_json_with_identity(
@@ -998,11 +1176,361 @@ def delete_writing_recipe(recipe_id: str, db: Session = Depends(get_db)) -> None
     db.commit()
 
 
+@router.get("/voice-profiles", response_model=list[VoiceProfileRead])
+def list_voice_profiles(
+    project_id: str | None = None,
+    profile_status: str | None = Query(default=None, alias="status"),
+    include_deprecated: bool = False,
+    db: Session = Depends(get_db),
+) -> list[VoiceProfile]:
+    stmt = select(VoiceProfile)
+    if project_id:
+        _get_or_404(db, Project, project_id, "프로젝트")
+        stmt = stmt.where(
+            (VoiceProfile.project_id == project_id) | (VoiceProfile.project_id.is_(None))
+        )
+    else:
+        stmt = stmt.where(VoiceProfile.project_id.is_(None))
+    if profile_status:
+        if profile_status not in {"DRAFT", "APPROVED", "DEPRECATED"}:
+            raise _error(422, "VOICE_STATUS_INVALID", "문체 프로필 상태가 올바르지 않습니다.")
+        stmt = stmt.where(VoiceProfile.status == profile_status)
+    if not include_deprecated and profile_status != "DEPRECATED":
+        stmt = stmt.where(VoiceProfile.status != "DEPRECATED")
+    rows = list(db.scalars(stmt.order_by(VoiceProfile.updated_at.desc())).all())
+    latest: dict[tuple[str | None, str], VoiceProfile] = {}
+    for profile in rows:
+        latest.setdefault((profile.project_id, profile.key), profile)
+    return sorted(latest.values(), key=lambda item: (item.name, item.version))
+
+
+@router.get("/voice-profiles/{profile_id}", response_model=VoiceProfileRead)
+def get_voice_profile(
+    profile_id: str,
+    project_id: str | None = None,
+    db: Session = Depends(get_db),
+) -> VoiceProfile:
+    profile = _get_or_404(db, VoiceProfile, profile_id, "문체 프로필")
+    if profile.project_id is not None and profile.project_id != project_id:
+        raise _error(404, "VOICE_PROFILE_NOT_FOUND", "문체 프로필을 찾을 수 없습니다.")
+    return profile
+
+
+@router.post("/voice-profiles", response_model=VoiceProfileRead, status_code=status.HTTP_201_CREATED)
+def create_voice_profile(
+    payload: VoiceProfileCreate,
+    db: Session = Depends(get_db),
+) -> VoiceProfile:
+    if payload.project_id:
+        _get_or_404(db, Project, payload.project_id, "프로젝트")
+    if not payload.profile_json.get("reader_effect", "").strip():
+        raise _error(422, "VOICE_READER_EFFECT_REQUIRED", "독자에게 남길 인상을 입력해 주세요.")
+    data = payload.model_dump()
+    data["key"] = data.get("key") or f"voice-{new_id().replace('-', '')[:12]}"
+    if not data["description"]:
+        data["description"] = data["profile_json"]["reader_effect"]
+    profile = VoiceProfile(**data, is_builtin=False, status="DRAFT")
+    db.add(profile)
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise _error(409, "VOICE_VERSION_EXISTS", "같은 키와 버전의 문체 프로필이 있습니다.") from exc
+    db.refresh(profile)
+    return profile
+
+
+@router.patch("/voice-profiles/{profile_id}", response_model=VoiceProfileRead)
+def update_voice_profile(
+    profile_id: str,
+    payload: VoiceProfileUpdate,
+    db: Session = Depends(get_db),
+) -> VoiceProfile:
+    profile = _get_or_404(db, VoiceProfile, profile_id, "문체 프로필")
+    if profile.is_builtin:
+        raise _error(409, "BUILTIN_VOICE_IMMUTABLE", "기본 문체 프로필은 수정할 수 없습니다.")
+    changes = payload.model_dump(exclude_unset=True)
+    if not changes:
+        return profile
+    if "profile_json" in changes and not changes["profile_json"].get("reader_effect", "").strip():
+        raise _error(422, "VOICE_READER_EFFECT_REQUIRED", "독자에게 남길 인상을 입력해 주세요.")
+    before = {"id": profile.id, "version": profile.version, "status": profile.status}
+    if profile.status != "DRAFT" or _voice_profile_in_use(db, profile):
+        profile = _clone_voice_version(db, profile, changes=changes)
+        action = "CREATE_VOICE_PROFILE_VERSION"
+    else:
+        for key, value in changes.items():
+            setattr(profile, key, value)
+        action = "UPDATE_VOICE_PROFILE"
+    if not profile.description:
+        profile.description = str(profile.profile_json.get("reader_effect", ""))
+    db.add(profile)
+    if profile.project_id:
+        db.add(
+            AuditLog(
+                project_id=profile.project_id,
+                action=action,
+                entity_type="VoiceProfile",
+                entity_id=profile.id,
+                before_json=before,
+                after_json={"id": profile.id, "version": profile.version, "status": profile.status},
+                reason="사용자 문체 프로필 편집",
+            )
+        )
+    db.commit()
+    db.refresh(profile)
+    return profile
+
+
+@router.post("/voice-profiles/{profile_id}/versions", response_model=VoiceProfileRead)
+def create_voice_profile_version(
+    profile_id: str,
+    payload: VoiceProfileUpdate,
+    db: Session = Depends(get_db),
+) -> VoiceProfile:
+    profile = _get_or_404(db, VoiceProfile, profile_id, "문체 프로필")
+    if profile.is_builtin:
+        raise _error(409, "BUILTIN_VOICE_IMMUTABLE", "기본 문체 프로필은 버전을 만들 수 없습니다.")
+    clone = _clone_voice_version(db, profile, changes=payload.model_dump(exclude_unset=True))
+    if clone.project_id:
+        db.add(
+            AuditLog(
+                project_id=clone.project_id,
+                action="CREATE_VOICE_PROFILE_VERSION",
+                entity_type="VoiceProfile",
+                entity_id=clone.id,
+                before_json={"id": profile.id, "version": profile.version},
+                after_json={"id": clone.id, "version": clone.version, "status": clone.status},
+                reason="사용자 새 문체 버전 생성",
+            )
+        )
+    db.commit()
+    db.refresh(clone)
+    return clone
+
+
+@router.post("/voice-profiles/{profile_id}/approve", response_model=VoiceProfileRead)
+def approve_voice_profile(profile_id: str, db: Session = Depends(get_db)) -> VoiceProfile:
+    profile = _get_or_404(db, VoiceProfile, profile_id, "문체 프로필")
+    if profile.status != "DRAFT":
+        raise _error(409, "VOICE_NOT_DRAFT", "검토 중인 문체 프로필만 승인할 수 있습니다.")
+    if not str(profile.profile_json.get("reader_effect", "")).strip():
+        raise _error(422, "VOICE_READER_EFFECT_REQUIRED", "독자에게 남길 인상을 입력해 주세요.")
+    profile.status = "APPROVED"
+    db.add(profile)
+    if profile.project_id:
+        db.add(
+            AuditLog(
+                project_id=profile.project_id,
+                action="APPROVE_VOICE_PROFILE",
+                entity_type="VoiceProfile",
+                entity_id=profile.id,
+                before_json={"status": "DRAFT"},
+                after_json={"status": "APPROVED", "version": profile.version},
+                reason="사용자 명시 승인",
+            )
+        )
+    db.commit()
+    db.refresh(profile)
+    return profile
+
+
+@router.post("/voice-profiles/{profile_id}/deprecate", response_model=VoiceProfileRead)
+def deprecate_voice_profile(profile_id: str, db: Session = Depends(get_db)) -> VoiceProfile:
+    profile = _get_or_404(db, VoiceProfile, profile_id, "문체 프로필")
+    if profile.is_builtin:
+        raise _error(409, "BUILTIN_VOICE_IMMUTABLE", "기본 문체 프로필은 사용 중지할 수 없습니다.")
+    if profile.status != "APPROVED":
+        raise _error(409, "VOICE_NOT_APPROVED", "사용 가능한 문체 프로필만 사용 중지할 수 있습니다.")
+    profile.status = "DEPRECATED"
+    db.add(profile)
+    if profile.project_id:
+        db.add(
+            AuditLog(
+                project_id=profile.project_id,
+                action="DEPRECATE_VOICE_PROFILE",
+                entity_type="VoiceProfile",
+                entity_id=profile.id,
+                before_json={"status": "APPROVED"},
+                after_json={"status": "DEPRECATED", "version": profile.version},
+                reason="사용자 문체 프로필 사용 중지",
+            )
+        )
+    db.commit()
+    db.refresh(profile)
+    return profile
+
+
+@router.post("/voice-profiles/{profile_id}/duplicate", response_model=VoiceProfileRead)
+def duplicate_voice_profile(
+    profile_id: str,
+    payload: VoiceProfileDuplicateRequest,
+    db: Session = Depends(get_db),
+) -> VoiceProfile:
+    profile = _get_or_404(db, VoiceProfile, profile_id, "문체 프로필")
+    if payload.project_id:
+        _get_or_404(db, Project, payload.project_id, "프로젝트")
+    target_project_id = (
+        payload.project_id if "project_id" in payload.model_fields_set else profile.project_id
+    )
+    clone = _clone_voice_version(
+        db,
+        profile,
+        changes={"name": payload.name or f"{profile.name} 복사본"},
+        key=f"voice-{new_id().replace('-', '')[:12]}",
+        project_id=target_project_id,
+    )
+    db.commit()
+    db.refresh(clone)
+    return clone
+
+
+@router.delete("/voice-profiles/{profile_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_voice_profile(profile_id: str, db: Session = Depends(get_db)) -> None:
+    profile = _get_or_404(db, VoiceProfile, profile_id, "문체 프로필")
+    if profile.is_builtin:
+        raise _error(409, "BUILTIN_VOICE_IMMUTABLE", "기본 문체 프로필은 삭제할 수 없습니다.")
+    if _voice_profile_in_use(db, profile):
+        raise _error(
+            409,
+            "PROFILE_IN_USE",
+            "이 문체 프로필을 사용한 글 만들기 또는 생성 기록이 있어 삭제할 수 없습니다.",
+        )
+    project_id = profile.project_id
+    profile_id_for_log = profile.id
+    db.delete(profile)
+    if project_id:
+        db.add(
+            AuditLog(
+                project_id=project_id,
+                action="DELETE_VOICE_PROFILE",
+                entity_type="VoiceProfile",
+                entity_id=profile_id_for_log,
+                before_json={"version": profile.version, "status": profile.status},
+                after_json={},
+                reason="사용자 삭제",
+            )
+        )
+    db.commit()
+
+
+@router.get(
+    "/voice-profiles/{profile_id}/examples",
+    response_model=list[VoiceProfileExampleRead],
+)
+def list_voice_profile_examples(
+    profile_id: str,
+    db: Session = Depends(get_db),
+) -> list[VoiceProfileExample]:
+    _get_or_404(db, VoiceProfile, profile_id, "문체 프로필")
+    return list(
+        db.scalars(
+            select(VoiceProfileExample)
+            .where(VoiceProfileExample.voice_profile_id == profile_id)
+            .order_by(VoiceProfileExample.position, VoiceProfileExample.id)
+        ).all()
+    )
+
+
+@router.post(
+    "/voice-profiles/{profile_id}/examples",
+    response_model=VoiceProfileExampleRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_voice_profile_example(
+    profile_id: str,
+    payload: VoiceProfileExampleCreate,
+    db: Session = Depends(get_db),
+) -> VoiceProfileExample:
+    profile = _get_or_404(db, VoiceProfile, profile_id, "문체 프로필")
+    if profile.status != "DRAFT" or profile.is_builtin:
+        raise _error(409, "VOICE_VERSION_LOCKED", "새 DRAFT 버전에서 예시를 편집해 주세요.")
+    if payload.source_concept_page_id:
+        source = _get_or_404(db, ConceptPage, payload.source_concept_page_id, "참고 페이지")
+        if profile.project_id is None or source.project_id != profile.project_id:
+            raise _error(422, "VOICE_EXAMPLE_SCOPE_MISMATCH", "프로필 범위와 참고 페이지 프로젝트가 다릅니다.")
+        if source.usage_role != "DISCOURSE_REFERENCE":
+            raise _error(422, "REFERENCE_ROLE_REQUIRED", "문체 참고 자료만 예시 출처로 연결할 수 있습니다.")
+    data = payload.model_dump()
+    excerpt = data.pop("excerpt").strip()
+    example = VoiceProfileExample(
+        **data,
+        excerpt=excerpt,
+        voice_profile_id=profile.id,
+        status="ACTIVE",
+        excerpt_hash=hashlib.sha256(excerpt.encode("utf-8")).hexdigest(),
+    )
+    db.add(example)
+    db.commit()
+    db.refresh(example)
+    return example
+
+
+@router.patch("/voice-profile-examples/{example_id}", response_model=VoiceProfileExampleRead)
+def update_voice_profile_example(
+    example_id: str,
+    payload: VoiceProfileExampleUpdate,
+    db: Session = Depends(get_db),
+) -> VoiceProfileExample:
+    example = _get_or_404(db, VoiceProfileExample, example_id, "문체 예시")
+    profile = _get_or_404(db, VoiceProfile, example.voice_profile_id, "문체 프로필")
+    if profile.status != "DRAFT" or profile.is_builtin:
+        raise _error(409, "VOICE_VERSION_LOCKED", "새 DRAFT 버전에서 예시를 편집해 주세요.")
+    changes = payload.model_dump(exclude_unset=True)
+    rights = changes.get("rights_basis", example.rights_basis)
+    if rights == "ANALYSIS_ONLY":
+        changes["use_in_generation"] = False
+    for key, value in changes.items():
+        setattr(example, key, value)
+    if "excerpt" in changes:
+        example.excerpt = example.excerpt.strip()
+        example.excerpt_hash = hashlib.sha256(example.excerpt.encode("utf-8")).hexdigest()
+    db.add(example)
+    db.commit()
+    db.refresh(example)
+    return example
+
+
+@router.post("/voice-profile-examples/{example_id}/toggle", response_model=VoiceProfileExampleRead)
+def toggle_voice_profile_example(
+    example_id: str,
+    db: Session = Depends(get_db),
+) -> VoiceProfileExample:
+    example = _get_or_404(db, VoiceProfileExample, example_id, "문체 예시")
+    profile = _get_or_404(db, VoiceProfile, example.voice_profile_id, "문체 프로필")
+    if profile.status != "DRAFT" or profile.is_builtin:
+        raise _error(409, "VOICE_VERSION_LOCKED", "새 DRAFT 버전에서 예시를 편집해 주세요.")
+    if example.rights_basis == "ANALYSIS_ONLY":
+        raise _error(422, "ANALYSIS_ONLY_EXAMPLE", "분석 전용 예시는 생성 입력에 사용할 수 없습니다.")
+    example.use_in_generation = not example.use_in_generation
+    db.add(example)
+    db.commit()
+    db.refresh(example)
+    return example
+
+
+@router.delete("/voice-profile-examples/{example_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_voice_profile_example(example_id: str, db: Session = Depends(get_db)) -> None:
+    example = _get_or_404(db, VoiceProfileExample, example_id, "문체 예시")
+    profile = _get_or_404(db, VoiceProfile, example.voice_profile_id, "문체 프로필")
+    if profile.status != "DRAFT" or profile.is_builtin:
+        raise _error(409, "VOICE_VERSION_LOCKED", "새 DRAFT 버전에서 예시를 편집해 주세요.")
+    db.delete(example)
+    db.commit()
+
+
 @router.post("/playbook-sessions", response_model=PlaybookSessionRead, status_code=status.HTTP_201_CREATED)
 def create_playbook_session(payload: PlaybookSessionCreate, db: Session = Depends(get_db)) -> PlaybookSession:
     _get_or_404(db, Project, payload.project_id, "프로젝트")
     recipe = _get_or_404(db, WritingRecipe, payload.writing_recipe_id, "전개 방식")
     _require_recipe_for_project(recipe, payload.project_id)
+    _apply_voice_selection(
+        db,
+        project_id=payload.project_id,
+        profile_id=payload.voice_profile_id,
+        selection_mode=payload.voice_selection_mode,
+        example_ids=payload.voice_example_ids,
+    )
     session = PlaybookSession(**payload.model_dump())
     db.add(session)
     db.commit()
@@ -1037,6 +1565,28 @@ def update_playbook_session(
     if "writing_recipe_id" in changes:
         recipe = _get_or_404(db, WritingRecipe, changes["writing_recipe_id"], "전개 방식")
         _require_recipe_for_project(recipe, session.project_id)
+    voice_fields = {"voice_profile_id", "voice_selection_mode", "voice_example_ids"}
+    if voice_fields & set(changes):
+        profile_id = changes.get("voice_profile_id", session.voice_profile_id)
+        if "voice_profile_id" in changes and "voice_example_ids" not in changes:
+            changes["voice_example_ids"] = []
+        example_ids = changes.get("voice_example_ids", session.voice_example_ids)
+        selection_mode = changes.get("voice_selection_mode", session.voice_selection_mode)
+        if profile_id is None:
+            selection_mode = "model_default"
+            example_ids = []
+            changes["voice_selection_mode"] = selection_mode
+            changes["voice_example_ids"] = example_ids
+        elif selection_mode == "model_default":
+            selection_mode = "profile_default"
+            changes["voice_selection_mode"] = selection_mode
+        _apply_voice_selection(
+            db,
+            project_id=session.project_id,
+            profile_id=profile_id,
+            selection_mode=selection_mode,
+            example_ids=example_ids,
+        )
     for key, value in changes.items():
         setattr(session, key, value)
     if changes:
@@ -1308,6 +1858,26 @@ async def finalize_document(
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     document = _draft_document_or_404(db, document_id)
+    voice_kwargs: dict[str, Any] = {}
+    voice_fields = {"voice_profile_id", "voice_selection_mode", "voice_example_ids"}
+    if voice_fields & payload.model_fields_set:
+        profile_id = payload.voice_profile_id
+        selection_mode = payload.voice_selection_mode or (
+            "model_default" if profile_id is None else "profile_default"
+        )
+        example_ids = payload.voice_example_ids or []
+        _apply_voice_selection(
+            db,
+            project_id=document.project_id,
+            profile_id=profile_id,
+            selection_mode=selection_mode,
+            example_ids=example_ids,
+        )
+        voice_kwargs = {
+            "voice_profile_id": profile_id,
+            "voice_selection_mode": selection_mode,
+            "voice_example_ids": example_ids,
+        }
     try:
         return await harness.finalize_document(
             db,
@@ -1317,6 +1887,7 @@ async def finalize_document(
             writing_recipe_id=payload.writing_recipe_id,
             output_profile=payload.output_profile,
             settings_json=payload.settings_json,
+            **voice_kwargs,
         )
     except ModelGatewayError as exc:
         raise _error(502, exc.code, str(exc)) from exc
@@ -1394,13 +1965,82 @@ async def propose_block_rewrite(
         "transition": "앞뒤 연결만 자연스럽게 수정",
     }
     instruction = operation_labels.get(payload.operation, payload.operation)
-    prompt = (
-        "다음 한국어 문단을 재작성하라. 새 고유 사실을 만들지 말고 결과 문단만 출력하라.\n"
-        f"작업: {instruction}\n추가 지시: {payload.instruction}\n원문:\n{block.content_markdown}"
+    snapshot = document.generation_inputs_json or {}
+    snapshot_voice = snapshot.get("voice_profile") or {}
+    effective_voice_id = (
+        payload.voice_profile_id
+        if "voice_profile_id" in payload.model_fields_set
+        else snapshot_voice.get("id", session.voice_profile_id)
     )
+    effective_voice_mode = (
+        "model_default"
+        if effective_voice_id is None
+        else snapshot.get("voice_selection_mode", session.voice_selection_mode or "profile_default")
+    )
+    effective_example_ids = [
+        str(item.get("id"))
+        for item in snapshot.get("style_examples", [])
+        if isinstance(item, dict) and item.get("id")
+    ]
+    if "voice_profile_id" in payload.model_fields_set:
+        effective_example_ids = []
+        _apply_voice_selection(
+            db,
+            project_id=document.project_id,
+            profile_id=effective_voice_id,
+            selection_mode=effective_voice_mode,
+            example_ids=effective_example_ids,
+        )
+    context_pack = compile_context(
+        db,
+        session,
+        voice_profile_id=effective_voice_id,
+        voice_selection_mode=effective_voice_mode,
+        voice_example_ids=effective_example_ids,
+    )
+    ordered_blocks = list(
+        db.scalars(
+            select(LoreBlock)
+            .where(LoreBlock.document_id == document.id)
+            .order_by(LoreBlock.position)
+        ).all()
+    )
+    block_index = next(index for index, item in enumerate(ordered_blocks) if item.id == block.id)
+    rewrite_payload = {
+        "task": instruction,
+        "additional_instruction": payload.instruction,
+        "target": block.content_markdown,
+        "before": ordered_blocks[block_index - 1].content_markdown if block_index > 0 else "",
+        "after": (
+            ordered_blocks[block_index + 1].content_markdown
+            if block_index + 1 < len(ordered_blocks)
+            else ""
+        ),
+        "fact_boundaries": {
+            "locked_facts": context_pack.get("locked_facts", []),
+            "open_questions": context_pack.get("open_questions", []),
+            "forbidden_material": context_pack.get("forbidden_material", []),
+        },
+        "expression_design": {
+            "voice_profile": context_pack.get("voice_profile"),
+            "style_examples": context_pack.get("style_examples", []),
+            "fact_eligible": False,
+        },
+        "output_contract": "앞뒤 문맥을 읽되 target 범위를 대체할 한국어 문단만 출력한다.",
+    }
     try:
         result = await harness.gateway.complete(
-            [{"role": "user", "content": prompt}],
+            [
+                {
+                    "role": "system",
+                    "content": (
+                        "원고의 국소 수정자다. 전체 문맥을 먼저 파악한 뒤 지정된 문단만 고친다. "
+                        "사실·고유명사·사건 순서를 보존하고 문체 예시의 내용은 사실로 사용하지 않는다. "
+                        "설명 없이 대체 문단만 출력한다."
+                    ),
+                },
+                {"role": "user", "content": json.dumps(rewrite_payload, ensure_ascii=False)},
+            ],
             role="writer",
             temperature=0.45,
             seed=session.seed,
@@ -1427,8 +2067,14 @@ async def propose_block_rewrite(
         endpoint=result.endpoint,
         params_json=result.params,
         usage_json=result.usage,
-        input_hash="",
-        input_json={"block_id": block.id, "operation": payload.operation, "original": block.content_markdown},
+        prompt_components={
+            "voice_profile_id": (context_pack.get("voice_profile") or {}).get("id"),
+            "voice_profile_version": (context_pack.get("voice_profile") or {}).get("version"),
+        },
+        input_hash=hashlib.sha256(
+            json.dumps(rewrite_payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
+        ).hexdigest(),
+        input_json=rewrite_payload,
         output_text=proposed,
     )
     db.add(run)
@@ -1452,6 +2098,161 @@ async def propose_block_rewrite(
     db.commit()
     db.refresh(finding)
     return finding
+
+
+@router.post("/documents/{document_id}/prose-audit", response_model=ProseAuditRead)
+async def prose_audit_document(
+    document_id: str,
+    payload: ProseAuditRequest,
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    document = _draft_document_or_404(db, document_id)
+    body = harness.draft_body(db, document)
+    current_hash = prose_document_hash(body)
+    if current_hash != payload.document_hash:
+        raise _error(409, "DOCUMENT_CHANGED", "원고가 바뀌었습니다. 저장 후 다시 점검해 주세요.")
+    snapshot_voice = (document.generation_inputs_json or {}).get("voice_profile") or {}
+    profile_id = (
+        payload.voice_profile_id
+        if "voice_profile_id" in payload.model_fields_set
+        else snapshot_voice.get("id")
+    )
+    profile: VoiceProfile | None = None
+    if profile_id:
+        profile = _get_or_404(db, VoiceProfile, profile_id, "문체 프로필")
+        if profile.project_id not in {None, document.project_id} or profile.status not in {
+            "APPROVED",
+            "DEPRECATED",
+        }:
+            raise _error(422, "PROJECT_VOICE_PROFILE_REQUIRED", "이 원고에서 사용할 수 없는 문체 프로필입니다.")
+        if payload.voice_profile_version and payload.voice_profile_version != profile.version:
+            raise _error(409, "VOICE_VERSION_CHANGED", "문체 프로필 버전이 달라졌습니다. 다시 선택해 주세요.")
+
+    deterministic = run_prose_audits(db, document, voice_profile=profile)
+    blocks = list(
+        db.scalars(
+            select(LoreBlock)
+            .where(LoreBlock.document_id == document.id)
+            .order_by(LoreBlock.position)
+        ).all()
+    )
+    audit_input = {
+        "blocks": [{"id": block.id, "body": block.content_markdown} for block in blocks],
+        "voice_profile": profile.profile_json if profile else None,
+        "deterministic_findings": [
+            {"block_id": item.block_id, "category": item.code, "reason": item.message}
+            for item in deterministic
+        ],
+    }
+    try:
+        model_audit, result = await audit_prose(
+            harness.gateway,
+            blocks=audit_input["blocks"],
+            voice_profile=audit_input["voice_profile"],
+            deterministic_findings=audit_input["deterministic_findings"],
+        )
+    except ModelGatewayError as exc:
+        model_audit = {"issues": [], "strengths": [], "uncertainties": [str(exc)]}
+        result = None
+
+    known_blocks = {block.id for block in blocks}
+    existing_pairs = {(item.block_id, item.code) for item in deterministic}
+    model_findings: list[AuditFinding] = []
+    for issue in model_audit.get("issues", []):
+        block_id = str(issue.get("block_id", ""))
+        category = str(issue.get("category", "PROFILE_CONFLICT"))
+        if block_id not in known_blocks or (block_id, category) in existing_pairs:
+            continue
+        finding = AuditFinding(
+            project_id=document.project_id,
+            document_id=document.id,
+            block_id=block_id,
+            audit_type="PROSE",
+            severity=str(issue.get("severity", "info")),
+            code=category,
+            message=str(issue.get("reason", "문체 표현을 검토해 주세요.")),
+            evidence_json={
+                "start_text": issue.get("start_text", ""),
+                "profile_rule": issue.get("profile_rule", ""),
+                "source": "utility",
+            },
+            status="PENDING",
+        )
+        db.add(finding)
+        model_findings.append(finding)
+    if result:
+        db.add(
+            GenerationRun(
+                project_id=document.project_id,
+                session_id=document.session_id,
+                document_id=document.id,
+                task="prose_audit",
+                model_role="utility",
+                model=result.model,
+                endpoint=result.endpoint,
+                params_json=result.params,
+                usage_json=result.usage,
+                prompt_components={
+                    "voice_profile_id": profile.id if profile else None,
+                    "voice_profile_version": profile.version if profile else None,
+                },
+                input_hash=hashlib.sha256(
+                    json.dumps(audit_input, ensure_ascii=False, sort_keys=True).encode("utf-8")
+                ).hexdigest(),
+                input_json=audit_input,
+                output_text=result.content,
+            )
+        )
+    db.commit()
+    findings = list(
+        db.scalars(
+            select(AuditFinding)
+            .where(
+                AuditFinding.document_id == document.id,
+                AuditFinding.audit_type == "PROSE",
+                AuditFinding.status == "PENDING",
+            )
+            .order_by(AuditFinding.created_at.desc())
+        ).all()
+    )
+    return {
+        "document_id": document.id,
+        "document_hash": current_hash,
+        "voice_profile_id": profile.id if profile else None,
+        "voice_profile_version": profile.version if profile else None,
+        "findings": findings,
+    }
+
+
+@router.post("/documents/{document_id}/prose-revision", response_model=AuditFindingRead)
+async def propose_prose_revision(
+    document_id: str,
+    payload: ProseRevisionRequest,
+    db: Session = Depends(get_db),
+) -> AuditFinding:
+    document = _draft_document_or_404(db, document_id)
+    current_hash = prose_document_hash(harness.draft_body(db, document))
+    if current_hash != payload.document_hash:
+        raise _error(409, "DOCUMENT_CHANGED", "원고가 바뀌었습니다. 저장 후 다시 제안해 주세요.")
+    source = _get_or_404(db, AuditFinding, payload.finding_id, "필력 점검 항목")
+    if source.document_id != document.id or source.audit_type != "PROSE" or not source.block_id:
+        raise _error(422, "PROSE_FINDING_NOT_REVISABLE", "문단에 연결된 필력 점검 항목만 수정 제안으로 만들 수 있습니다.")
+    rewrite_payload = RewriteRequest(
+        operation="style_only",
+        instruction=f"{source.message} {payload.instruction}".strip(),
+    )
+    if "voice_profile_id" in payload.model_fields_set:
+        rewrite_payload = RewriteRequest(
+            operation="style_only",
+            instruction=rewrite_payload.instruction,
+            voice_profile_id=payload.voice_profile_id,
+        )
+    proposal = await propose_block_rewrite(source.block_id, rewrite_payload, db)
+    proposal.evidence_json = {**proposal.evidence_json, "source_audit_id": source.id}
+    db.add(proposal)
+    db.commit()
+    db.refresh(proposal)
+    return proposal
 
 
 @router.get("/documents/{document_id}/audits", response_model=list[AuditFindingRead])
@@ -1734,37 +2535,106 @@ async def run_reference_analyzer(page_id: str, db: Session = Depends(get_db)) ->
 
 
 @router.post("/reference-analyses/{analysis_id}/approve")
-def approve_reference_analysis(analysis_id: str, db: Session = Depends(get_db)) -> dict[str, Any]:
+def approve_reference_analysis(
+    analysis_id: str,
+    payload: ReferenceAnalysisApprovalRequest | None = None,
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
     analysis = _get_or_404(db, ReferenceAnalysis, analysis_id, "참고 분석")
     if analysis.status != "CANDIDATE":
         raise _error(409, "ANALYSIS_ALREADY_DECIDED", "이미 처리된 참고 분석입니다.")
-    recipe_key = f"reference_{analysis.id[:8]}"
-    recipe_name = f"참고 분석 {analysis.id[:8]}"
-    recipe_description = "사용자가 승인한 DISCOURSE_REFERENCE 구조 분석"
-    recipe = WritingRecipe(
-        project_id=analysis.project_id,
-        key=recipe_key,
-        version="1.0.0",
-        name=recipe_name,
-        description=recipe_description,
-        recipe_json=_recipe_json_with_identity(
-            _normalize_reference_recipe(analysis),
+    payload = payload or ReferenceAnalysisApprovalRequest()
+    page = _get_or_404(db, ConceptPage, analysis.concept_page_id, "참고 페이지")
+    recipe: WritingRecipe | None = None
+    voice: VoiceProfile | None = None
+    created_examples: list[VoiceProfileExample] = []
+    if payload.approve_recipe:
+        recipe_key = f"reference_{analysis.id[:8]}"
+        recipe_name = f"참고 분석 {analysis.id[:8]}"
+        recipe_description = "사용자가 승인한 DISCOURSE_REFERENCE 구조 분석"
+        recipe = WritingRecipe(
+            project_id=analysis.project_id,
             key=recipe_key,
             version="1.0.0",
             name=recipe_name,
             description=recipe_description,
-        ),
-        approved=True,
-    )
-    voice = VoiceProfile(
-        project_id=analysis.project_id,
-        name=f"참고 Voice {analysis.id[:8]}",
-        profile_json=analysis.voice_candidate_json,
-        source_analysis_id=analysis.id,
-        approved=True,
-    )
+            recipe_json=_recipe_json_with_identity(
+                _normalize_reference_recipe(analysis),
+                key=recipe_key,
+                version="1.0.0",
+                name=recipe_name,
+                description=recipe_description,
+            ),
+            approved=True,
+        )
+        db.add(recipe)
+
+    if payload.approve_voice_profile:
+        candidate = canonicalize_voice_profile_json({
+            key: value
+            for key, value in dict(analysis.voice_candidate_json or {}).items()
+            if key in VOICE_PROFILE_FIELDS
+        })
+        selected_fields = payload.selected_voice_fields or [
+            field
+            for field, value in candidate.items()
+            if value and field != "compatibility"
+        ]
+        selected_profile = {
+            field: value
+            for field, value in candidate.items()
+            if field in selected_fields or field == "compatibility"
+        }
+        selected_profile = canonicalize_voice_profile_json(selected_profile)
+        if not selected_profile.get("reader_effect"):
+            selected_profile["reader_effect"] = "참고 글에서 승인한 절제와 리듬을 유지한다."
+        profile_project_id = analysis.project_id if payload.voice_scope == "PROJECT" else None
+        voice = VoiceProfile(
+            project_id=profile_project_id,
+            key=f"reference_{analysis.id[:8]}",
+            version="1.0.0",
+            name=f"참고 문체 {analysis.id[:8]}",
+            description=selected_profile["reader_effect"],
+            profile_json=selected_profile,
+            source_analysis_id=analysis.id if profile_project_id else None,
+            is_builtin=False,
+            status="APPROVED",
+        )
+        db.add(voice)
+        db.flush()
+        body = tiptap_to_text(page.body_json)
+        for index, selected_range in enumerate(payload.selected_example_ranges):
+            excerpt = body[selected_range.start:selected_range.end].strip()
+            if not excerpt:
+                continue
+            example = VoiceProfileExample(
+                voice_profile_id=voice.id,
+                source_concept_page_id=page.id if profile_project_id else None,
+                label=selected_range.label,
+                excerpt=excerpt,
+                teaches_json=selected_range.teaches_json,
+                scene_tags=selected_range.scene_tags,
+                rights_basis=payload.rights_basis,
+                use_in_generation=payload.rights_basis != "ANALYSIS_ONLY",
+                position=index,
+                status="ACTIVE",
+                excerpt_hash=hashlib.sha256(excerpt.encode("utf-8")).hexdigest(),
+            )
+            db.add(example)
+            created_examples.append(example)
+
     analysis.status = "APPROVED"
-    db.add_all([analysis, recipe, voice])
+    page.properties_json = {
+        **(page.properties_json or {}),
+        "approved_analysis": {
+            "analysis_id": analysis.id,
+            "paragraphs": analysis.analysis_json.get("paragraphs", []),
+            "recipe_id": recipe.id if recipe else None,
+            "voice_profile_id": voice.id if voice else None,
+            "fact_eligible": False,
+        },
+    }
+    db.add_all([analysis, page])
     db.add(
         AuditLog(
             project_id=analysis.project_id,
@@ -1772,12 +2642,24 @@ def approve_reference_analysis(analysis_id: str, db: Session = Depends(get_db)) 
             entity_type="ReferenceAnalysis",
             entity_id=analysis.id,
             before_json={"status": "CANDIDATE"},
-            after_json={"status": "APPROVED"},
+            after_json={
+                "status": "APPROVED",
+                "recipe_id": recipe.id if recipe else None,
+                "voice_profile_id": voice.id if voice else None,
+                "selected_voice_fields": payload.selected_voice_fields,
+                "example_count": len(created_examples),
+            },
             reason="사용자 명시 승인",
         )
     )
     db.commit()
-    return {"analysis_id": analysis.id, "status": analysis.status, "recipe_id": recipe.id, "voice_profile_id": voice.id}
+    return {
+        "analysis_id": analysis.id,
+        "status": analysis.status,
+        "recipe_id": recipe.id if recipe else None,
+        "voice_profile_id": voice.id if voice else None,
+        "example_ids": [example.id for example in created_examples],
+    }
 
 
 @router.get("/candidates", response_model=list[CandidateRead])

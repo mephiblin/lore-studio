@@ -8,6 +8,47 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from app.services.authority import AUTHORITY_STATES, canonical_role
 from app.services.writing_moves import canonicalize_recipe_json
 
+VOICE_PROFILE_LIST_FIELDS = {
+    "sentence_rhythm",
+    "description_rules",
+    "dialogue_rules",
+    "figurative_language",
+    "paragraph_rules",
+    "avoid_patterns",
+    "best_for",
+    "audit_rules",
+}
+VOICE_PROFILE_FIELDS = {"reader_effect", "compatibility"} | VOICE_PROFILE_LIST_FIELDS
+VOICE_SELECTION_MODES = {"model_default", "profile_default", "manual", "retrieved"}
+VOICE_RIGHTS_BASES = {"SELF_AUTHORED", "LICENSED", "PUBLIC_DOMAIN", "ANALYSIS_ONLY"}
+
+
+def canonicalize_voice_profile_json(value: dict[str, Any]) -> dict[str, Any]:
+    unknown = set(value) - VOICE_PROFILE_FIELDS
+    if unknown:
+        raise ValueError(f"지원하지 않는 문체 프로필 필드입니다: {', '.join(sorted(unknown))}")
+    result: dict[str, Any] = {}
+    reader_effect = value.get("reader_effect", "")
+    if not isinstance(reader_effect, str):
+        raise ValueError("reader_effect는 문자열이어야 합니다.")
+    result["reader_effect"] = reader_effect.strip()
+    for field in VOICE_PROFILE_LIST_FIELDS:
+        raw = value.get(field, [])
+        if not isinstance(raw, list) or any(not isinstance(item, str) for item in raw):
+            raise ValueError(f"{field}는 문자열 목록이어야 합니다.")
+        result[field] = [item.strip() for item in raw if item.strip()]
+    compatibility = value.get("compatibility", {})
+    if not isinstance(compatibility, dict) or set(compatibility) - {"viewpoints", "tenses"}:
+        raise ValueError("compatibility에는 viewpoints와 tenses만 사용할 수 있습니다.")
+    normalized_compatibility: dict[str, list[str]] = {}
+    for field in ("viewpoints", "tenses"):
+        raw = compatibility.get(field, [])
+        if not isinstance(raw, list) or any(not isinstance(item, str) for item in raw):
+            raise ValueError(f"compatibility.{field}는 문자열 목록이어야 합니다.")
+        normalized_compatibility[field] = list(dict.fromkeys(item.strip() for item in raw if item.strip()))
+    result["compatibility"] = normalized_compatibility
+    return result
+
 
 class ORMModel(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -357,6 +398,136 @@ class WritingRecipeUpdate(BaseModel):
         return WritingRecipeCreate.validate_recipe_json(value)
 
 
+class VoiceProfileRead(ORMModel):
+    id: str
+    project_id: str | None
+    key: str
+    version: str
+    name: str
+    description: str
+    profile_json: dict[str, Any]
+    source_analysis_id: str | None
+    is_builtin: bool
+    status: Literal["DRAFT", "APPROVED", "DEPRECATED"]
+    created_at: datetime
+    updated_at: datetime
+
+
+class VoiceProfileCreate(BaseModel):
+    project_id: str | None = None
+    key: str | None = Field(default=None, min_length=1, max_length=120)
+    version: str = Field(default="1.0.0", min_length=1, max_length=40)
+    name: str = Field(min_length=1, max_length=300)
+    description: str = Field(default="", max_length=1000)
+    profile_json: dict[str, Any]
+
+    @field_validator("profile_json")
+    @classmethod
+    def validate_profile_json(cls, value: dict[str, Any]) -> dict[str, Any]:
+        return canonicalize_voice_profile_json(value)
+
+
+class VoiceProfileUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=300)
+    description: str | None = Field(default=None, max_length=1000)
+    profile_json: dict[str, Any] | None = None
+
+    @field_validator("profile_json")
+    @classmethod
+    def validate_profile_json(cls, value: dict[str, Any] | None) -> dict[str, Any] | None:
+        return canonicalize_voice_profile_json(value) if value is not None else None
+
+
+class VoiceProfileDuplicateRequest(BaseModel):
+    project_id: str | None = None
+    name: str | None = Field(default=None, min_length=1, max_length=300)
+
+
+class VoiceProfileExampleRead(ORMModel):
+    id: str
+    voice_profile_id: str
+    source_concept_page_id: str | None
+    label: str
+    excerpt: str
+    teaches_json: list[str]
+    scene_tags: list[str]
+    rights_basis: Literal["SELF_AUTHORED", "LICENSED", "PUBLIC_DOMAIN", "ANALYSIS_ONLY"]
+    use_in_generation: bool
+    position: int
+    status: Literal["ACTIVE", "DISABLED", "REJECTED"]
+    excerpt_hash: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class VoiceProfileExampleCreate(BaseModel):
+    source_concept_page_id: str | None = None
+    label: str = Field(min_length=1, max_length=300)
+    excerpt: str = Field(min_length=1, max_length=12000)
+    teaches_json: list[str] = Field(default_factory=list, max_length=12)
+    scene_tags: list[str] = Field(default_factory=list, max_length=12)
+    rights_basis: Literal["SELF_AUTHORED", "LICENSED", "PUBLIC_DOMAIN", "ANALYSIS_ONLY"] = "ANALYSIS_ONLY"
+    use_in_generation: bool = False
+    position: int = Field(default=0, ge=0)
+
+    @model_validator(mode="after")
+    def isolate_analysis_only(self) -> "VoiceProfileExampleCreate":
+        self.teaches_json = list(dict.fromkeys(item.strip() for item in self.teaches_json if item.strip()))
+        self.scene_tags = list(dict.fromkeys(item.strip() for item in self.scene_tags if item.strip()))
+        if self.rights_basis == "ANALYSIS_ONLY":
+            self.use_in_generation = False
+        return self
+
+
+class VoiceProfileExampleUpdate(BaseModel):
+    label: str | None = Field(default=None, min_length=1, max_length=300)
+    excerpt: str | None = Field(default=None, min_length=1, max_length=12000)
+    teaches_json: list[str] | None = Field(default=None, max_length=12)
+    scene_tags: list[str] | None = Field(default=None, max_length=12)
+    rights_basis: Literal["SELF_AUTHORED", "LICENSED", "PUBLIC_DOMAIN", "ANALYSIS_ONLY"] | None = None
+    use_in_generation: bool | None = None
+    position: int | None = Field(default=None, ge=0)
+    status: Literal["ACTIVE", "DISABLED", "REJECTED"] | None = None
+
+
+class ReferenceExampleRange(BaseModel):
+    start: int = Field(ge=0)
+    end: int = Field(gt=0)
+    label: str = Field(default="참고 글 예시", min_length=1, max_length=300)
+    teaches_json: list[str] = Field(default_factory=list, max_length=12)
+    scene_tags: list[str] = Field(default_factory=list, max_length=12)
+
+    @model_validator(mode="after")
+    def validate_range(self) -> "ReferenceExampleRange":
+        if self.end <= self.start:
+            raise ValueError("예시 글 범위의 끝은 시작보다 커야 합니다.")
+        return self
+
+
+class ReferenceAnalysisApprovalRequest(BaseModel):
+    approve_recipe: bool = True
+    approve_voice_profile: bool = True
+    voice_scope: Literal["PROJECT", "SHARED"] = "PROJECT"
+    selected_voice_fields: list[str] = Field(default_factory=list)
+    selected_example_ranges: list[ReferenceExampleRange] = Field(default_factory=list, max_length=5)
+    rights_basis: Literal["SELF_AUTHORED", "LICENSED", "PUBLIC_DOMAIN", "ANALYSIS_ONLY"] = "ANALYSIS_ONLY"
+
+    @field_validator("selected_voice_fields")
+    @classmethod
+    def validate_selected_voice_fields(cls, value: list[str]) -> list[str]:
+        selected = list(dict.fromkeys(value))
+        unknown = set(selected) - VOICE_PROFILE_FIELDS
+        if unknown:
+            raise ValueError(f"지원하지 않는 문체 분석 필드입니다: {', '.join(sorted(unknown))}")
+        return selected
+
+    @model_validator(mode="after")
+    def require_selection(self) -> "ReferenceAnalysisApprovalRequest":
+        if not self.approve_recipe and not self.approve_voice_profile:
+            raise ValueError("전개 방식 또는 문체 프로필 중 하나 이상을 승인해야 합니다.")
+        return self
+
+
 class PlaybookSessionCreate(BaseModel):
     project_id: str
     name: str = "새 플레이북"
@@ -364,6 +535,9 @@ class PlaybookSessionCreate(BaseModel):
     direction_card_ids: list[str] = Field(default_factory=list)
     user_direction: str = ""
     writing_recipe_id: str
+    voice_profile_id: str | None = None
+    voice_selection_mode: Literal["model_default", "profile_default", "manual", "retrieved"] = "model_default"
+    voice_example_ids: list[str] = Field(default_factory=list, max_length=5)
     output_profile: str = "lore_article"
     settings_json: dict[str, Any] = Field(default_factory=lambda: {
         "length": "normal",
@@ -372,6 +546,17 @@ class PlaybookSessionCreate(BaseModel):
         "creativity": "conservative",
     })
     seed: int = 0
+
+    @model_validator(mode="after")
+    def validate_voice_selection(self) -> "PlaybookSessionCreate":
+        self.voice_example_ids = list(dict.fromkeys(self.voice_example_ids))
+        if self.voice_profile_id is None:
+            if self.voice_example_ids:
+                raise ValueError("문체 프로필 없이 예시 글만 선택할 수 없습니다.")
+            self.voice_selection_mode = "model_default"
+        elif self.voice_selection_mode == "model_default":
+            self.voice_selection_mode = "profile_default"
+        return self
 
 
 class PlaybookSessionRead(ORMModel):
@@ -382,6 +567,9 @@ class PlaybookSessionRead(ORMModel):
     direction_card_ids: list[str]
     user_direction: str
     writing_recipe_id: str
+    voice_profile_id: str | None
+    voice_selection_mode: str
+    voice_example_ids: list[str]
     output_profile: str
     settings_json: dict[str, Any]
     seed: int
@@ -398,6 +586,9 @@ class PlaybookSessionUpdate(BaseModel):
     direction_card_ids: list[str] | None = None
     user_direction: str | None = None
     writing_recipe_id: str | None = None
+    voice_profile_id: str | None = None
+    voice_selection_mode: Literal["model_default", "profile_default", "manual", "retrieved"] | None = None
+    voice_example_ids: list[str] | None = Field(default=None, max_length=5)
     output_profile: str | None = None
     settings_json: dict[str, Any] | None = None
     seed: int | None = None
@@ -432,6 +623,9 @@ class FinalizationRequest(BaseModel):
     instruction: str = Field(default="", max_length=2000)
     user_direction: str | None = Field(default=None, max_length=4000)
     writing_recipe_id: str | None = None
+    voice_profile_id: str | None = None
+    voice_selection_mode: Literal["model_default", "profile_default", "manual", "retrieved"] | None = None
+    voice_example_ids: list[str] | None = Field(default=None, max_length=5)
     output_profile: str | None = None
     settings_json: dict[str, Any] | None = None
 
@@ -606,6 +800,19 @@ class RewriteRequest(BaseModel):
     voice_profile_id: str | None = None
 
 
+class ProseAuditRequest(BaseModel):
+    document_hash: str = Field(min_length=64, max_length=128)
+    voice_profile_id: str | None = None
+    voice_profile_version: str | None = Field(default=None, max_length=40)
+
+
+class ProseRevisionRequest(BaseModel):
+    finding_id: str
+    document_hash: str = Field(min_length=64, max_length=128)
+    instruction: str = Field(default="", max_length=2000)
+    voice_profile_id: str | None = None
+
+
 class AuditFindingRead(ORMModel):
     id: str
     project_id: str
@@ -619,6 +826,14 @@ class AuditFindingRead(ORMModel):
     proposed_diff: str
     status: str
     created_at: datetime
+
+
+class ProseAuditRead(BaseModel):
+    document_id: str
+    document_hash: str
+    voice_profile_id: str | None
+    voice_profile_version: str | None
+    findings: list[AuditFindingRead]
 
 
 class GenerationResult(BaseModel):

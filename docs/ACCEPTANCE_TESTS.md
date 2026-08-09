@@ -30,5 +30,8 @@
 | 26 | 초안 전체를 완성본으로 통합 | PASS | 완성 설정 전체 수정, `FINAL_COHERENCE_PASS`, 초안과 로어북 문서 분리, 출처 해시 변경 감지 |
 | 27 | 로어북 독립 탐색 | PASS | 상단 로어북 메뉴, 기본 읽기/명시적 편집 모드, 줄바꿈 제목, 내보내기, 출처 초안 이동 |
 | 28 | 세계관 자료 AI 본문 편집 | PASS | 선택 범위 문맥 수정, 실행별 참고 자료 선택, CANDIDATE 비교·반영, DB 자동 저장 금지, 교차 프로젝트·참고 사실 격리 |
+| 29 | 문체 프로필 수명주기·격리 | PASS | DRAFT 명시 승인, 사용 후 새 버전, 공용/프로젝트 범위, 사용 기록 삭제 차단, 권리별 예시 격리 API test |
+| 30 | 문체·필력 생성 연결 | PASS | 글 만들기 명시 선택, Context compiler의 비사실 expression/style pack, Writer·Finalizer·부분 재작성 snapshot |
+| 31 | 필력 점검과 사용자 승인 | PASS | 원고 해시 gate, 결정론·Utility finding, 항목별 REWRITE 제안, 명시 apply 전 원고 불변 |
 
 대표 실제 프로젝트 slug는 `black-route-chronicle`이며 로컬 전용 DB에 정식 세계관 자료 9개와 관계·집필 지침을 보관합니다. 기본 전개 방식 프리셋은 공용이고, 사용자가 만든 전개 방식과 참고 분석 승인 결과는 프로젝트에 귀속됩니다. 최신 자동 검증 수치는 루트 `VERIFICATION.md`를 권위 기록으로 사용합니다.

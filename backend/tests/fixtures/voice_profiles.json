@@ -1,0 +1,63 @@
+{
+  "profiles": [
+    {
+      "key": "restrained_observation",
+      "name": "절제된 관찰",
+      "profile_json": {
+        "reader_effect": "담담한 관찰 뒤에 감정의 여운이 남는다.",
+        "sentence_rhythm": ["짧은 행동문과 긴 관찰문을 교차한다."],
+        "description_rules": ["감정을 이름 붙이지 않고 행동과 감각으로 드러낸다."],
+        "dialogue_rules": ["대사는 설명보다 회피와 반응을 우선한다."],
+        "figurative_language": [],
+        "paragraph_rules": ["문단마다 하나의 관찰 변화를 축적한다."],
+        "avoid_patterns": ["감정을 직접 단정하는 문장"],
+        "best_for": ["대치", "내면"],
+        "audit_rules": ["문장 길이가 한 가지로 고정되지 않는가"],
+        "compatibility": {"viewpoints": ["third_limited"], "tenses": ["past"]}
+      }
+    },
+    {
+      "key": "clear_chronicle",
+      "name": "명료한 연대기",
+      "profile_json": {
+        "reader_effect": "복잡한 사건의 인과를 놓치지 않고 따라간다.",
+        "sentence_rhythm": ["핵심 사실을 먼저 두고 보충 문장을 잇는다."],
+        "description_rules": ["시간·행동·결과를 구체 명사로 표시한다."],
+        "dialogue_rules": [],
+        "figurative_language": ["비유는 절마다 한 번 이하로 제한한다."],
+        "paragraph_rules": ["문단의 첫 문장에 변화한 상태를 둔다."],
+        "avoid_patterns": ["주체 없는 사건 나열"],
+        "best_for": ["설정집", "기록문"],
+        "audit_rules": ["원인과 결과의 주체가 드러나는가"],
+        "compatibility": {"viewpoints": ["omniscient"], "tenses": ["past", "present"]}
+      }
+    },
+    {
+      "key": "sensory_scene",
+      "name": "감각 중심 장면",
+      "profile_json": {
+        "reader_effect": "설명보다 몸과 공간의 변화를 먼저 경험한다.",
+        "sentence_rhythm": ["행동이 빨라질수록 문장을 짧게 줄인다."],
+        "description_rules": ["한 문단에서 우세 감각 하나를 고른다."],
+        "dialogue_rules": ["대사 사이 행동으로 관계의 긴장을 보인다."],
+        "figurative_language": ["장면 안에 실제로 있는 사물에서 비유를 가져온다."],
+        "paragraph_rules": ["시선 또는 몸의 이동이 있을 때 문단을 바꾼다."],
+        "avoid_patterns": ["감각 형용사의 연속 나열"],
+        "best_for": ["소설 장면", "행동"],
+        "audit_rules": ["감각 묘사가 행동을 멈추게 하지 않는가"],
+        "compatibility": {"viewpoints": ["first_observer", "third_limited"], "tenses": ["past", "present"]}
+      }
+    }
+  ],
+  "contaminated_example": {
+    "label": "분석 전용 타 작품 예시",
+    "excerpt": "제7항성의 카르멜 공작은 은빛 해협에서 고유한 성검 아르카를 들었다.",
+    "rights_basis": "ANALYSIS_ONLY",
+    "use_in_generation": false
+  },
+  "golden_contract": {
+    "voice_selection_mode": "profile_default",
+    "fact_eligible": false,
+    "excluded_rights_basis": "ANALYSIS_ONLY"
+  }
+}

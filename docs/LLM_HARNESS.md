@@ -13,3 +13,5 @@ Planner는 title/angle/blocks(move, purpose, evidence_ids, budget, must/avoid, l
 모델 장애 시 세션과 입력은 보존되고 구조화 오류는 명시 오류가 됩니다. Embedding 장애는 lexical search로 축소됩니다. 운영 경로는 실제 OpenAI 호환 endpoint만 호출하며 모델이 없거나 응답하지 않으면 성공 응답을 조작하지 않고 명시적으로 실패합니다.
 
 실제 모델 결과와 선택 기준은 `docs/model-evaluations/utility-models.*`와 `VERIFICATION.md`를 참조하십시오.
+
+VoiceProfile은 별도 `expression_design`으로 컴파일하며, 권리·상태가 허용된 짧은 예시만 독립 토큰 예산 안에서 `style_examples`에 넣습니다. 이 입력은 사실 근거가 아니며 결과물 형태와 시점·시제가 항상 우선합니다. Planner의 문단에는 `scene_mode`와 `expression_focus`가 추가됩니다. 초안·Finalizer·부분 재작성은 같은 voice snapshot을 사용합니다. 필력 점검은 결정론적 검사와 Utility 감사를 합치지만, 사용자가 항목별 Writer 수정안을 승인하기 전에는 원고를 바꾸지 않습니다.

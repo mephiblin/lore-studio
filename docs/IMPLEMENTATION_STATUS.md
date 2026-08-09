@@ -22,6 +22,8 @@
 - 세계관 자료 Tiptap 툴바의 선택 영역 `AI 수정`과 전체·현재 위치·이어쓰기 `AI 작성`, 전체 본문·선택부 앞뒤를 먼저 분석하는 문맥 기반 수정, 최소·목표 길이와 확대된 출력 예산을 적용하는 `더 자세히 (약 2배)`, 실행별 임시 참고 자료 선택, 본문 변경 감지, 진녹색·금색 고대비 `CANDIDATE` 비교·명시 반영, 저장 전 상태 보존
 - 주제·배경·주요 요소·갈등·집필 지침·공용/프로젝트 전개 방식을 한 질문씩 진행하고 결과물 종류·시점·시제·분량을 원고 견본과 의미 카드로 고르는 글 만들기, 시점·시제 생성 기록 저장
 - 프로젝트별 집필 지침(DirectionCard)과 전개 방식(WritingRecipe)을 별도 단계로 유지하고, 공용 기본 방식과 현재 프로젝트 소유 방식만 선택하도록 API 범위 격리
+- 문체·필력(VoiceProfile) 검토본·승인·중지·사용 후 새 버전, 공용/프로젝트 범위, 권리 근거가 있는 짧은 예시 관리와 분석 전용 예시의 Writer 격리
+- 글 만들기의 명시적인 `문체·필력` 단계, Context compiler의 비사실 표현 pack, Writer·Finalizer·부분 재작성의 동일 snapshot, 원고 해시 기반 필력 점검과 항목별 승인형 수정 제안
 - 자료 종류와 전개 방식을 프로젝트·글 만들기와 같은 260–300px 카드 갤러리로 통일, 자료 종류의 중복 분류 기준 제거, `required_moves` 실제 순서만 카드·계획·감사에 사용하고 단계 목적은 고정 Move 사전에서 자동 파생
 - UI 핵심 용어를 `세계관 자료 / 집필 지침 / 전개 방식 / 결과물 형태 / 초안 / 완성본 / 로어북`으로 통일하고 정보 구조 문서에 사용 규칙 고정
 - 주제·소재·집필 원칙·표현 설계 카드와 `사용할 설정 확인 → 글의 흐름 설계 → 초안 작성`을 합친 최종 원고 설계 화면, 인라인 흐름 편집, 문단 방식 툴팁, 생성 초안 자동 열기
@@ -40,14 +42,14 @@ Utility 9-case 결과는 Qwen3.5-4B가 namespace 누출로 탈락했고 Gemma4-2
 ## 최종 검증
 
 - Ruff PASS
-- pytest `18 passed, 3 skipped` (실제 endpoint opt-in tests는 기본 run에서 skip)
+- pytest `22 passed, 3 skipped` (실제 endpoint opt-in tests는 기본 run에서 skip)
 - 실제 모델 opt-in `3 passed` (Writer/Utility, Embedding, Vision)
 - bundle/schema/YAML PASS
 - Svelte production build PASS
-- 실제 데이터 Playwright `28 passed, 6 skipped` (1600×900/390×844·360×844, 세계관 자료 AI 수정·작성, 73개 자료 목록 높이, 단계 이동·설명 툴팁, 프로젝트별 자료 종류 편집, 모바일 프로젝트 생성 창, 읽기/편집 모드, 기존 생성 gate·원고 저장·완성 설정·로어북 분리 포함)
+- 실제 데이터 Playwright `30 passed, 6 skipped` (1600×900/390×844·360×844, 문체·필력 탭·모달·명시 선택, 세계관 자료 AI 수정·작성, 73개 자료 목록 높이, 단계 이동·설명 툴팁, 프로젝트별 자료 종류 편집, 모바일 프로젝트 생성 창, 읽기/편집 모드, 기존 생성 gate·원고 저장·완성 설정·로어북 분리 포함)
 - 모델 서비스 미연결 UI E2E `10 passed`
 - Compose build/up 및 DB health PASS
-- PostgreSQL Alembic upgrade/downgrade/upgrade PASS
+- PostgreSQL Alembic `20260809_0005` 기존 데이터 upgrade 및 임시 fresh DB upgrade/downgrade/upgrade PASS
 
 ## 남은 제한
 

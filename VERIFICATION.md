@@ -7,10 +7,11 @@
 ## 자동 검증
 
 - Ruff: `All checks passed`
-- pytest: `18 passed, 3 skipped` (Writer/Utility, Embedding, Vision 실제 endpoint tests는 기본 suite에서 의도적으로 skip)
+- pytest: `22 passed, 3 skipped` (Writer/Utility, Embedding, Vision 실제 endpoint tests는 기본 suite에서 의도적으로 skip)
 - 실제 모델 opt-in: `3 passed` (Writer/Utility structured output, BGE-M3 1024차원, Vision data URL)
 - SvelteKit adapter-node production build: PASS
-- Playwright Chromium desktop 1600×900/mobile 390×844 실제 인수 자료 포함 회귀: `28 passed, 6 skipped`
+- Playwright Chromium desktop 1600×900/mobile 390×844 실제 인수 자료 포함 회귀: `30 passed, 6 skipped`
+- 문체·필력: DRAFT 명시 승인·사용 후 새 버전·공용/프로젝트 범위·권리별 짧은 예시 격리 API, 다섯 번째 로컬 탭과 내부 스크롤·고정 footer 모달, 글 만들기 `모델 기본 문체`/승인 프로필 명시 선택, profile/version/example GenerationRun snapshot, 원고 필력 점검과 승인형 수정 제안 PASS
 - 프로젝트 전개 방식 생성·수정·글 만들기 선택·삭제 desktop/mobile 집중 회귀: `2 passed`
 - 세계관 자료의 전개 방식 목록: 검은 항로/신규 프로젝트 모두 공용 기본 6개 노출, 프로젝트 전용 항목과 출처 구분 PASS
 - 전개 방식·자료 종류 카드 갤러리: desktop 카드 폭 305px 이하, mobile 1열, 실제 `required_moves` 순서 표시, 별도 카드 표시·분류 기준 입력 제거, 단계 목적 자동 파생, 생성·수정 모달 접근과 저장 후 자동 닫힘 desktop/mobile PASS
@@ -30,7 +31,7 @@
 - 원고 저장 회귀: 제목·문단 수정과 새 문단 추가 → 다음 단계 자동 저장 → 새로고침 복원 → 테스트 데이터 원상복구 PASS
 - JSON Schema/YAML/Python bundle validation: PASS
 - Docker Compose build/up: DB healthy, backend 18000, frontend 5173
-- Alembic PostgreSQL head `20260805_0003`: upgrade → downgrade → upgrade PASS; `lore_app` 21 tables, `lore_vector` 1 table
+- Alembic PostgreSQL head `20260809_0005`: 기존 데이터 backup 후 upgrade PASS; 별도 fresh DB에서 전체 upgrade → `20260808_0004` downgrade → head 재-upgrade PASS
 
 ## 2026-08-06 실행 상태
 

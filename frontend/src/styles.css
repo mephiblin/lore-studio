@@ -190,8 +190,8 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
 .project-create-close { flex: 0 0 40px; }
 .project-create-submit { min-height: 44px; }
 .project-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(var(--gallery-card-min), 100%), var(--gallery-card-width))); gap: 13px; align-items: start; justify-content: start; }
-.project-card, .wizard-choice-card, .direction-option, .recipe-option, .recipe-settings-card, .category-settings-card { min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 6px; background: #fff; box-shadow: 0 1px 0 rgba(255,255,255,.9); transition: transform .15s, border-color .15s, box-shadow .15s; }
-.project-card:hover, .wizard-choice-card:hover, .direction-option:hover, .recipe-option:hover, .recipe-settings-card:hover, .category-settings-card:hover { transform: translateY(-2px); border-color: var(--line-strong); box-shadow: 0 12px 30px rgba(20,43,53,.1); }
+.project-card, .wizard-choice-card, .direction-option, .recipe-option, .recipe-settings-card, .category-settings-card, .voice-profile-card { min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 6px; background: #fff; box-shadow: 0 1px 0 rgba(255,255,255,.9); transition: transform .15s, border-color .15s, box-shadow .15s; }
+.project-card:hover, .wizard-choice-card:hover, .direction-option:hover, .recipe-option:hover, .recipe-settings-card:hover, .category-settings-card:hover, .voice-profile-card:hover { transform: translateY(-2px); border-color: var(--line-strong); box-shadow: 0 12px 30px rgba(20,43,53,.1); }
 .project-cover { position: relative; aspect-ratio: 16 / 9; overflow: hidden; border-bottom: 1px solid var(--line); background: #dce5e1; }
 .project-cover img { width: 100%; height: 100%; display: block; object-fit: cover; transition: transform .35s ease; }
 .project-card:hover .project-cover img { transform: scale(1.025); }
@@ -224,7 +224,7 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
 .editor-commandbar .section-tabs { flex: 0 0 auto; margin: 0; padding: 0; border: 0; background: transparent; box-shadow: none; }
 .editor-commandbar .project-tools { margin-left: auto; }
 .workflow-commandbar { justify-content: space-between; align-items: stretch; gap: 10px; padding-block: 5px; }
-.workflow-commandbar .wizard-progress { flex: 1 1 auto; min-width: 0; grid-template-columns: repeat(8, minmax(0, 1fr)); margin: 0; overflow: visible; border: 0; border-radius: 4px; background: transparent; }
+.workflow-commandbar .wizard-progress { flex: 1 1 auto; min-width: 0; grid-template-columns: repeat(9, minmax(0, 1fr)); margin: 0; overflow: visible; border: 0; border-radius: 4px; background: transparent; }
 .workflow-commandbar .document-wizard-progress { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .workflow-commandbar .project-tools { flex: 0 0 auto; margin-left: auto; }
 .workflow-commandbar .wizard-step-button { min-height: 48px; gap: 6px; padding: 6px 23px 6px 8px; }
@@ -326,7 +326,7 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
 .direction-rule-grid { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
 .suggestion-review { position: sticky; bottom: 14px; z-index: 8; box-shadow: var(--shadow); }
 .suggestion-review h3 { margin: 0; }
-.category-settings-list, .recipe-settings-list { min-height: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(var(--gallery-card-min), 100%), var(--gallery-card-width))); gap: 13px; align-content: start; justify-content: start; }
+.category-settings-list, .recipe-settings-list, .voice-profile-list { min-height: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(var(--gallery-card-min), 100%), var(--gallery-card-width))); gap: 13px; align-content: start; justify-content: start; }
 .category-settings-card { display: grid; grid-template-rows: auto auto auto; }
 .category-card-mark { position: relative; min-height: 96px; display: grid; place-items: center; overflow: hidden; border-bottom: 1px solid var(--line); color: #e8bd70; background: #224942; }
 .category-card-mark::before { content:""; position:absolute; inset:0; opacity:.18; background:repeating-linear-gradient(90deg, transparent 0 33px, #b8cdc5 33px 34px), repeating-linear-gradient(0deg, transparent 0 33px, #b8cdc5 33px 34px); }
@@ -365,6 +365,32 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
 .recipe-card-copy > small b { margin-right:5px; color:var(--ink-soft); }
 .recipe-origin { color: #527366; font-size: 9px; font-weight: 780; }
 .recipe-edit-form { min-width: 0; }
+.voice-profile-card { display:grid; grid-template-rows:auto 1fr auto; }
+.voice-profile-card.deprecated { opacity:.62; }
+.voice-rhythm-cover { min-height:132px; display:grid; align-content:center; gap:10px; padding:23px 20px; border-bottom:1px solid rgba(255,255,255,.1); background:linear-gradient(145deg, #163c35, #27564c); }
+.voice-rhythm-cover span { height:5px; border-radius:999px; background:#dfb55f; box-shadow:0 10px 0 rgba(239,231,208,.18); }
+.voice-rhythm-cover span:nth-child(even) { justify-self:end; background:#f2ead1; }
+.voice-card-copy { min-height:154px; padding:15px; }
+.voice-card-copy h3 { margin:9px 0 6px; color:var(--ink); font:600 18px/1.25 Georgia, "Noto Serif KR", serif; }
+.voice-card-copy > p { display:-webkit-box; min-height:38px; margin:0 0 11px; overflow:hidden; color:var(--muted-text); font-size:11px; line-height:1.65; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
+.voice-scope { color:#527366; font-size:9px; font-weight:780; }
+.voice-card-footer { min-height:52px; display:grid; gap:7px; padding:9px 11px 10px 14px; border-top:1px solid var(--line); background:var(--paper-deep); }
+.voice-card-footer > span { color:var(--muted-text); font-size:9px; font-weight:720; }
+.voice-card-footer > div { display:flex; flex-wrap:wrap; gap:5px; }
+.voice-card-footer button { min-height:30px; padding:5px 8px; font-size:9px; }
+.reference-approval-actions { display:flex; flex-wrap:wrap; gap:7px; }
+.voice-rule-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; }
+.voice-rule-grid textarea { min-height:88px; }
+.voice-example-section { padding-top:18px; border-top:1px solid var(--line); }
+.voice-example-section h3 { margin:0; color:var(--ink); font:600 18px/1.25 Georgia, "Noto Serif KR", serif; }
+.voice-example-section > div > p { margin:4px 0 0; color:var(--muted-text); font-size:11px; line-height:1.55; }
+.voice-example-row { display:grid; grid-template-columns:minmax(0, 1fr) auto; gap:14px; padding:12px; border:1px solid var(--line); border-radius:5px; background:#fff; }
+.voice-example-row p { margin:5px 0; color:var(--ink-soft); font-size:11px; line-height:1.6; white-space:pre-wrap; }
+.voice-example-row small { color:var(--muted-text); font-size:9px; }
+.voice-example-row > div:last-child { display:flex; align-items:start; gap:5px; }
+.voice-example-row .secondary.active { color:var(--gold); background:var(--nav-deep); }
+.voice-example-create { display:grid; gap:9px; padding:13px; border:1px dashed var(--line-strong); border-radius:5px; background:var(--paper-deep); }
+.voice-example-create textarea { min-height:80px; }
 
 /* World settings follow the AI writing surface: quiet backdrop, scrollable form, fixed decisions. */
 .settings-modal-backdrop { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(15, 29, 27, .42); backdrop-filter: blur(2px); }
@@ -481,7 +507,7 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
 
 /* Survey-style playbook. The progress line reads like a route plotted across a chart. */
 .wizard-shell { overflow: hidden; border: 1px solid var(--line); border-radius: 9px; background: rgba(251, 252, 251, .86); box-shadow: 0 8px 30px rgba(20, 43, 53, .045); }
-.wizard-progress { display: grid; grid-template-columns: repeat(8, minmax(96px, 1fr)); overflow: visible; border-bottom: 1px solid var(--line); background: var(--paper-deep); }
+.wizard-progress { display: grid; grid-template-columns: repeat(9, minmax(96px, 1fr)); overflow: visible; border-bottom: 1px solid var(--line); background: var(--paper-deep); }
 .wizard-progress-item { position: relative; min-width: 0; border-right: 1px solid var(--line); }
 .wizard-progress-item:last-child { border-right: 0; }
 .wizard-step-button { position: relative; width: 100%; min-height: 72px; display: flex; gap: 8px; align-items: center; padding: 11px 32px 11px 13px; border: 0; background: transparent; color: var(--muted-text); text-align: left; }
@@ -535,6 +561,17 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
 .direction-option.selected strong, .direction-option.selected p, .direction-option.selected small, .direction-option.selected span:not(.choice-check), .recipe-option.selected > strong, .recipe-option.selected > p, .recipe-option.selected > small, .recipe-option.selected > small b, .recipe-option.selected .recipe-scope { color: var(--nav-accent); }
 .recipe-option.selected .recipe-flow { background: var(--nav-deep); }
 .recipe-option.selected .recipe-flow span { color: var(--nav-accent); border-color: #806d42; background: var(--nav-active); }
+.voice-option-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(var(--gallery-card-min), 100%), var(--gallery-card-width))); gap:13px; align-items:start; justify-content:start; padding:clamp(18px, 3vw, 30px); }
+.voice-option { position:relative; min-width:0; min-height:300px; display:grid; grid-template-rows:132px auto auto 1fr auto; gap:0; overflow:hidden; padding:0 15px 15px; border:1px solid var(--line); border-radius:6px; color:var(--ink); background:#fff; text-align:left; }
+.voice-option:hover { transform:translateY(-2px); border-color:var(--line-strong); box-shadow:0 12px 30px rgba(20,43,53,.1); }
+.voice-option.selected { border-color:var(--nav-accent); color:var(--nav-accent); background:var(--nav-active); box-shadow:0 10px 26px rgba(16,43,54,.16); }
+.voice-option-cover { align-self:stretch; display:grid; align-content:center; gap:10px; margin:0 -15px 13px; padding:22px 20px; background:linear-gradient(145deg, #163c35, #27564c); }
+.voice-option-cover span { height:5px; border-radius:999px; background:#dfb55f; }
+.voice-option-cover span:nth-child(even) { justify-self:end; background:#f2ead1; }
+.voice-option > strong { margin:6px 0; font:600 18px/1.25 Georgia, "Noto Serif KR", serif; }
+.voice-option > p { margin:0 0 12px; color:var(--muted-text); font-size:11px; line-height:1.65; }
+.voice-option.selected > p, .voice-option.selected .voice-scope { color:var(--nav-accent); }
+.voice-option.model-default .voice-option-cover { background:linear-gradient(145deg, #6e756f, #899089); }
 .output-studio { display: grid; grid-template-columns: minmax(230px, .34fr) minmax(0, 1fr); gap: 16px; padding: clamp(18px, 3vw, 30px); }
 .output-specimen { position: sticky; top: 0; min-height: 540px; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; padding: 24px; border-radius: 8px; color: #e8f0ed; background: var(--nav-deep); box-shadow: 0 18px 38px rgba(16,43,54,.14); }
 .output-specimen::before { content: ""; position: absolute; inset: 0; opacity: .12; background: repeating-linear-gradient(0deg, transparent 0 35px, #b8cdc5 35px 36px); pointer-events: none; }
@@ -768,7 +805,8 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
   .brand strong { display: none; }
   .home-thesis { padding: 18px 20px 20px; }
   .home-thesis h1 { font-size: 28px; }
-  .project-grid, .wizard-card-grid, .direction-option-grid, .recipe-option-grid, .concept-card-grid, .category-settings-list, .recipe-settings-list, .rule-grid { grid-template-columns: 1fr; }
+  .project-grid, .wizard-card-grid, .direction-option-grid, .recipe-option-grid, .voice-option-grid, .concept-card-grid, .category-settings-list, .recipe-settings-list, .voice-profile-list, .rule-grid, .voice-rule-grid { grid-template-columns: 1fr; }
+  .voice-example-row { grid-template-columns: 1fr; }
   .direction-rule-fields { grid-template-columns: 1fr; }
   .direction-ending-field { grid-column: auto; }
   .section-tabs { width: 100%; }

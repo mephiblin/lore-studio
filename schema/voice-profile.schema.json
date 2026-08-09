@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "VoiceProfile",
+  "type": "object",
+  "required": [
+    "key",
+    "version",
+    "name",
+    "status",
+    "profile_json"
+  ],
+  "properties": {
+    "project_id": {
+      "description": "null이면 모든 프로젝트, 문자열이면 해당 프로젝트 전용",
+      "type": ["string", "null"]
+    },
+    "key": {"type": "string"},
+    "version": {"type": "string"},
+    "name": {"type": "string"},
+    "description": {"type": "string"},
+    "status": {
+      "enum": ["DRAFT", "APPROVED", "DEPRECATED"]
+    },
+    "profile_json": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reader_effect"],
+      "properties": {
+        "reader_effect": {"type": "string"},
+        "sentence_rhythm": {"$ref": "#/$defs/stringList"},
+        "description_rules": {"$ref": "#/$defs/stringList"},
+        "dialogue_rules": {"$ref": "#/$defs/stringList"},
+        "figurative_language": {"$ref": "#/$defs/stringList"},
+        "paragraph_rules": {"$ref": "#/$defs/stringList"},
+        "avoid_patterns": {"$ref": "#/$defs/stringList"},
+        "best_for": {"$ref": "#/$defs/stringList"},
+        "audit_rules": {"$ref": "#/$defs/stringList"},
+        "compatibility": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "viewpoints": {"$ref": "#/$defs/stringList"},
+            "tenses": {"$ref": "#/$defs/stringList"}
+          }
+        }
+      }
+    },
+    "examples": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {"$ref": "#/$defs/example"}
+    }
+  },
+  "$defs": {
+    "stringList": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "example": {
+      "type": "object",
+      "required": [
+        "label",
+        "excerpt",
+        "rights_basis",
+        "use_in_generation",
+        "status"
+      ],
+      "properties": {
+        "label": {"type": "string"},
+        "excerpt": {"type": "string"},
+        "teaches_json": {"$ref": "#/$defs/stringList"},
+        "scene_tags": {"$ref": "#/$defs/stringList"},
+        "rights_basis": {
+          "enum": ["SELF_AUTHORED", "LICENSED", "PUBLIC_DOMAIN", "ANALYSIS_ONLY"]
+        },
+        "use_in_generation": {"type": "boolean"},
+        "status": {"enum": ["ACTIVE", "DISABLED", "REJECTED"]},
+        "excerpt_hash": {"type": "string"}
+      }
+    }
+  }
+}

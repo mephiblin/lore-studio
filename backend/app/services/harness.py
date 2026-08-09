@@ -20,7 +20,7 @@ from app.models import (
 )
 from app.services.audits import run_audits
 from app.services.config_loader import load_output_profiles, load_prompt
-from app.services.context_compiler import compile_context
+from app.services.context_compiler import UNSET, compile_context
 from app.services.model_gateway import ModelGateway
 from app.services.revisions import add_lore_revision
 
@@ -52,6 +52,8 @@ PLAN_SCHEMA: dict[str, Any] = {
                     "word_budget",
                     "must_include",
                     "avoid",
+                    "scene_mode",
+                    "expression_focus",
                 ],
                 "properties": {
                     "move": {"type": "string"},
@@ -60,6 +62,8 @@ PLAN_SCHEMA: dict[str, Any] = {
                     "word_budget": {"type": "integer", "minimum": 50},
                     "must_include": {"type": "array", "items": {"type": "string"}},
                     "avoid": {"type": "array", "items": {"type": "string"}},
+                    "scene_mode": {"type": "string"},
+                    "expression_focus": {"type": "string"},
                     "locked": {"type": "boolean"},
                 },
             },
@@ -162,6 +166,8 @@ def _normalize_plan(data: dict[str, Any], pack: dict[str, Any]) -> dict[str, Any
                 "word_budget": budget,
                 "must_include": list(item.get("must_include") or []),
                 "avoid": list(item.get("avoid") or item.get("must_avoid") or []),
+                "scene_mode": str(item.get("scene_mode") or "설명"),
+                "expression_focus": str(item.get("expression_focus") or ""),
                 "locked": bool(item.get("locked", False)),
             }
         )
@@ -244,6 +250,9 @@ class LoreHarness:
     def context_preview(self, db: Session, session: PlaybookSession) -> dict[str, Any]:
         pack = compile_context(db, session)
         session.evidence_pack_json = pack
+        session.voice_example_ids = [
+            str(example["id"]) for example in pack.get("style_examples", [])
+        ]
         db.add(session)
         _record_stage(
             db,
@@ -277,6 +286,9 @@ class LoreHarness:
         *,
         user_direction: str | None = None,
         writing_recipe_id: str | None = None,
+        voice_profile_id: str | None | object = UNSET,
+        voice_selection_mode: str | None = None,
+        voice_example_ids: list[str] | None = None,
         output_profile: str | None = None,
         settings_json: dict[str, Any] | None = None,
     ) -> tuple[PlaybookSession, dict[str, Any], dict[str, Any], str]:
@@ -316,6 +328,9 @@ class LoreHarness:
             output_profile=effective_profile,
             user_direction=effective_direction,
             settings_json=effective_settings,
+            voice_profile_id=voice_profile_id,
+            voice_selection_mode=voice_selection_mode,
+            voice_example_ids=voice_example_ids,
         )
         inputs = {
             "user_direction": effective_direction,
@@ -332,6 +347,17 @@ class LoreHarness:
                 "version": writing_recipe.version,
                 "recipe": writing_recipe.recipe_json,
             },
+            "voice_profile": pack.get("voice_profile"),
+            "voice_selection_mode": pack.get("voice_selection_mode", "model_default"),
+            "style_examples": [
+                {
+                    "id": example.get("id"),
+                    "label": example.get("label"),
+                    "excerpt_hash": example.get("excerpt_hash"),
+                    "teaches": example.get("teaches", []),
+                }
+                for example in pack.get("style_examples", [])
+            ],
         }
         draft = self.draft_body(db, document)
         return session, pack, inputs, draft
@@ -368,6 +394,9 @@ class LoreHarness:
         instruction: str = "",
         user_direction: str | None = None,
         writing_recipe_id: str | None = None,
+        voice_profile_id: str | None | object = UNSET,
+        voice_selection_mode: str | None = None,
+        voice_example_ids: list[str] | None = None,
         output_profile: str | None = None,
         settings_json: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
@@ -376,6 +405,9 @@ class LoreHarness:
             document,
             user_direction=user_direction,
             writing_recipe_id=writing_recipe_id,
+            voice_profile_id=voice_profile_id,
+            voice_selection_mode=voice_selection_mode,
+            voice_example_ids=voice_example_ids,
             output_profile=output_profile,
             settings_json=settings_json,
         )
@@ -388,6 +420,15 @@ class LoreHarness:
             "original_writing_request": inputs,
             "article_plan": session.plan_json,
             "direction_cards": pack.get("direction_cards", []),
+            "expression_design": {
+                "voice_profile": pack.get("voice_profile"),
+                "style_examples": pack.get("style_examples", []),
+                "policy": {
+                    "style_examples_are_non_factual": True,
+                    "reference_names_are_forbidden": True,
+                    "reference_phrases_must_not_be_copied": True,
+                },
+            },
             "fact_boundaries": {
                 "locked_facts": pack.get("locked_facts", []),
                 "open_questions": pack.get("open_questions", []),
@@ -459,6 +500,9 @@ class LoreHarness:
                 "recipe_version": inputs["writing_recipe"].get("version"),
                 "output_profile": inputs["output_profile"]["key"],
                 "user_direction": inputs["user_direction"],
+                "voice_profile_id": (inputs.get("voice_profile") or {}).get("id"),
+                "voice_profile_version": (inputs.get("voice_profile") or {}).get("version"),
+                "voice_example_ids": [item.get("id") for item in inputs.get("style_examples", [])],
             },
             selected_concept_ids=_selected_ids(session),
             direction_card_ids=session.direction_card_ids,
@@ -542,6 +586,8 @@ class LoreHarness:
                 "recipe": pack.get("writing_recipe", {}).get("key"),
                 "recipe_version": pack.get("writing_recipe", {}).get("version"),
                 "output_profile": session.output_profile,
+                "voice_profile_id": (pack.get("voice_profile") or {}).get("id"),
+                "voice_profile_version": (pack.get("voice_profile") or {}).get("version"),
             },
             selected_concept_ids=_selected_ids(session),
             direction_card_ids=session.direction_card_ids,
@@ -618,6 +664,7 @@ class LoreHarness:
                     },
                 )
             )
+        recipe = db.get(WritingRecipe, session.writing_recipe_id)
         document = LoreDocument(
             project_id=session.project_id,
             session_id=session.id,
@@ -625,6 +672,27 @@ class LoreHarness:
             title=title,
             body_markdown=body,
             body_json={"type": "doc", "content": body_nodes},
+            generation_inputs_json={
+                "user_direction": session.user_direction,
+                "writing_recipe": {
+                    "id": recipe.id if recipe else session.writing_recipe_id,
+                    "key": pack.get("writing_recipe", {}).get("key"),
+                    "version": pack.get("writing_recipe", {}).get("version"),
+                    "name": pack.get("writing_recipe", {}).get("name"),
+                },
+                "output_profile": {"key": session.output_profile},
+                "generation_settings": session.settings_json,
+                "voice_profile": pack.get("voice_profile"),
+                "voice_selection_mode": pack.get("voice_selection_mode", "model_default"),
+                "style_examples": [
+                    {
+                        "id": example.get("id"),
+                        "label": example.get("label"),
+                        "excerpt_hash": example.get("excerpt_hash"),
+                    }
+                    for example in pack.get("style_examples", [])
+                ],
+            },
             status="draft",
         )
         db.add(document)
@@ -651,6 +719,9 @@ class LoreHarness:
                     "recipe": pack.get("writing_recipe", {}).get("key"),
                     "recipe_version": pack.get("writing_recipe", {}).get("version"),
                     "output_profile": session.output_profile,
+                    "voice_profile_id": (pack.get("voice_profile") or {}).get("id"),
+                    "voice_profile_version": (pack.get("voice_profile") or {}).get("version"),
+                    "voice_example_ids": [item.get("id") for item in pack.get("style_examples", [])],
                 },
                 selected_concept_ids=_selected_ids(session),
                 direction_card_ids=session.direction_card_ids,

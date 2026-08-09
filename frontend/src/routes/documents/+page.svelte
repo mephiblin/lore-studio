@@ -9,7 +9,7 @@
   import { initialProjectId, rememberProject } from '$lib/project';
 
   let projects = [], documents = [], blocks = [], audits = [], candidates = [], pages = [];
-  let recipes = [], outputProfiles = [];
+  let recipes = [], outputProfiles = [], voiceProfiles = [];
   let projectId = '', selected = null;
   let busy = '', error = '', message = '';
   let draftDirty = false;
@@ -18,7 +18,7 @@
   let workflowStep = 0, furthestStep = 0;
   let documentLoadToken = 0;
 
-  let finalUserDirection = '', finalRecipeId = '', finalOutputProfile = 'lore_article';
+  let finalUserDirection = '', finalRecipeId = '', finalVoiceProfileId = '', finalOutputProfile = 'lore_article';
   let finalLength = 'normal', finalCustomLength = 4000, finalDetailLevel = 3;
   let finalContextDepth = 'balanced', finalCreativity = 'conservative', finalMystery = 4;
   let finalViewpoint = 'omniscient', finalTense = 'present', finalInstruction = '';
@@ -31,6 +31,7 @@
 
   $: selectedRecipe = recipes.find((item) => item.id === finalRecipeId);
   $: selectedProfile = outputProfiles.find((item) => item.key === finalOutputProfile);
+  $: selectedVoiceProfile = voiceProfiles.find((item) => item.id === finalVoiceProfileId);
   $: finalLengthLabel = finalLength === 'custom' ? `직접 지정 · ${Number(finalCustomLength).toLocaleString()}자` : ({ short: '짧게', normal: '보통', long: '길게', very_long: '매우 길게' }[finalLength] || finalLength);
 
   onMount(loadInitial);
@@ -53,14 +54,15 @@
     const loadToken = ++documentLoadToken;
     error = ''; rememberProject(targetProjectId);
     try {
-      const [loadedDocuments, loadedCandidates, loadedPages, loadedRecipes] = await Promise.all([
+      const [loadedDocuments, loadedCandidates, loadedPages, loadedRecipes, loadedVoices] = await Promise.all([
         api.get(`/documents?project_id=${targetProjectId}`),
         api.get(`/candidates?project_id=${targetProjectId}`),
         api.get(`/concept-pages?project_id=${targetProjectId}`),
-        api.get(`/writing-recipes?project_id=${targetProjectId}`)
+        api.get(`/writing-recipes?project_id=${targetProjectId}`),
+        api.get(`/voice-profiles?project_id=${targetProjectId}&status=APPROVED`)
       ]);
       if (loadToken !== documentLoadToken || projectId !== targetProjectId) return;
-      documents = loadedDocuments; candidates = loadedCandidates; pages = loadedPages; recipes = loadedRecipes;
+      documents = loadedDocuments; candidates = loadedCandidates; pages = loadedPages; recipes = loadedRecipes; voiceProfiles = loadedVoices;
       const requestedId = $page.url.searchParams.get('document');
       await selectDocument(documents.find((document) => document.id === requestedId) || documents[0] || null);
     } catch (e) { error = e.message; }
@@ -84,6 +86,7 @@
     const settings = inputs.generation_settings || {};
     finalUserDirection = inputs.user_direction || '';
     finalRecipeId = inputs.writing_recipe?.id || finalRecipeId || recipes[0]?.id || '';
+    finalVoiceProfileId = inputs.voice_profile?.id || '';
     finalOutputProfile = inputs.output_profile?.key || 'lore_article';
     finalLength = settings.length || 'normal';
     finalCustomLength = settings.custom_length || 4000;
@@ -191,7 +194,7 @@
     if (!block.id || (draftDirty && !(await saveDraft({ quiet: true })))) return;
     busy = 'AI가 원문을 보존한 변경안을 작성하는 중'; error = ''; activeProposal = null;
     try {
-      activeProposal = await api.post(`/blocks/${block.id}/rewrite`, { operation: rewriteOperation, instruction: rewriteInstruction, direction_card_ids: [] });
+      activeProposal = await api.post(`/blocks/${block.id}/rewrite`, { operation: rewriteOperation, instruction: rewriteInstruction, direction_card_ids: [], voice_profile_id: finalVoiceProfileId || null });
       audits = [activeProposal, ...audits.filter((item) => item.id !== activeProposal.id)];
       setTimeout(() => window.document.querySelector('.document-inspector')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
     } catch (e) { error = e.message; }
@@ -237,6 +240,38 @@
     finally { busy = ''; }
   }
 
+  async function runProseAudit() {
+    if (!selected || (draftDirty && !(await saveDraft({ quiet: true })))) return;
+    busy = '문장 호흡과 표현 원칙을 점검하는 중'; error = ''; message = '';
+    try {
+      const result = await api.post(`/documents/${selected.id}/prose-audit`, {
+        document_hash: finalization.current_draft_hash,
+        voice_profile_id: finalVoiceProfileId || null,
+        voice_profile_version: selectedVoiceProfile?.version || null
+      });
+      audits = await api.get(`/documents/${selected.id}/audits`);
+      message = `필력 점검을 마쳤습니다. 검토할 항목 ${result.findings.length}개를 찾았습니다.`;
+    } catch (e) { error = e.message; }
+    finally { busy = ''; }
+  }
+
+  async function proposeProseRevision(finding) {
+    if (!selected) return;
+    busy = '점검 항목에 맞춘 부분 수정안을 만드는 중'; error = '';
+    try {
+      activeProposal = await api.post(`/documents/${selected.id}/prose-revision`, {
+        finding_id: finding.id,
+        document_hash: finalization.current_draft_hash,
+        instruction: rewriteInstruction,
+        voice_profile_id: finalVoiceProfileId || null
+      });
+      audits = [activeProposal, ...audits.filter((item) => item.id !== activeProposal.id)];
+      workflowStep = 0; furthestStep = Math.max(furthestStep, 0);
+      setTimeout(() => window.document.querySelector('.document-inspector')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+    } catch (e) { error = e.message; }
+    finally { busy = ''; }
+  }
+
   async function finalizeDocument() {
     if (!selected) return;
     if (draftDirty && !(await saveDraft({ quiet: true }))) return;
@@ -246,6 +281,9 @@
         instruction: finalInstruction,
         user_direction: finalUserDirection,
         writing_recipe_id: finalRecipeId,
+        voice_profile_id: finalVoiceProfileId || null,
+        voice_selection_mode: finalVoiceProfileId ? 'profile_default' : 'model_default',
+        voice_example_ids: [],
         output_profile: finalOutputProfile,
         settings_json: {
           length: finalLength,
@@ -307,21 +345,21 @@
         <aside class="stack document-inspector">
           <button class="ghost mobile-draft-return" on:click={scrollToDraft}>↑ 초안으로 돌아가기</button>
           <section class="card stack"><p class="eyebrow">변경안 비교</p><h3 style="margin:0">부분 재작성</h3><label>작업<select bind:value={rewriteOperation}><option value="shorter">더 짧게</option><option value="longer">더 자세히</option><option value="add_example">사례 추가</option><option value="expository">설명형으로</option><option value="scene">장면형으로</option><option value="style_only">사실 유지·문체만</option><option value="transition">앞뒤 연결만</option></select></label><label>추가 지시<textarea bind:value={rewriteInstruction}></textarea></label>{#if activeProposal}<pre style="max-height:320px">{activeProposal.proposed_diff}</pre><div class="row"><button class="primary" on:click={() => decideProposal('apply')}>변경안 적용</button><button class="ghost" on:click={() => decideProposal('dismiss')}>폐기</button></div>{:else}<p class="small">문단의 ‘부분 재작성’을 누르면 원문을 덮지 않고 변경안을 만듭니다.</p>{/if}</section>
-          <section class="card stack"><p class="eyebrow">원고 점검</p><h3 style="margin:0">주의할 점과 근거</h3><div class="evidence-flow">{#each audits.filter((item) => item.audit_type !== 'REWRITE').slice(0, 8) as finding}<div class="evidence-item"><strong>{auditTypeLabels[finding.audit_type] || '원고 점검'}</strong><small>{finding.message}</small></div>{/each}{#if !audits.filter((item) => item.audit_type !== 'REWRITE').length}<div class="evidence-item"><strong>기록된 경고 없음</strong><small>점검은 원고를 자동 수정하지 않습니다.</small></div>{/if}</div></section>
+          <section class="card stack"><div class="row spread"><div><p class="eyebrow">원고 점검</p><h3 style="margin:0">주의할 점과 필력</h3></div><button class="secondary" disabled={!!busy} on:click={runProseAudit}>필력 점검</button></div><p class="small">현재 선택한 {selectedVoiceProfile?.name || '모델 기본 문체'}를 기준으로 문장 호흡·반복·예문 과잉 유사성을 점검합니다. 자동 수정하지 않습니다.</p><div class="evidence-flow">{#each audits.filter((item) => item.audit_type !== 'REWRITE').slice(0, 12) as finding}<div class="evidence-item"><strong>{finding.audit_type === 'PROSE' ? '필력 점검' : auditTypeLabels[finding.audit_type] || '원고 점검'}</strong><small>{finding.message}</small>{#if finding.audit_type === 'PROSE' && finding.block_id}<button class="ghost" on:click={() => proposeProseRevision(finding)}>이 항목 수정안 만들기</button>{/if}</div>{/each}{#if !audits.filter((item) => item.audit_type !== 'REWRITE').length}<div class="evidence-item"><strong>기록된 경고 없음</strong><small>점검은 원고를 자동 수정하지 않습니다.</small></div>{/if}</div></section>
           <section class="card stack"><div class="row spread"><div><p class="eyebrow">승인 대기</p><h3 style="margin:0">설정 후보</h3></div><span class="badge candidate">{candidates.filter((item) => item.status === 'CANDIDATE').length}</span></div><button class="secondary" on:click={extractNewCandidates}>현재 초안에서 설정 후보 찾기</button>{#each candidates.filter((item) => item.status === 'CANDIDATE').slice(0, 5) as candidate}<div class="evidence-item"><strong>{candidate.title}</strong><small>{candidate.summary || candidate.candidate_sentence}</small><div class="row wrap" style="margin-top:8px"><button class="ghost" on:click={() => decideCandidate(candidate, 'this_document_only')}>이번 글만</button><button class="secondary" on:click={() => decideCandidate(candidate, 'save_draft')}>설정 초안으로 저장</button><button class="primary" on:click={() => decideCandidate(candidate, 'approve_canon')}>정식 설정으로 승인</button></div></div>{/each}</section>
         </aside>
       </div>
       <footer class="wizard-actions"><small>{draftDirty ? '다음 단계로 가면 변경 내용을 자동 저장합니다.' : '모든 변경 내용이 저장되었습니다.'}</small><button class="primary" disabled={!!busy} on:click={() => continueTo(1)}>저장하고 완성 설정으로 계속 →</button></footer>
     {:else if workflowStep === 1}
       <div class="settings-grid finalization-settings">
-        <section class="card stack"><h3>결과물 형태</h3><label>전개 방식<select bind:value={finalRecipeId}>{#each recipes as recipe}<option value={recipe.id}>{recipe.name}</option>{/each}</select></label>{#if selectedRecipe}<p class="field-help">{selectedRecipe.description}</p>{/if}<label>결과물 종류<select bind:value={finalOutputProfile}>{#each outputProfiles as profile}<option value={profile.key}>{profile.name}</option>{/each}</select></label><div class="grid-2"><label>시점<select bind:value={finalViewpoint}><option value="omniscient">전지적 설명자</option><option value="first_observer">1인칭 관찰자</option><option value="third_limited">3인칭 제한</option></select></label><label>시제<select bind:value={finalTense}><option value="present">현재형 중심</option><option value="past">과거형 중심</option></select></label></div><label>완성본의 추가 지시<textarea bind:value={finalUserDirection} placeholder="글 만들기 때의 지시를 바꾸거나 보완할 수 있습니다."></textarea></label></section>
+        <section class="card stack"><h3>결과물 형태</h3><label>전개 방식<select bind:value={finalRecipeId}>{#each recipes as recipe}<option value={recipe.id}>{recipe.name}</option>{/each}</select></label>{#if selectedRecipe}<p class="field-help">{selectedRecipe.description}</p>{/if}<label>문체·필력<select bind:value={finalVoiceProfileId}><option value="">모델 기본 문체</option>{#each voiceProfiles as profile}<option value={profile.id}>{profile.name} · v{profile.version}</option>{/each}</select></label>{#if selectedVoiceProfile}<p class="field-help">{selectedVoiceProfile.profile_json?.reader_effect || selectedVoiceProfile.description}</p>{/if}<label>결과물 종류<select bind:value={finalOutputProfile}>{#each outputProfiles as profile}<option value={profile.key}>{profile.name}</option>{/each}</select></label><div class="grid-2"><label>시점<select bind:value={finalViewpoint}><option value="omniscient">전지적 설명자</option><option value="first_observer">1인칭 관찰자</option><option value="third_limited">3인칭 제한</option></select></label><label>시제<select bind:value={finalTense}><option value="present">현재형 중심</option><option value="past">과거형 중심</option></select></label></div><label>완성본의 추가 지시<textarea bind:value={finalUserDirection} placeholder="글 만들기 때의 지시를 바꾸거나 보완할 수 있습니다."></textarea></label></section>
         <section class="card stack"><h3>분량과 표현 범위</h3><div class="grid-2"><label>분량<select bind:value={finalLength}><option value="short">짧게</option><option value="normal">보통</option><option value="long">길게</option><option value="very_long">매우 길게</option><option value="custom">직접 지정</option></select></label>{#if finalLength === 'custom'}<label>목표 글자 수<input type="number" min="500" bind:value={finalCustomLength} /></label>{/if}<label>자료 반영 범위<select bind:value={finalContextDepth}><option value="core">선택한 핵심만</option><option value="balanced">관련 자료까지 균형 있게</option><option value="wide">세계 맥락을 넓게</option><option value="max">가능한 자료를 최대로</option></select></label><label>새 설정 제안<select bind:value={finalCreativity}><option value="strict">하지 않음</option><option value="conservative">최소한</option><option value="balanced">필요할 때</option><option value="free">적극적</option></select></label></div><label>설명의 자세함 · {finalDetailLevel}/5<input type="range" min="1" max="5" bind:value={finalDetailLevel} /></label><label>아직 답하지 않을 질문 보존 · {finalMystery}/5<input type="range" min="1" max="5" bind:value={finalMystery} /></label><label>이번 다듬기에만 추가할 요청<textarea bind:value={finalInstruction} placeholder="예: 문단 사이의 시간 흐름을 더 자연스럽게 연결해 주세요."></textarea></label></section>
       </div>
       <footer class="wizard-actions"><button class="ghost" on:click={() => setWorkflowStep(0)}>← 초안 편집</button><button class="primary" on:click={() => continueTo(2)}>설정 확인으로 계속 →</button></footer>
     {:else}
       <div class="finalization-review">
         {#if finalization?.status === 'stale'}<p class="notice-error"><strong>로어북 글을 만든 뒤 초안이 바뀌었습니다.</strong> 지금 실행하면 최신 초안으로 교체됩니다.</p>{/if}
-        <div class="wizard-review-grid"><article><div><span>초안</span><strong>{selected.title}</strong></div><button class="ghost" on:click={() => setWorkflowStep(0)}>수정</button></article><article><div><span>결과물 형태</span><strong>{selectedProfile?.name || finalOutputProfile}</strong></div><button class="ghost" on:click={() => setWorkflowStep(1)}>수정</button></article><article><div><span>전개 방식</span><strong>{selectedRecipe?.name || '지정 안 함'}</strong></div><button class="ghost" on:click={() => setWorkflowStep(1)}>수정</button></article><article><div><span>시점·시제</span><strong>{finalViewpoint === 'omniscient' ? '전지적 설명자' : finalViewpoint === 'first_observer' ? '1인칭 관찰자' : '3인칭 제한'} · {finalTense === 'present' ? '현재형 중심' : '과거형 중심'}</strong></div><button class="ghost" on:click={() => setWorkflowStep(1)}>수정</button></article><article><div><span>분량</span><strong>{finalLengthLabel}</strong></div><button class="ghost" on:click={() => setWorkflowStep(1)}>수정</button></article><article><div><span>추가 지시</span><strong>{finalUserDirection || '추가 지시 없음'}</strong></div><button class="ghost" on:click={() => setWorkflowStep(1)}>수정</button></article></div>
+        <div class="wizard-review-grid"><article><div><span>초안</span><strong>{selected.title}</strong></div><button class="ghost" on:click={() => setWorkflowStep(0)}>수정</button></article><article><div><span>결과물 형태</span><strong>{selectedProfile?.name || finalOutputProfile}</strong></div><button class="ghost" on:click={() => setWorkflowStep(1)}>수정</button></article><article><div><span>전개 방식</span><strong>{selectedRecipe?.name || '지정 안 함'}</strong></div><button class="ghost" on:click={() => setWorkflowStep(1)}>수정</button></article><article><div><span>문체·필력</span><strong>{selectedVoiceProfile?.name || '모델 기본 문체'}</strong></div><button class="ghost" on:click={() => setWorkflowStep(1)}>수정</button></article><article><div><span>시점·시제</span><strong>{finalViewpoint === 'omniscient' ? '전지적 설명자' : finalViewpoint === 'first_observer' ? '1인칭 관찰자' : '3인칭 제한'} · {finalTense === 'present' ? '현재형 중심' : '과거형 중심'}</strong></div><button class="ghost" on:click={() => setWorkflowStep(1)}>수정</button></article><article><div><span>분량</span><strong>{finalLengthLabel}</strong></div><button class="ghost" on:click={() => setWorkflowStep(1)}>수정</button></article><article><div><span>추가 지시</span><strong>{finalUserDirection || '추가 지시 없음'}</strong></div><button class="ghost" on:click={() => setWorkflowStep(1)}>수정</button></article></div>
         <section class="lorebook-destination"><div><p class="eyebrow">저장 위치</p><h3>완성본은 로어북에 별도 저장됩니다.</h3><p>초안 문단과 로어북 글은 서로 덮어쓰지 않습니다. 로어북에서 완성된 글만 읽고 편집하고 내보낼 수 있습니다.</p></div><span>초안 → Writer → 로어북</span></section>
       </div>
       <footer class="wizard-actions"><button class="ghost" on:click={() => setWorkflowStep(1)}>← 완성 설정</button><button class="primary final-generate-button" disabled={!!busy} on:click={finalizeDocument}>{finalization?.lorebook_entry ? '최신 설정으로 로어북 글 다시 만들기' : '완성본 만들어 로어북에 저장'}</button></footer>

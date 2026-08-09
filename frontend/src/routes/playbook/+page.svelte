@@ -7,8 +7,8 @@
   import { moveDescriptions, moveLabels, roleLabel } from '$lib/labels';
   import { initialProjectId, rememberProject } from '$lib/project';
 
-  let projects = [], pages = [], cards = [], recipes = [], categories = [];
-  let projectId = '', recipeId = '', outputProfile = 'lore_article', userDirection = '';
+  let projects = [], pages = [], cards = [], recipes = [], categories = [], voiceProfiles = [];
+  let projectId = '', recipeId = '', voiceProfileId = '', outputProfile = 'lore_article', userDirection = '';
   let subjectIds = [], backgroundIds = [], elementIds = [], conflictIds = [], directionCardIds = [];
   let length = 'normal', customLength = 4000, detailLevel = 3, contextDepth = 'balanced', creativity = 'conservative', mystery = 4, seed = 42;
   let viewpoint = 'omniscient', tense = 'present';
@@ -24,7 +24,8 @@
     { key: 'elements', slot: 'elements', short: '주요 요소', title: '꼭 함께 다룰 것은 무엇인가요?', copy: '글에서 비중 있게 등장할 인물·사건·유물 등을 고르세요. 여러 개를 선택할 수 있습니다.', next: '갈등·변수로 계속' },
     { key: 'conflicts', slot: 'conflicts', short: '갈등·변수', title: '무엇이 긴장과 변화를 만드나요?', copy: '충돌, 위험, 반전의 원인이 될 자료를 고르세요. 없어도 됩니다.', next: '집필 지침으로 계속' },
     { key: 'guidance', short: '집필 지침', title: '이번 글에서 무엇을 강조하거나 피할까요?', copy: '현재 프로젝트에 저장한 강조점과 금지 원칙입니다. 여러 개를 고르거나 건너뛸 수 있습니다.', next: '전개 방식으로 계속' },
-    { key: 'recipe', short: '전개 방식', title: '글을 어떤 방식으로 풀어갈까요?', copy: '공용 기본 방식과 이 프로젝트에서 만든 방식 중 정보가 드러나는 순서 하나를 고르세요.', required: true, next: '결과물 형태로 계속' },
+    { key: 'recipe', short: '전개 방식', title: '글을 어떤 방식으로 풀어갈까요?', copy: '공용 기본 방식과 이 프로젝트에서 만든 방식 중 정보가 드러나는 순서 하나를 고르세요.', required: true, next: '문체·필력으로 계속' },
+    { key: 'voice', short: '문체·필력', title: '어떤 문장 감각으로 전달할까요?', copy: '승인된 표현 원칙 하나를 고르거나 모델 기본 문체로 진행하세요. 세계관 사실과 전개 순서는 바꾸지 않습니다.', next: '결과물 형태로 계속' },
     { key: 'settings', short: '결과물 형태', title: '어떤 결과물로 만들까요?', copy: '결과물 종류, 시점·시제와 분량을 정하세요.', next: '확인·작성으로 계속' },
     { key: 'review', short: '확인·작성', title: '선택을 확인하고 초안을 만드세요.', copy: '원고 설계를 확인하고, 글의 흐름을 정한 뒤 초안을 작성합니다.' }
   ];
@@ -52,6 +53,7 @@
   ];
   $: selectedCards = cards.filter((card) => directionCardIds.includes(card.id));
   $: selectedRecipe = recipes.find((recipe) => recipe.id === recipeId);
+  $: selectedVoiceProfile = voiceProfiles.find((profile) => profile.id === voiceProfileId);
   $: cardConflicts = selectedCards.flatMap((card) => selectedCards.filter((other) => other.id !== card.id && (card.incompatible_tags || []).some((tag) => (other.tags || []).includes(tag))).map((other) => `${card.title} ↔ ${other.title}`));
   $: estimatedTokens = Math.ceil((length === 'custom' ? customLength : ({ short: 1200, normal: 3000, long: 6500, very_long: 12000 }[length] || 3000)) * 1.8);
   $: visiblePages = pages.filter((page) => {
@@ -69,7 +71,7 @@
   $: selectedOutputProfile = outputProfiles.find((item) => item.value === outputProfile) || outputProfiles[0];
   $: selectedViewpoint = viewpointOptions.find((item) => item.value === viewpoint) || viewpointOptions[0];
   $: selectedTense = tenseOptions.find((item) => item.value === tense) || tenseOptions[0];
-  $: hasCurrentSelection = activeIds.length || activeStep?.key === 'settings' || activeStep?.key === 'guidance' && directionCardIds.length || activeStep?.key === 'recipe' && !!recipeId;
+  $: hasCurrentSelection = activeIds.length || ['settings', 'voice'].includes(activeStep?.key) || activeStep?.key === 'guidance' && directionCardIds.length || activeStep?.key === 'recipe' && !!recipeId;
   $: nextButtonLabel = activeStep?.next ? `${hasCurrentSelection ? '' : '선택 없이 '}${activeStep.next}` : '';
   $: progressSummaries = [
     subject?.title || '선택 필요',
@@ -78,6 +80,7 @@
     selectionSummary(conflictIds),
     selectedCards.length ? selectedCards.length === 1 ? selectedCards[0].title : `${selectedCards[0].title} 외 ${selectedCards.length - 1}개` : '선택 안 함',
     selectedRecipe?.name || '선택 필요',
+    selectedVoiceProfile?.name || '모델 기본 문체',
     outputProfile === 'lore_article' ? '세계관 설명 글' : outputProfile === 'video_narration' ? '영상 내레이션' : outputProfile === 'novel_prose' ? '소설 장면' : '세계 내부 문서',
     generatedDocument ? '원고 완성' : plan ? '글의 흐름 준비됨' : preview ? '사용할 설정 확인됨' : '작성 전'
   ];
@@ -106,15 +109,17 @@
   async function loadProjectData() {
     if (!projectId) return;
     try {
-      [pages, cards, categories, recipes] = await Promise.all([
+      [pages, cards, categories, recipes, voiceProfiles] = await Promise.all([
         api.get(`/concept-pages?project_id=${projectId}`),
         api.get(`/direction-cards?project_id=${projectId}`),
         api.get(`/categories?project_id=${projectId}`),
-        api.get(`/writing-recipes?project_id=${projectId}`)
+        api.get(`/writing-recipes?project_id=${projectId}`),
+        api.get(`/voice-profiles?project_id=${projectId}&status=APPROVED`)
       ]);
       recipeId = recipes.some((item) => item.id === recipeId)
         ? recipeId
         : recipes.find((item) => item.key === 'progressive_exposition')?.id || recipes[0]?.id || '';
+      voiceProfileId = '';
       subjectIds = []; backgroundIds = []; elementIds = []; conflictIds = []; directionCardIds = [];
       wizardStep = 0; furthestStep = 0; pageLimit = 18;
       resetRun();
@@ -203,6 +208,11 @@
     resetRun();
   }
 
+  function selectVoiceProfile(selectedId) {
+    voiceProfileId = selectedId;
+    resetRun();
+  }
+
   function selectOutputProfile(value) { outputProfile = value; resetRun(); }
   function selectViewpoint(value) { viewpoint = value; resetRun(); }
   function selectTense(value) { tense = value; resetRun(); }
@@ -221,6 +231,9 @@
       concept_slots: { subject: subjectIds, background: backgroundIds, elements: elementIds, conflicts: conflictIds, wildcards: [] },
       direction_card_ids: directionCardIds, user_direction: userDirection,
       writing_recipe_id: recipeId, output_profile: outputProfile,
+      voice_profile_id: voiceProfileId || null,
+      voice_selection_mode: voiceProfileId ? 'profile_default' : 'model_default',
+      voice_example_ids: [],
       settings_json: {
         length, custom_length: length === 'custom' ? Number(customLength) : null,
         detail_level: Number(detailLevel), context_depth: contextDepth, creativity,
@@ -355,6 +368,24 @@
         {/each}
         {#if !recipes.length}<a class="empty-state" href="/editor">사용할 수 있는 전개 방식이 없습니다. 세계관 자료에서 만들기 →</a>{/if}
       </div>
+    {:else if activeStep.key === 'voice'}
+      <div class="voice-option-grid">
+        <button class:selected={!voiceProfileId} class="voice-option model-default" aria-pressed={!voiceProfileId} on:click={() => selectVoiceProfile('')}>
+          <span class="choice-check">{!voiceProfileId ? '✓' : '○'}</span>
+          <div class="voice-option-cover" aria-hidden="true"><span style="width:68%"></span><span style="width:46%"></span><span style="width:80%"></span><span style="width:38%"></span></div>
+          <span class="voice-scope">별도 표현 지침 없음</span><strong>모델 기본 문체</strong><p>선택한 결과물 형태와 시점·시제만 사용합니다. 숨은 기본 프로필은 추가하지 않습니다.</p>
+        </button>
+        {#each voiceProfiles as profile}
+          <button class:selected={voiceProfileId === profile.id} class="voice-option" aria-pressed={voiceProfileId === profile.id} on:click={() => selectVoiceProfile(profile.id)}>
+            <span class="choice-check">{voiceProfileId === profile.id ? '✓' : '○'}</span>
+            <div class="voice-option-cover" aria-hidden="true"><span style={`width:${46 + (profile.name.length % 5) * 8}%`}></span><span style={`width:${82 - (Number(profile.version) % 4) * 7}%`}></span><span style={`width:${58 + ((profile.description || '').length % 4) * 7}%`}></span><span style="width:38%"></span></div>
+            <span class="voice-scope">{profile.project_id ? '이 프로젝트' : '모든 프로젝트'} · v{profile.version}</span>
+            <strong>{profile.name}</strong><p>{profile.profile_json?.reader_effect || profile.description}</p>
+            <div class="tag-row">{#each (profile.profile_json?.best_for || []).slice(0, 3) as tag}<span class="badge">{tag}</span>{/each}</div>
+          </button>
+        {/each}
+        {#if !voiceProfiles.length}<a class="empty-state" href="/editor">승인된 문체 프로필이 없습니다. 모델 기본 문체를 쓰거나 세계관 자료에서 만들기 →</a>{/if}
+      </div>
     {:else if activeStep.key === 'settings'}
       <div class="output-studio">
         <aside class="output-specimen" aria-label="선택한 결과물 견본">
@@ -421,7 +452,7 @@
           <div class="review-brief-cover">
             {#if conceptCover(subject)}<img src={conceptCover(subject)} alt={`${subject?.title} 자료 이미지`} />{:else}<span>{conceptInitial(subject)}</span>{/if}
           </div>
-          <div class="review-brief-copy"><span>원고 설계표</span><h2>{subject?.title}</h2><p>{selectedOutputProfile.title} · {selectedViewpoint.title} · {selectedTense.title}</p><small>보조 자료 {totalSupporting}개 · 집필 지침 {directionCardIds.length}개 · {selectedRecipe?.name}</small></div>
+          <div class="review-brief-copy"><span>원고 설계표</span><h2>{subject?.title}</h2><p>{selectedOutputProfile.title} · {selectedViewpoint.title} · {selectedTense.title}</p><small>보조 자료 {totalSupporting}개 · 집필 지침 {directionCardIds.length}개 · {selectedRecipe?.name} · {selectedVoiceProfile?.name || '모델 기본 문체'}</small></div>
           <button class="ghost" on:click={() => setWizardStep(0)}>주제 수정</button>
         </section>
 
@@ -435,8 +466,8 @@
             {#if selectedCards.length}<ul>{#each selectedCards as card}<li><strong>{card.title}</strong><small>{card.body}</small></li>{/each}</ul>{:else}<p>별도 집필 지침 없이 자료의 사실 경계만 지킵니다.</p>{/if}
           </article>
           <article class="review-manifest-card expression">
-            <header><span>표현 설계</span><button class="ghost" on:click={() => setWizardStep(5)}>수정</button></header>
-            <strong>{selectedRecipe?.name}</strong><p>{selectedRecipe?.description}</p><div><span>{selectedOutputProfile.title}</span><span>{selectedViewpoint.title}</span><span>{selectedTense.title}</span></div>
+            <header><span>전개·표현 설계</span><button class="ghost" on:click={() => setWizardStep(5)}>수정</button></header>
+            <strong>{selectedRecipe?.name}</strong><p>{selectedRecipe?.description}</p><div><span>{selectedVoiceProfile?.name || '모델 기본 문체'}</span><span>{selectedOutputProfile.title}</span><span>{selectedViewpoint.title}</span><span>{selectedTense.title}</span></div>
           </article>
         </div>
 

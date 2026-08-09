@@ -12,6 +12,8 @@
   let pages = [];
   let cards = [];
   let recipes = [];
+  let voiceProfiles = [];
+  let voiceExamples = [];
   let categories = [];
   let selectedPage = null;
   let activeTab = 'pages';
@@ -30,6 +32,7 @@
   let editingCategoryId = '';
   let editingCardId = '';
   let editingRecipeId = '';
+  let editingVoiceId = '';
   let cardDraft = null;
   let categoryForm = { name: '' };
   let categoryDraft = { name: '' };
@@ -51,6 +54,16 @@
     plannerRules: '', auditRules: ''
   });
 
+  const emptyVoiceForm = () => ({
+    name: '', scope: 'PROJECT', readerEffect: '', sentenceRhythm: '', descriptionRules: '',
+    dialogueRules: '', figurativeLanguage: '', paragraphRules: '', avoidPatterns: '',
+    bestFor: '', auditRules: '', viewpoints: '', tenses: ''
+  });
+
+  const emptyVoiceExampleForm = () => ({
+    label: '', excerpt: '', teaches: '', sceneTags: '', rightsBasis: 'SELF_AUTHORED', useInGeneration: true
+  });
+
   $: visiblePages = pages.filter((page) => {
     const matchesText = !pageFilter || `${page.title} ${page.summary} ${(page.tags || []).join(' ')}`.toLowerCase().includes(pageFilter.toLowerCase());
     return matchesText && (categoryFilter === 'all' || page.category_key === categoryFilter);
@@ -61,6 +74,9 @@
   let cardForm = emptyCardForm();
   let recipeForm = emptyRecipeForm();
   let recipeDraft = emptyRecipeForm();
+  let voiceForm = emptyVoiceForm();
+  let voiceDraft = emptyVoiceForm();
+  let voiceExampleForm = emptyVoiceExampleForm();
   let relationForm = { target_page_id: '', relation_type: 'RELATED_TO', notes: '' };
 
   $: projectRecipes = recipes.filter((recipe) => recipe.project_id === projectId);
@@ -68,13 +84,16 @@
   $: editingCategory = categories.find((category) => category.id === editingCategoryId);
   $: editingCard = cards.find((card) => card.id === editingCardId);
   $: editingRecipe = recipes.find((recipe) => recipe.id === editingRecipeId);
+  $: editingVoice = voiceProfiles.find((profile) => profile.id === editingVoiceId);
   $: settingsModalTitle = ({
     'category-create': '새 자료 종류',
     'category-edit': '자료 종류 수정',
     'direction-create': '새 집필 지침',
     'direction-edit': '집필 지침 수정',
     'recipe-create': '새 전개 방식',
-    'recipe-edit': '전개 방식 수정'
+    'recipe-edit': '전개 방식 수정',
+    'voice-create': '새 문체 프로필',
+    'voice-edit': '문체 프로필 수정'
   })[settingsModal] || '';
   $: linkedSourceIds = selectedPage
     ? [...new Set(relations.map((relation) => otherPage(relation)))]
@@ -119,12 +138,13 @@
     closeSettingsModal();
     categoryFilter = 'all';
     try {
-      [pages, cards, indexStats, categories, recipes] = await Promise.all([
+      [pages, cards, indexStats, categories, recipes, voiceProfiles] = await Promise.all([
         api.get(`/concept-pages?project_id=${projectId}`),
         api.get(`/direction-cards?project_id=${projectId}`),
         api.get(`/index/stats?project_id=${projectId}`),
         api.get(`/categories?project_id=${projectId}`),
-        api.get(`/writing-recipes?project_id=${projectId}`)
+        api.get(`/writing-recipes?project_id=${projectId}`),
+        api.get(`/voice-profiles?project_id=${projectId}`)
       ]);
       pageForm = {
         ...pageForm,
@@ -357,6 +377,171 @@
     } catch (e) { error = e.message; }
   }
 
+  function voiceToForm(profile) {
+    const data = profile.profile_json || {};
+    return {
+      name: profile.name,
+      scope: profile.project_id ? 'PROJECT' : 'SHARED',
+      readerEffect: data.reader_effect || profile.description || '',
+      sentenceRhythm: (data.sentence_rhythm || []).join('\n'),
+      descriptionRules: (data.description_rules || []).join('\n'),
+      dialogueRules: (data.dialogue_rules || []).join('\n'),
+      figurativeLanguage: (data.figurative_language || []).join('\n'),
+      paragraphRules: (data.paragraph_rules || []).join('\n'),
+      avoidPatterns: (data.avoid_patterns || []).join('\n'),
+      bestFor: (data.best_for || []).join(', '),
+      auditRules: (data.audit_rules || []).join('\n'),
+      viewpoints: (data.compatibility?.viewpoints || []).join(', '),
+      tenses: (data.compatibility?.tenses || []).join(', ')
+    };
+  }
+
+  function commaItems(text) {
+    return text.split(',').map((item) => item.trim()).filter(Boolean);
+  }
+
+  function voicePayload(form, { includeScope = false } = {}) {
+    const payload = {
+      name: form.name.trim(),
+      description: form.readerEffect.trim(),
+      profile_json: {
+        reader_effect: form.readerEffect.trim(),
+        sentence_rhythm: lines(form.sentenceRhythm, []),
+        description_rules: lines(form.descriptionRules, []),
+        dialogue_rules: lines(form.dialogueRules, []),
+        figurative_language: lines(form.figurativeLanguage, []),
+        paragraph_rules: lines(form.paragraphRules, []),
+        avoid_patterns: lines(form.avoidPatterns, []),
+        best_for: commaItems(form.bestFor),
+        audit_rules: lines(form.auditRules, []),
+        compatibility: { viewpoints: commaItems(form.viewpoints), tenses: commaItems(form.tenses) }
+      }
+    };
+    return includeScope ? { ...payload, project_id: form.scope === 'PROJECT' ? projectId : null } : payload;
+  }
+
+  function voiceStatusLabel(status) {
+    return ({ DRAFT: '검토 중', APPROVED: '사용 가능', DEPRECATED: '사용 중지' })[status] || status;
+  }
+
+  function voiceRuleTags(profile) {
+    const data = profile.profile_json || {};
+    return [...(data.best_for || []), ...(data.sentence_rhythm || []).slice(0, 1), ...(data.dialogue_rules || []).slice(0, 1)].slice(0, 3);
+  }
+
+  async function openVoiceCreate() {
+    voiceForm = emptyVoiceForm();
+    voiceExamples = [];
+    settingsModal = 'voice-create';
+  }
+
+  async function editVoice(profile) {
+    editingVoiceId = profile.id;
+    voiceDraft = voiceToForm(profile);
+    voiceExampleForm = emptyVoiceExampleForm();
+    settingsModal = 'voice-edit';
+    try { voiceExamples = await api.get(`/voice-profiles/${profile.id}/examples`); }
+    catch (e) { error = e.message; }
+  }
+
+  async function createVoiceProfile() {
+    if (!voiceForm.name.trim() || !voiceForm.readerEffect.trim()) return;
+    error = ''; message = '';
+    try {
+      const profile = await api.post('/voice-profiles', voicePayload(voiceForm, { includeScope: true }));
+      voiceProfiles = [profile, ...voiceProfiles];
+      await editVoice(profile);
+      message = `'${profile.name}' 검토본을 만들었습니다. 예시를 더한 뒤 사용 가능으로 승인하세요.`;
+    } catch (e) { error = e.message; }
+  }
+
+  async function saveVoiceProfile(profile) {
+    if (!voiceDraft.name.trim() || !voiceDraft.readerEffect.trim()) return;
+    error = ''; message = '';
+    try {
+      const updated = await api.patch(`/voice-profiles/${profile.id}`, voicePayload(voiceDraft));
+      voiceProfiles = updated.id === profile.id
+        ? voiceProfiles.map((item) => item.id === profile.id ? updated : item)
+        : [updated, ...voiceProfiles];
+      editingVoiceId = updated.id;
+      voiceDraft = voiceToForm(updated);
+      voiceExamples = await api.get(`/voice-profiles/${updated.id}/examples`);
+      message = updated.id === profile.id
+        ? `'${updated.name}' 검토본을 저장했습니다.`
+        : `사용 이력을 보존하고 '${updated.name}' 새 버전을 만들었습니다.`;
+    } catch (e) { error = e.message; }
+  }
+
+  async function approveVoiceProfile(profile) {
+    error = ''; message = '';
+    try {
+      const updated = await api.post(`/voice-profiles/${profile.id}/approve`, {});
+      voiceProfiles = voiceProfiles.map((item) => item.id === updated.id ? updated : item);
+      editingVoiceId = updated.id;
+      message = `'${updated.name}'을 다음 글 만들기부터 사용할 수 있습니다.`;
+    } catch (e) { error = e.message; }
+  }
+
+  async function deprecateVoiceProfile(profile) {
+    if (!confirm(`'${profile.name}'을 새 글에서 더 이상 선택하지 않게 할까요? 기존 원고 기록은 유지됩니다.`)) return;
+    try {
+      const updated = await api.post(`/voice-profiles/${profile.id}/deprecate`, {});
+      voiceProfiles = voiceProfiles.map((item) => item.id === updated.id ? updated : item);
+      message = `'${updated.name}'을 사용 중지했습니다.`;
+    } catch (e) { error = e.message; }
+  }
+
+  async function duplicateVoiceProfile(profile) {
+    try {
+      const duplicate = await api.post(`/voice-profiles/${profile.id}/duplicate`, { project_id: projectId });
+      voiceProfiles = [duplicate, ...voiceProfiles];
+      await editVoice(duplicate);
+      message = `'${duplicate.name}' 검토본을 만들었습니다.`;
+    } catch (e) { error = e.message; }
+  }
+
+  async function deleteVoiceProfile(profile) {
+    if (!confirm(`'${profile.name}' 문체 프로필을 삭제할까요? 사용 기록이 있으면 삭제할 수 없습니다.`)) return;
+    try {
+      await api.delete(`/voice-profiles/${profile.id}`);
+      voiceProfiles = voiceProfiles.filter((item) => item.id !== profile.id);
+      closeSettingsModal();
+      message = `'${profile.name}'을 삭제했습니다.`;
+    } catch (e) { error = e.message; }
+  }
+
+  async function addVoiceExample(profile) {
+    if (!voiceExampleForm.label.trim() || !voiceExampleForm.excerpt.trim()) return;
+    try {
+      const example = await api.post(`/voice-profiles/${profile.id}/examples`, {
+        label: voiceExampleForm.label.trim(),
+        excerpt: voiceExampleForm.excerpt.trim(),
+        teaches_json: lines(voiceExampleForm.teaches, []),
+        scene_tags: commaItems(voiceExampleForm.sceneTags),
+        rights_basis: voiceExampleForm.rightsBasis,
+        use_in_generation: voiceExampleForm.useInGeneration
+      });
+      voiceExamples = [...voiceExamples, example];
+      voiceExampleForm = emptyVoiceExampleForm();
+      message = '짧은 문체 예시를 추가했습니다.';
+    } catch (e) { error = e.message; }
+  }
+
+  async function toggleVoiceExample(example) {
+    try {
+      const updated = await api.post(`/voice-profile-examples/${example.id}/toggle`, {});
+      voiceExamples = voiceExamples.map((item) => item.id === updated.id ? updated : item);
+    } catch (e) { error = e.message; }
+  }
+
+  async function deleteVoiceExample(example) {
+    if (!confirm(`'${example.label}' 예시를 삭제할까요?`)) return;
+    try {
+      await api.delete(`/voice-profile-examples/${example.id}`);
+      voiceExamples = voiceExamples.filter((item) => item.id !== example.id);
+    } catch (e) { error = e.message; }
+  }
+
   function decoratePage(page) {
     return {
       ...page,
@@ -572,6 +757,8 @@
     editingCategoryId = '';
     editingCardId = '';
     editingRecipeId = '';
+    editingVoiceId = '';
+    voiceExamples = [];
   }
 
   function handleModalKeydown(event) {
@@ -586,11 +773,23 @@
     finally { busy = ''; }
   }
 
-  async function approveReference() {
-    const result = await api.post(`/reference-analyses/${referenceAnalysis.id}/approve`, {});
-    referenceAnalysis = { ...referenceAnalysis, status: result.status };
-    recipes = await api.get(`/writing-recipes?project_id=${projectId}`);
-    message = '구성·문체 분석 결과를 승인했습니다. 전개 방식에서 확인할 수 있습니다.';
+  async function approveReference(mode = 'both') {
+    try {
+      const result = await api.post(`/reference-analyses/${referenceAnalysis.id}/approve`, {
+        approve_recipe: mode === 'both' || mode === 'recipe',
+        approve_voice_profile: mode === 'both' || mode === 'voice',
+        voice_scope: 'PROJECT',
+        selected_voice_fields: [],
+        selected_example_ranges: [],
+        rights_basis: 'ANALYSIS_ONLY'
+      });
+      referenceAnalysis = { ...referenceAnalysis, status: result.status };
+      [recipes, voiceProfiles] = await Promise.all([
+        api.get(`/writing-recipes?project_id=${projectId}`),
+        api.get(`/voice-profiles?project_id=${projectId}`)
+      ]);
+      message = mode === 'voice' ? '문체 분석을 승인했습니다. 문체·필력에서 확인하세요.' : mode === 'recipe' ? '구성 분석을 승인했습니다. 전개 방식에서 확인하세요.' : '구성과 문체 분석을 각각 승인했습니다.';
+    } catch (e) { error = e.message; }
   }
 
   async function reindexPage() {
@@ -616,6 +815,7 @@
         <button class:active={activeTab === 'categories'} on:click={() => activeTab = 'categories'}>자료 종류 <span>{categories.length}</span></button>
         <button class:active={activeTab === 'directions'} on:click={() => activeTab = 'directions'}>집필 지침 <span>{cards.length}</span></button>
         <button class:active={activeTab === 'recipes'} on:click={() => activeTab = 'recipes'}>전개 방식 <span>{recipes.length}</span></button>
+        <button class:active={activeTab === 'voices'} on:click={() => activeTab = 'voices'}>문체·필력 <span>{voiceProfiles.length}</span></button>
       </nav>
     {/if}
     <div class="project-tools">
@@ -771,7 +971,11 @@
                     <div class="evidence-item"><strong>{paragraph.index + 1}번째 문단 · {paragraph.primary_move}</strong><small>보조 역할 {paragraph.secondary_move} · 범위 {paragraph.scale} · 맺음 {paragraph.ending}</small></div>
                   {/each}
                   {#if !referenceAnalysis.analysis_json?.paragraphs?.length}<p class="empty-mini">분석된 문단이 없습니다.</p>{/if}
-                  <button class="primary" disabled={referenceAnalysis.status !== 'CANDIDATE'} on:click={approveReference}>{referenceAnalysis.status === 'CANDIDATE' ? '분석 결과 승인' : '승인됨'}</button>
+                  <div class="reference-approval-actions">
+                    <button class="secondary" disabled={referenceAnalysis.status !== 'CANDIDATE'} on:click={() => approveReference('recipe')}>전개 방식만 승인</button>
+                    <button class="secondary" disabled={referenceAnalysis.status !== 'CANDIDATE'} on:click={() => approveReference('voice')}>문체만 승인</button>
+                    <button class="primary" disabled={referenceAnalysis.status !== 'CANDIDATE'} on:click={() => approveReference('both')}>{referenceAnalysis.status === 'CANDIDATE' ? '둘 다 승인' : '승인됨'}</button>
+                  </div>
                 </div>
               {/if}
             {/if}
@@ -850,6 +1054,41 @@
           {#if !recipes.length}<div class="empty-state direction-empty"><strong>사용할 수 있는 전개 방식이 없습니다.</strong></div>{/if}
         </div>
       </section>
+    {:else if activeTab === 'voices'}
+      <section class="voice-manager">
+        <header class="local-surface-header">
+          <div class="heading-with-help"><h2>문체·필력</h2><HelpTip label="문체·필력 설명" text="문장이 어떤 호흡과 밀도로 독자에게 전달될지 정합니다. 세계관 사실이나 전개 순서를 바꾸지 않습니다." /></div>
+          <div class="local-surface-actions"><span>{voiceProfiles.length}개</span><button class="primary" on:click={openVoiceCreate}>+ 새 문체 프로필</button></div>
+        </header>
+        <div class="voice-profile-list">
+          {#each voiceProfiles as profile}
+            <article class="voice-profile-card" class:deprecated={profile.status === 'DEPRECATED'}>
+              <div class="voice-rhythm-cover" aria-hidden="true">
+                <span style={`width:${46 + (profile.name.length % 5) * 8}%`}></span>
+                <span style={`width:${82 - (Number(profile.version) % 4) * 7}%`}></span>
+                <span style={`width:${58 + ((profile.description || '').length % 4) * 7}%`}></span>
+                <span style="width:38%"></span>
+              </div>
+              <div class="voice-card-copy">
+                <div class="row spread"><span class="voice-scope">{profile.project_id ? '이 프로젝트' : '모든 프로젝트'}</span><span class:canon={profile.status === 'APPROVED'} class:candidate={profile.status === 'DRAFT'} class="badge">{voiceStatusLabel(profile.status)}</span></div>
+                <h3>{profile.name}</h3>
+                <p>{profile.description || profile.profile_json?.reader_effect}</p>
+                <div class="tag-row">{#each voiceRuleTags(profile) as tag}<span class="badge">{tag}</span>{/each}</div>
+              </div>
+              <footer class="voice-card-footer">
+                <span>v{profile.version}{profile.source_analysis_id ? ' · 예시 분석' : ' · 직접 작성'}</span>
+                <div>
+                  <button class="secondary" on:click={() => editVoice(profile)}>내용 보기</button>
+                  <button class="ghost" on:click={() => duplicateVoiceProfile(profile)}>복제</button>
+                  {#if profile.status === 'DRAFT'}<button class="primary" on:click={() => approveVoiceProfile(profile)}>사용 가능으로 승인</button>{/if}
+                  {#if profile.status === 'APPROVED' && !profile.is_builtin}<button class="ghost" on:click={() => deprecateVoiceProfile(profile)}>사용 중지</button>{/if}
+                </div>
+              </footer>
+            </article>
+          {/each}
+          {#if !voiceProfiles.length}<div class="empty-state"><strong>아직 문체 프로필이 없습니다.</strong><p>직접 표현 원칙을 적거나 문체 참고 자료에서 분석해 시작하세요.</p></div>{/if}
+        </div>
+      </section>
     {:else}
       <section class="category-manager">
         <header class="local-surface-header">
@@ -873,7 +1112,7 @@
 
 {#if settingsModal}
   <div class="settings-modal-backdrop" role="presentation" on:mousedown={(event) => event.target === event.currentTarget && closeSettingsModal()}>
-    <div class:wide={settingsModal.startsWith('direction') || settingsModal.startsWith('recipe')} class="settings-modal" role="dialog" aria-modal="true" aria-label={settingsModalTitle}>
+    <div class:wide={settingsModal.startsWith('direction') || settingsModal.startsWith('recipe') || settingsModal.startsWith('voice')} class="settings-modal" role="dialog" aria-modal="true" aria-label={settingsModalTitle}>
       <header>
         <div><span>세계관 자료 설정</span><h2>{settingsModalTitle}</h2></div>
         <button type="button" class="settings-modal-close" aria-label={`${settingsModalTitle} 닫기`} on:click={closeSettingsModal}>×</button>
@@ -980,6 +1219,64 @@
             <div class="grid-2 recipe-rule-fields"><label>구성할 때 지킬 규칙 <textarea bind:value={recipeDraft.plannerRules}></textarea></label><label>완성 후 확인할 기준 <textarea bind:value={recipeDraft.auditRules}></textarea></label></div>
           </div>
           <footer><small>기존 글 만들기 기록은 이전 버전을 유지합니다.</small><div><button type="button" class="ghost" on:click={closeSettingsModal}>취소</button><button type="submit" class="primary" disabled={!recipeDraft.name.trim() || recipeDraft.steps.length < 3}>변경 저장</button></div></footer>
+        </form>
+      {:else if settingsModal === 'voice-create'}
+        <form class="settings-modal-form voice-form" on:submit|preventDefault={createVoiceProfile}>
+          <div class="settings-modal-body stack">
+            <p class="modal-field-note">먼저 독자에게 남길 인상과 문장 호흡을 적으세요. 세계관 사실과 정보 공개 순서는 각각 자료와 전개 방식이 담당합니다.</p>
+            <div class="grid-2">
+              <label>이름 <input bind:value={voiceForm.name} placeholder="예: 건조한 항해 기록" /></label>
+              <label>사용 범위 <select bind:value={voiceForm.scope}><option value="PROJECT">이 프로젝트</option><option value="SHARED">모든 프로젝트</option></select></label>
+            </div>
+            <label>독자에게 남길 인상 <textarea bind:value={voiceForm.readerEffect} placeholder="예: 담담한 보고를 읽다가 뒤늦게 인물의 소진을 깨닫게 한다."></textarea></label>
+            <div class="voice-rule-grid">
+              <label>문장 호흡 <textarea bind:value={voiceForm.sentenceRhythm} placeholder="한 줄에 하나씩&#10;짧은 관찰 뒤에 긴 인과 문장을 둔다"></textarea></label>
+              <label>묘사 원칙 <textarea bind:value={voiceForm.descriptionRules} placeholder="감각과 사물의 변화를 중심으로 묘사"></textarea></label>
+              <label>대화 원칙 <textarea bind:value={voiceForm.dialogueRules} placeholder="감정을 직접 말하기보다 회피와 생략으로 드러낸다"></textarea></label>
+              <label>비유 원칙 <textarea bind:value={voiceForm.figurativeLanguage} placeholder="세계 내부의 노동·도구에서 비유를 가져온다"></textarea></label>
+              <label>문단 원칙 <textarea bind:value={voiceForm.paragraphRules} placeholder="문단마다 하나의 관찰이나 변화만 다룬다"></textarea></label>
+              <label>피할 표현 <textarea bind:value={voiceForm.avoidPatterns} placeholder="과도한 감탄, 같은 문장 시작의 반복"></textarea></label>
+            </div>
+            <div class="grid-2"><label>잘 맞는 글 <input bind:value={voiceForm.bestFor} placeholder="소설 장면, 기록문" /></label><label>점검 기준 <input bind:value={voiceForm.auditRules} placeholder="문장 시작이 세 번 연속 반복되지 않는다" /></label></div>
+            <div class="grid-2"><label>호환 시점 <input bind:value={voiceForm.viewpoints} placeholder="third_limited, omniscient" /></label><label>호환 시제 <input bind:value={voiceForm.tenses} placeholder="past, present" /></label></div>
+          </div>
+          <footer><small>검토본으로 저장되며, 승인 전에는 글 생성에 사용되지 않습니다.</small><div><button type="button" class="ghost" on:click={closeSettingsModal}>취소</button><button type="submit" class="primary" disabled={!voiceForm.name.trim() || !voiceForm.readerEffect.trim()}>검토본 만들기</button></div></footer>
+        </form>
+      {:else if settingsModal === 'voice-edit' && editingVoice}
+        <form class="settings-modal-form voice-form" on:submit|preventDefault={() => saveVoiceProfile(editingVoice)}>
+          <div class="settings-modal-body stack">
+            <div class="row spread"><span class="badge" class:canon={editingVoice.status === 'APPROVED'}>{voiceStatusLabel(editingVoice.status)} · v{editingVoice.version}</span><small>{editingVoice.project_id ? '이 프로젝트' : '모든 프로젝트'}</small></div>
+            <div class="grid-2"><label>이름 <input bind:value={voiceDraft.name} /></label><label>독자에게 남길 인상 <input bind:value={voiceDraft.readerEffect} /></label></div>
+            <div class="voice-rule-grid">
+              <label>문장 호흡 <textarea bind:value={voiceDraft.sentenceRhythm}></textarea></label>
+              <label>묘사 원칙 <textarea bind:value={voiceDraft.descriptionRules}></textarea></label>
+              <label>대화 원칙 <textarea bind:value={voiceDraft.dialogueRules}></textarea></label>
+              <label>비유 원칙 <textarea bind:value={voiceDraft.figurativeLanguage}></textarea></label>
+              <label>문단 원칙 <textarea bind:value={voiceDraft.paragraphRules}></textarea></label>
+              <label>피할 표현 <textarea bind:value={voiceDraft.avoidPatterns}></textarea></label>
+            </div>
+            <div class="grid-2"><label>잘 맞는 글 <input bind:value={voiceDraft.bestFor} /></label><label>점검 기준 <textarea bind:value={voiceDraft.auditRules}></textarea></label></div>
+            <div class="grid-2"><label>호환 시점 <input bind:value={voiceDraft.viewpoints} /></label><label>호환 시제 <input bind:value={voiceDraft.tenses} /></label></div>
+
+            <section class="voice-example-section stack">
+              <div><h3>짧은 문체 예시</h3><p>사실 참고가 아닌 표현 참고로만 전달됩니다. 직접 쓴 글이 아니면 권리와 사용 범위를 확인하세요.</p></div>
+              {#each voiceExamples as example}
+                <article class="voice-example-row">
+                  <div><strong>{example.label}</strong><p>{example.excerpt}</p><small>{example.rights_basis} · {(example.scene_tags || []).join(' · ') || '태그 없음'}</small></div>
+                  {#if editingVoice.status === 'DRAFT'}<div><button type="button" class:active={example.use_in_generation} class="secondary" disabled={example.rights_basis === 'ANALYSIS_ONLY'} on:click={() => toggleVoiceExample(example)}>{example.use_in_generation ? '생성에 사용' : '분석만'}</button><button type="button" class="danger-button" on:click={() => deleteVoiceExample(example)}>삭제</button></div>{/if}
+                </article>
+              {/each}
+              {#if editingVoice.status === 'DRAFT'}
+                <div class="voice-example-create">
+                  <div class="grid-2"><label>예시 이름 <input bind:value={voiceExampleForm.label} placeholder="예: 폭풍 전 갑판" /></label><label>권리 근거 <select bind:value={voiceExampleForm.rightsBasis}><option value="SELF_AUTHORED">직접 작성</option><option value="LICENSED">사용 허가됨</option><option value="PUBLIC_DOMAIN">퍼블릭 도메인</option><option value="ANALYSIS_ONLY">분석만 허용</option></select></label></div>
+                  <label>짧은 예시 <textarea bind:value={voiceExampleForm.excerpt} placeholder="표현 호흡을 보여 주는 짧은 문단"></textarea></label>
+                  <div class="grid-2"><label>이 예시가 가르칠 것 <input bind:value={voiceExampleForm.teaches} placeholder="한 줄에 하나씩" /></label><label>장면 태그 <input bind:value={voiceExampleForm.sceneTags} placeholder="대화, 추격, 내면" /></label></div>
+                  <button type="button" class="secondary" disabled={!voiceExampleForm.label.trim() || !voiceExampleForm.excerpt.trim()} on:click={() => addVoiceExample(editingVoice)}>예시 추가</button>
+                </div>
+              {/if}
+            </section>
+          </div>
+          <footer><small>{editingVoice.status === 'DRAFT' ? '승인하면 다음 글 만들기부터 선택할 수 있습니다.' : '수정 시 사용 기록을 보존한 새 검토 버전을 만듭니다.'}</small><div>{#if editingVoice.status === 'DRAFT' && !editingVoice.is_builtin}<button type="button" class="danger-button" on:click={() => deleteVoiceProfile(editingVoice)}>삭제</button>{/if}<button type="button" class="ghost" on:click={closeSettingsModal}>닫기</button><button type="submit" class="secondary" disabled={!voiceDraft.name.trim() || !voiceDraft.readerEffect.trim()}>변경 저장</button>{#if editingVoice.status === 'DRAFT'}<button type="button" class="primary" on:click={() => approveVoiceProfile(editingVoice)}>사용 가능으로 승인</button>{/if}</div></footer>
         </form>
       {/if}
     </div>

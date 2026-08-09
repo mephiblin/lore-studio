@@ -47,6 +47,56 @@ CANDIDATE_SCHEMA: dict[str, Any] = {
     },
 }
 
+VOICE_PROFILE_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": [
+        "reader_effect",
+        "sentence_rhythm",
+        "description_rules",
+        "dialogue_rules",
+        "figurative_language",
+        "paragraph_rules",
+        "avoid_patterns",
+        "best_for",
+        "audit_rules",
+        "compatibility",
+    ],
+    "properties": {
+        "reader_effect": {"type": "string"},
+        "sentence_rhythm": {"type": "array", "items": {"type": "string"}},
+        "description_rules": {"type": "array", "items": {"type": "string"}},
+        "dialogue_rules": {"type": "array", "items": {"type": "string"}},
+        "figurative_language": {"type": "array", "items": {"type": "string"}},
+        "paragraph_rules": {"type": "array", "items": {"type": "string"}},
+        "avoid_patterns": {"type": "array", "items": {"type": "string"}},
+        "best_for": {"type": "array", "items": {"type": "string"}},
+        "audit_rules": {"type": "array", "items": {"type": "string"}},
+        "compatibility": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["viewpoints", "tenses"],
+            "properties": {
+                "viewpoints": {"type": "array", "items": {"type": "string"}},
+                "tenses": {"type": "array", "items": {"type": "string"}},
+            },
+        },
+    },
+}
+
+REFERENCE_RECIPE_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["required_moves", "optional_moves", "planner_rules", "audit_rules", "best_for"],
+    "properties": {
+        "required_moves": {"type": "array", "items": {"type": "string"}},
+        "optional_moves": {"type": "array", "items": {"type": "string"}},
+        "planner_rules": {"type": "array", "items": {"type": "string"}},
+        "audit_rules": {"type": "array", "items": {"type": "string"}},
+        "best_for": {"type": "string"},
+    },
+}
+
 REFERENCE_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
@@ -70,9 +120,24 @@ REFERENCE_SCHEMA: dict[str, Any] = {
                 },
             },
         },
-        "recipe_candidate": {"type": "object"},
-        "voice_candidate": {"type": "object"},
-        "similarity_risks": {"type": "array", "items": {"type": "string"}},
+        "recipe_candidate": REFERENCE_RECIPE_SCHEMA,
+        "voice_candidate": VOICE_PROFILE_SCHEMA,
+        "similarity_risks": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["category", "description", "severity"],
+                "properties": {
+                    "category": {
+                        "type": "string",
+                        "enum": ["FACT_BLEED", "FIGURATIVE_COPY", "SINGLE_EXAMPLE_OVERFIT"],
+                    },
+                    "description": {"type": "string"},
+                    "severity": {"type": "string", "enum": ["low", "medium", "high"]},
+                },
+            },
+        },
     },
 }
 
@@ -108,6 +173,45 @@ WRITING_BOUNDARY_SCHEMA: dict[str, Any] = {
         "locked_facts": {"type": "array", "items": WRITING_BOUNDARY_ITEM_SCHEMA},
         "open_questions": {"type": "array", "items": WRITING_BOUNDARY_ITEM_SCHEMA},
         "forbidden_changes": {"type": "array", "items": WRITING_BOUNDARY_ITEM_SCHEMA},
+    },
+}
+
+PROSE_AUDIT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["issues", "strengths", "uncertainties"],
+    "properties": {
+        "issues": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["block_id", "start_text", "category", "reason", "severity", "profile_rule"],
+                "properties": {
+                    "block_id": {"type": "string"},
+                    "start_text": {"type": "string"},
+                    "category": {
+                        "type": "string",
+                        "enum": [
+                            "REPETITION",
+                            "RHYTHM_FLATNESS",
+                            "ABSTRACT_EMOTION",
+                            "DIALOGUE_VOICE_COLLISION",
+                            "EXPOSITION_OVERLOAD",
+                            "FIGURATIVE_OVERLOAD",
+                            "CLICHE_OR_SLOP",
+                            "REFERENCE_OVERLAP",
+                            "PROFILE_CONFLICT",
+                        ],
+                    },
+                    "reason": {"type": "string"},
+                    "severity": {"type": "string", "enum": ["info", "warning", "error"]},
+                    "profile_rule": {"type": "string"},
+                },
+            },
+        },
+        "strengths": {"type": "array", "items": {"type": "string"}},
+        "uncertainties": {"type": "array", "items": {"type": "string"}},
     },
 }
 
@@ -186,6 +290,46 @@ async def suggest_writing_boundaries(
     return parse_object(result.content), result
 
 
+async def audit_prose(
+    gateway: ModelGateway,
+    *,
+    blocks: list[dict[str, str]],
+    voice_profile: dict[str, Any] | None,
+    deterministic_findings: list[dict[str, Any]],
+) -> tuple[dict[str, Any], ModelCallResult]:
+    payload = {
+        "blocks": blocks,
+        "voice_profile": voice_profile,
+        "deterministic_findings": deterministic_findings,
+        "rules": [
+            "세계관 사실과 사건 순서를 평가하거나 바꾸지 않는다.",
+            "문학적 취향을 정답처럼 단정하지 않고 검토 가치가 있는 문제만 제안한다.",
+            "문제가 있는 block_id를 그대로 반환한다.",
+            "문체 프로필이 없으면 일반적인 반복·추상 감정·설명 과밀만 점검한다.",
+            "원고 수정문을 만들지 않는다.",
+        ],
+    }
+    result = await gateway.complete(
+        [
+            {
+                "role": "system",
+                "content": (
+                    "한국어 산문의 필력 점검자다. 결정론 검사 결과를 참고하되 그대로 반복하지 말고, "
+                    "독자가 실제로 느낄 리듬·묘사·대화·설명 문제를 좁게 찾는다. 결과는 검토 후보이며 자동 수정하지 않는다."
+                ),
+            },
+            {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+        ],
+        role="utility",
+        temperature=0.1,
+        max_tokens=2400,
+        response_mode="json_schema",
+        json_schema=PROSE_AUDIT_SCHEMA,
+        schema_name="prose_audit",
+    )
+    return parse_object(result.content), result
+
+
 async def extract_candidates(
     gateway: ModelGateway,
     *,
@@ -229,7 +373,9 @@ async def analyze_reference(gateway: ModelGateway, body: str) -> tuple[dict[str,
                 "content": (
                     "참고 글의 사실·고유명사를 재사용하지 말고 문단의 수사적 이동, 스케일, 확실성, "
                     "긴장, 문장 리듬과 종결 방식만 분석한다. recipe_candidate와 voice_candidate에는 "
-                    "원문의 고유명사와 긴 문장을 절대 넣지 않는다. Move는 ORIENT,NARROW,ANCHOR,"
+                    "원문의 고유명사와 긴 문장을 절대 넣지 않는다. voice_candidate는 작가 이름이나 "
+                    "줄거리 요약이 아니라 측정 가능한 독서 인상·문장 호흡·묘사·대화·비유·문단 규칙만 "
+                    "일반화한다. 확신하지 못한 항목은 빈 목록으로 둔다. Move는 ORIENT,NARROW,ANCHOR,"
                     "COMPLICATE,COMPARE,EXEMPLIFY,ESCALATE,INTERPRET,WITHHOLD,TURN,STING 중 선택한다."
                 ),
             },

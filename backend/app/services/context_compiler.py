@@ -1,15 +1,29 @@
 from __future__ import annotations
 
+import json
+import math
 from collections import OrderedDict
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import ConceptPage, DirectionCard, PlaybookSession, Project, WritingRecipe
+from app.models import (
+    ConceptPage,
+    DirectionCard,
+    PlaybookSession,
+    Project,
+    VoiceProfile,
+    VoiceProfileExample,
+    WritingRecipe,
+)
 
 ROLE_FACT = {"PROJECT_CANON", "DRAFT_SETTING", "CANON_EVIDENCE", "SECONDARY_INTERPRETATION"}
 ROLE_REFERENCE = {"DISCOURSE_REFERENCE", "INSPIRATION"}
+VOICE_PROFILE_TOKEN_BUDGET = 900
+STYLE_EXAMPLE_TOKEN_BUDGET = 1200
+STYLE_EXAMPLE_MAX_COUNT = 5
+UNSET = object()
 
 
 def tiptap_to_text(node: Any) -> str:
@@ -41,6 +55,147 @@ def _body_limit(context_depth: str) -> int:
     }.get(context_depth, 3000)
 
 
+def _estimate_input_tokens(value: Any) -> int:
+    text = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False, sort_keys=True)
+    return max(1, math.ceil(len(text) / 2))
+
+
+def _fit_voice_profile(profile_json: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
+    ordered_fields = (
+        "reader_effect",
+        "sentence_rhythm",
+        "description_rules",
+        "dialogue_rules",
+        "figurative_language",
+        "paragraph_rules",
+        "avoid_patterns",
+        "best_for",
+        "audit_rules",
+        "compatibility",
+    )
+    fitted: dict[str, Any] = {}
+    excluded: list[str] = []
+    for field in ordered_fields:
+        value = profile_json.get(field)
+        if value in (None, "", [], {}):
+            continue
+        if isinstance(value, list):
+            accepted: list[Any] = []
+            for item in value:
+                candidate = {**fitted, field: [*accepted, item]}
+                if _estimate_input_tokens(candidate) > VOICE_PROFILE_TOKEN_BUDGET:
+                    excluded.append(f"{field}:token_budget")
+                    break
+                accepted.append(item)
+            if accepted:
+                fitted[field] = accepted
+            continue
+        candidate = {**fitted, field: value}
+        if _estimate_input_tokens(candidate) <= VOICE_PROFILE_TOKEN_BUDGET:
+            fitted[field] = value
+        else:
+            excluded.append(f"{field}:token_budget")
+    return fitted, excluded
+
+
+def _compile_voice_context(
+    db: Session,
+    session: PlaybookSession,
+    *,
+    profile_id: str | None,
+    selection_mode: str,
+    requested_example_ids: list[str],
+    generation_settings: dict[str, Any],
+) -> tuple[dict[str, Any] | None, list[dict[str, Any]], list[dict[str, str]], list[str]]:
+    if profile_id is None:
+        return None, [], [], []
+    profile = db.get(VoiceProfile, profile_id)
+    if (
+        not profile
+        or profile.project_id not in {None, session.project_id}
+        or profile.status not in {"APPROVED", "DEPRECATED"}
+    ):
+        raise ValueError("현재 프로젝트에서 사용할 수 없는 문체 프로필입니다.")
+
+    fitted_profile, profile_exclusions = _fit_voice_profile(profile.profile_json or {})
+    warnings = [f"문체 프로필 일부가 입력 예산으로 제외됨: {item}" for item in profile_exclusions]
+    voice_pack = {
+        "id": profile.id,
+        "key": profile.key,
+        "version": profile.version,
+        "name": profile.name,
+        "description": profile.description,
+        "profile": fitted_profile,
+        "input_tokens_estimate": _estimate_input_tokens(fitted_profile),
+        "fact_eligible": False,
+    }
+
+    examples = list(
+        db.scalars(
+            select(VoiceProfileExample).where(
+                VoiceProfileExample.voice_profile_id == profile.id,
+                VoiceProfileExample.status == "ACTIVE",
+            )
+        ).all()
+    )
+    allowed = {
+        example.id: example
+        for example in examples
+        if example.use_in_generation and example.rights_basis != "ANALYSIS_ONLY"
+    }
+    excluded: list[dict[str, str]] = [
+        {"id": example.id, "reason": "analysis_only_or_disabled"}
+        for example in examples
+        if example.id not in allowed
+    ]
+
+    if selection_mode == "manual":
+        missing = [example_id for example_id in requested_example_ids if example_id not in allowed]
+        if missing:
+            raise ValueError("선택한 문체 예시가 비활성화되었거나 생성 입력 권한이 없습니다.")
+        ordered = [allowed[example_id] for example_id in requested_example_ids]
+    else:
+        viewpoint = str(generation_settings.get("viewpoint", ""))
+        tense = str(generation_settings.get("tense", ""))
+        compatibility = profile.profile_json.get("compatibility", {}) or {}
+        viewpoint_match = viewpoint in compatibility.get("viewpoints", [])
+        tense_match = tense in compatibility.get("tenses", [])
+        ordered = sorted(
+            allowed.values(),
+            key=lambda example: (
+                -int(viewpoint_match),
+                -int(tense_match),
+                example.position,
+                example.id,
+            ),
+        )[:3]
+
+    compiled: list[dict[str, Any]] = []
+    used_tokens = 0
+    for example in ordered[:STYLE_EXAMPLE_MAX_COUNT]:
+        item_tokens = _estimate_input_tokens(example.excerpt)
+        if item_tokens > STYLE_EXAMPLE_TOKEN_BUDGET // 2:
+            excluded.append({"id": example.id, "reason": "single_example_budget"})
+            continue
+        if used_tokens + item_tokens > STYLE_EXAMPLE_TOKEN_BUDGET:
+            excluded.append({"id": example.id, "reason": "total_example_budget"})
+            continue
+        compiled.append(
+            {
+                "id": example.id,
+                "label": example.label,
+                "excerpt": example.excerpt,
+                "excerpt_hash": example.excerpt_hash,
+                "teaches": example.teaches_json,
+                "scene_tags": example.scene_tags,
+                "input_tokens_estimate": item_tokens,
+                "fact_eligible": False,
+            }
+        )
+        used_tokens += item_tokens
+    return voice_pack, compiled, excluded, warnings
+
+
 def compile_context(
     db: Session,
     session: PlaybookSession,
@@ -49,6 +204,9 @@ def compile_context(
     output_profile: str | None = None,
     user_direction: str | None = None,
     settings_json: dict[str, Any] | None = None,
+    voice_profile_id: str | None | object = UNSET,
+    voice_selection_mode: str | None = None,
+    voice_example_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     project = db.get(Project, session.project_id)
     recipe = db.get(WritingRecipe, writing_recipe_id or session.writing_recipe_id)
@@ -162,6 +320,27 @@ def compile_context(
     if project.universe_namespace and factual_namespaces and project.universe_namespace not in factual_namespaces:
         warnings.append("선택된 사실 자료의 네임스페이스가 프로젝트 기본 네임스페이스와 다릅니다.")
 
+    effective_voice_profile_id = (
+        session.voice_profile_id if voice_profile_id is UNSET else voice_profile_id
+    )
+    effective_voice_mode = voice_selection_mode or (
+        session.voice_selection_mode if voice_profile_id is UNSET else (
+            "model_default" if effective_voice_profile_id is None else "profile_default"
+        )
+    )
+    effective_example_ids = (
+        session.voice_example_ids if voice_example_ids is None else voice_example_ids
+    )
+    voice_profile, style_examples, excluded_style_examples, voice_warnings = _compile_voice_context(
+        db,
+        session,
+        profile_id=effective_voice_profile_id if isinstance(effective_voice_profile_id, str) else None,
+        selection_mode=effective_voice_mode,
+        requested_example_ids=effective_example_ids,
+        generation_settings=effective_settings or {},
+    )
+    warnings.extend(voice_warnings)
+
     pack = {
         "project": {
             "id": project.id,
@@ -188,12 +367,19 @@ def compile_context(
         ],
         "user_direction": session.user_direction if user_direction is None else user_direction,
         "writing_recipe": recipe.recipe_json,
+        "voice_profile": voice_profile,
+        "style_examples": style_examples,
+        "excluded_style_examples": excluded_style_examples,
+        "voice_selection_mode": effective_voice_mode,
         "output_profile": output_profile or session.output_profile,
         "generation_settings": effective_settings,
         "seed": session.seed,
         "warnings": warnings,
         "policy": {
             "reference_facts_are_forbidden": True,
+            "style_examples_are_non_factual": True,
+            "reference_names_are_forbidden": True,
+            "reference_phrases_must_not_be_copied": True,
             "generated_concepts_require_user_approval": True,
             "authority_order": [
                 "CURRENT_USER_DIRECTION",

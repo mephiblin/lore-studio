@@ -17,6 +17,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import TypeDecorator
@@ -217,15 +218,72 @@ class WritingRecipe(Base, TimestampMixin):
 
 class VoiceProfile(Base, TimestampMixin):
     __tablename__ = "voice_profiles"
+    __table_args__ = (
+        Index(
+            "uq_voice_profile_project_key_version",
+            "project_id",
+            "key",
+            "version",
+            unique=True,
+            postgresql_where=text("project_id IS NOT NULL"),
+            sqlite_where=text("project_id IS NOT NULL"),
+        ),
+        Index(
+            "uq_voice_profile_shared_key_version",
+            "key",
+            "version",
+            unique=True,
+            postgresql_where=text("project_id IS NULL"),
+            sqlite_where=text("project_id IS NULL"),
+        ),
+        Index("ix_voice_profiles_source_analysis_id", "source_analysis_id"),
+        Index("ix_voice_profiles_status", "status"),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
-    project_id: Mapped[str] = mapped_column(
-        ForeignKey("projects.id", ondelete="CASCADE"), index=True, nullable=False
+    project_id: Mapped[str | None] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True, nullable=True
     )
+    key: Mapped[str] = mapped_column(String(120), nullable=False)
+    version: Mapped[str] = mapped_column(String(40), default="1.0.0", nullable=False)
     name: Mapped[str] = mapped_column(String(300), nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="", nullable=False)
     profile_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
-    source_analysis_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
-    approved: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    source_analysis_id: Mapped[str | None] = mapped_column(
+        ForeignKey("reference_analyses.id", ondelete="SET NULL"), nullable=True
+    )
+    is_builtin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="DRAFT", nullable=False)
+
+
+class VoiceProfileExample(Base, TimestampMixin):
+    __tablename__ = "voice_profile_examples"
+    __table_args__ = (
+        Index(
+            "ix_voice_profile_examples_profile",
+            "voice_profile_id",
+            "status",
+            "position",
+        ),
+        Index("ix_voice_profile_examples_source_page", "source_concept_page_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    voice_profile_id: Mapped[str] = mapped_column(
+        ForeignKey("voice_profiles.id", ondelete="CASCADE"), nullable=False
+    )
+    source_concept_page_id: Mapped[str | None] = mapped_column(
+        ForeignKey("concept_pages.id", ondelete="SET NULL"), nullable=True
+    )
+    label: Mapped[str] = mapped_column(String(300), nullable=False)
+    excerpt: Mapped[str] = mapped_column(Text, nullable=False)
+    teaches_json: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    scene_tags: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    rights_basis: Mapped[str] = mapped_column(String(32), default="ANALYSIS_ONLY", nullable=False)
+    use_in_generation: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    position: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="ACTIVE", nullable=False)
+    excerpt_hash: Mapped[str] = mapped_column(String(128), nullable=False)
 
 
 class PlaybookSession(Base, TimestampMixin):
@@ -243,6 +301,10 @@ class PlaybookSession(Base, TimestampMixin):
     voice_profile_id: Mapped[str | None] = mapped_column(
         ForeignKey("voice_profiles.id", ondelete="SET NULL"), nullable=True
     )
+    voice_selection_mode: Mapped[str] = mapped_column(
+        String(32), default="model_default", nullable=False
+    )
+    voice_example_ids: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     output_profile: Mapped[str] = mapped_column(String(100), default="lore_article", nullable=False)
     settings_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     random_pool_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)

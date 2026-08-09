@@ -147,6 +147,20 @@ test('world material editor keeps writing primary and metadata compact', async (
   await expect(relation).not.toContainText(/HOME_OF|CULMINATES_IN|CONTAINS|INHABITS|SERVES/);
 });
 
+test('voice profiles use a local tab and a bounded review modal', async ({ page }) => {
+  await page.goto('/editor');
+  const voiceTab = page.getByRole('button', { name: /문체·필력/ }).first();
+  await voiceTab.click();
+  await expect(page.getByRole('heading', { name: '문체·필력' })).toBeVisible();
+  await expect(page.locator('.voice-profile-list')).toBeVisible();
+  await page.getByRole('button', { name: '+ 새 문체 프로필' }).click();
+  const dialog = await expectWorkspaceDialog(page, '새 문체 프로필');
+  await expect(dialog.getByLabel('사용 범위')).toHaveValue('PROJECT');
+  await expect(dialog.getByRole('button', { name: '검토본 만들기' })).toBeDisabled();
+  await dialog.getByRole('button', { name: '취소' }).click();
+  await expect(dialog).toBeHidden();
+});
+
 test('world material AI edits stay reviewable and use temporary references', async ({ page }) => {
   test.skip(process.env.E2E_EXPECT_DATA !== 'true', 'requires the curated Black Route world project');
 
@@ -602,6 +616,11 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
   await expect(causalPattern).toContainText('긴장 고조');
   await expect(causalPattern).toContainText('의미 해설');
   await expect(causalPattern).not.toContainText('시작 원인');
+  await page.getByRole('button', { name: /문체·필력으로 계속/ }).click();
+
+  await expectStepHelp(page, '문체·필력 단계 설명', '어떤 문장 감각으로 전달할까요');
+  const modelDefaultVoice = page.locator('.voice-option.model-default');
+  await expect(modelDefaultVoice).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: /결과물 형태로 계속/ }).click();
 
   await expectStepHelp(page, '결과물 형태 단계 설명', '어떤 결과물로 만들까요');
@@ -639,6 +658,11 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
     tense: 'past',
   });
   expect(sessionRequest.postDataJSON().writing_recipe_id).toBeTruthy();
+  expect(sessionRequest.postDataJSON()).toMatchObject({
+    voice_profile_id: null,
+    voice_selection_mode: 'model_default',
+    voice_example_ids: [],
+  });
   const sessionResponse = await sessionRequest.response();
   const session = await sessionResponse.json();
   await expect(page.locator('.generation-route li').first()).toHaveClass(/complete/);
