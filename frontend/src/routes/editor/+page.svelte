@@ -733,76 +733,78 @@
           <div class="heading-with-help"><h2>집필 지침</h2><HelpTip label="집필 지침 설명" text="세계관 사실이나 전개 순서가 아니라, 이 프로젝트의 글에서 반복해 지킬 강조점·금지 사항·결말 원칙입니다. 글 만들기에서 원고별로 선택합니다." /></div>
           <span>{cards.length}개</span>
         </header>
-        <details class="editor-create-disclosure direction-create">
-          <summary>새 집필 지침 만들기</summary>
-          <div class="stack disclosure-body">
-            <label>지침 이름 <input bind:value={cardForm.title} placeholder="예: 제도의 효능과 대가를 함께 보여 준다" /></label>
-            <label>이 프로젝트의 글에서 무엇을 지킬까요? <textarea bind:value={cardForm.body} placeholder="강조할 내용, 반드시 보여 줄 과정, 피할 해석을 자연스럽게 적어 주세요."></textarea></label>
-            <label>찾기용 태그 <input bind:value={cardForm.tags} placeholder="제도, 의존, 대가" /></label>
-            <details class="direction-rule-editor">
-              <summary>세부 규칙 직접 작성 <span>선택</span></summary>
-              <div class="direction-rule-fields">
-                <label>지침 목표 <textarea aria-label="새 집필 지침 목표" bind:value={cardForm.goals} placeholder="한 줄에 하나씩"></textarea></label>
-                <label>전개 순서 <textarea aria-label="새 집필 지침 전개 순서" bind:value={cardForm.sequence} placeholder="도입→성공→의존 순서를 한 줄에 하나씩"></textarea></label>
-                <label>반드시 포함 <textarea aria-label="새 집필 지침 반드시 포함" bind:value={cardForm.mustInclude} placeholder="한 줄에 하나씩"></textarea></label>
-                <label>피할 전개 <textarea aria-label="새 집필 지침 피할 전개" bind:value={cardForm.avoid} placeholder="한 줄에 하나씩"></textarea></label>
-                <label class="direction-ending-field">선호 결말 <input aria-label="새 집필 지침 선호 결말" bind:value={cardForm.endingPreference} placeholder="예: 해결보다 선택의 비용을 남긴다" /></label>
-              </div>
-            </details>
-            <button class="primary" disabled={!cardForm.title.trim() || !cardForm.body.trim()} on:click={createCard}>지침 추가</button>
-          </div>
-        </details>
-        <div class="direction-list">
-          {#each cards as card}
-            <article class="direction-card">
-              {#if editingCardId === card.id}
-                <div class="stack">
-                  <label>지침 이름 <input bind:value={cardDraft.title} /></label>
-                  <label>지침 설명 <textarea bind:value={cardDraft.body}></textarea></label>
-                  <label>태그 <input bind:value={cardDraft.tags} /></label>
-                  <details class="direction-rule-editor" open={hasCardRules(card)}>
-                    <summary>세부 규칙 직접 작성 <span>선택</span></summary>
-                    <div class="direction-rule-fields">
-                      <label>지침 목표 <textarea aria-label={`${card.title} 지침 목표`} bind:value={cardDraft.goals}></textarea></label>
-                      <label>전개 순서 <textarea aria-label={`${card.title} 전개 순서`} bind:value={cardDraft.sequence}></textarea></label>
-                      <label>반드시 포함 <textarea aria-label={`${card.title} 반드시 포함`} bind:value={cardDraft.mustInclude}></textarea></label>
-                      <label>피할 전개 <textarea aria-label={`${card.title} 피할 전개`} bind:value={cardDraft.avoid}></textarea></label>
-                      <label class="direction-ending-field">선호 결말 <input aria-label={`${card.title} 선호 결말`} bind:value={cardDraft.endingPreference} /></label>
-                    </div>
-                  </details>
-                  <div class="row"><button class="primary" on:click={() => saveCard(card)}>저장</button><button class="ghost" on:click={() => editingCardId = ''}>취소</button></div>
+        <div class="direction-workspace-scroll">
+          <details class="editor-create-disclosure direction-create">
+            <summary>새 집필 지침 만들기</summary>
+            <div class="stack disclosure-body">
+              <label>지침 이름 <input bind:value={cardForm.title} placeholder="예: 제도의 효능과 대가를 함께 보여 준다" /></label>
+              <label>이 프로젝트의 글에서 무엇을 지킬까요? <textarea bind:value={cardForm.body} placeholder="강조할 내용, 반드시 보여 줄 과정, 피할 해석을 자연스럽게 적어 주세요."></textarea></label>
+              <label>찾기용 태그 <input bind:value={cardForm.tags} placeholder="제도, 의존, 대가" /></label>
+              <details class="direction-rule-editor" open>
+                <summary>세부 규칙 직접 작성</summary>
+                <div class="direction-rule-fields">
+                  <label>지침 목표 <textarea aria-label="새 집필 지침 목표" bind:value={cardForm.goals} placeholder="한 줄에 하나씩"></textarea></label>
+                  <label>전개 순서 <textarea aria-label="새 집필 지침 전개 순서" bind:value={cardForm.sequence} placeholder="도입→성공→의존 순서를 한 줄에 하나씩"></textarea></label>
+                  <label>반드시 포함 <textarea aria-label="새 집필 지침 반드시 포함" bind:value={cardForm.mustInclude} placeholder="한 줄에 하나씩"></textarea></label>
+                  <label>피할 전개 <textarea aria-label="새 집필 지침 피할 전개" bind:value={cardForm.avoid} placeholder="한 줄에 하나씩"></textarea></label>
+                  <label class="direction-ending-field">선호 결말 <input aria-label="새 집필 지침 선호 결말" bind:value={cardForm.endingPreference} placeholder="예: 해결보다 선택의 비용을 남긴다" /></label>
                 </div>
-              {:else}
-                <div class="row spread"><div><div class="tag-row">{#each card.tags || [] as tag}<span class="badge">{tag}</span>{/each}</div><h3>{card.title}</h3></div><span class="badge canon">선택 가능</span></div>
-                <p>{card.body}</p>
-                {#if hasCardRules(card)}
-                  <div class="rule-grid direction-rule-grid">
-                    {#if card.parsed_rules.goals?.length}<div><strong>지침 목표</strong><span>{card.parsed_rules.goals.join(' · ')}</span></div>{/if}
-                    {#if card.parsed_rules.sequence?.length}<div><strong>전개 순서</strong><span>{card.parsed_rules.sequence.join(' → ')}</span></div>{/if}
-                    {#if card.parsed_rules.must_include?.length}<div><strong>반드시 포함</strong><span>{card.parsed_rules.must_include.join(' · ')}</span></div>{/if}
-                    {#if card.parsed_rules.avoid?.length}<div><strong>피할 전개</strong><span>{card.parsed_rules.avoid.join(' · ')}</span></div>{/if}
-                    {#if card.parsed_rules.ending_preference}<div><strong>선호 결말</strong><span>{card.parsed_rules.ending_preference}</span></div>{/if}
-                  </div>
-                {/if}
-                <div class="row wrap"><button class="secondary" on:click={() => editCard(card)}>내용 수정</button><button class="ghost" on:click={() => suggestCard(card)}>AI로 세부 규칙 정리</button><button class="danger-button" on:click={() => deleteCard(card)}>삭제</button></div>
-              {/if}
-            </article>
-          {/each}
-          {#if !cards.length}<div class="empty-state direction-empty"><strong>아직 집필 지침이 없습니다.</strong><p>위에서 이 프로젝트의 글이 반복해서 지킬 원칙을 추가하세요.</p></div>{/if}
-        </div>
-        {#if cardSuggestion}
-          <section class="card suggestion-review stack">
-            <div><p class="eyebrow">AI 정리 결과</p><h3>원문은 그대로 두고, 생성에 쓸 세부 규칙만 추가합니다.</h3></div>
-            <div class="rule-grid">
-              <div><strong>목표</strong><span>{(cardSuggestion.suggestion.goals || []).join(' · ')}</span></div>
-              <div><strong>전개 순서</strong><span>{(cardSuggestion.suggestion.sequence || []).join(' → ')}</span></div>
-              <div><strong>반드시 포함</strong><span>{(cardSuggestion.suggestion.must_include || []).join(' · ')}</span></div>
-              <div><strong>피할 전개</strong><span>{(cardSuggestion.suggestion.avoid || []).join(' · ')}</span></div>
-              <div><strong>선호 결말</strong><span>{cardSuggestion.suggestion.ending_preference}</span></div>
+              </details>
+              <button class="primary" disabled={!cardForm.title.trim() || !cardForm.body.trim()} on:click={createCard}>지침 추가</button>
             </div>
-            <div class="row"><button class="primary" on:click={applyCardSuggestion}>세부 규칙 저장</button><button class="ghost" on:click={() => cardSuggestion = null}>취소</button></div>
-          </section>
-        {/if}
+          </details>
+          <div class="direction-list">
+            {#each cards as card}
+              <article class="direction-card">
+                {#if editingCardId === card.id}
+                  <div class="stack">
+                    <label>지침 이름 <input bind:value={cardDraft.title} /></label>
+                    <label>지침 설명 <textarea bind:value={cardDraft.body}></textarea></label>
+                    <label>태그 <input bind:value={cardDraft.tags} /></label>
+                    <details class="direction-rule-editor" open>
+                      <summary>세부 규칙 직접 작성</summary>
+                      <div class="direction-rule-fields">
+                        <label>지침 목표 <textarea aria-label={`${card.title} 지침 목표`} bind:value={cardDraft.goals}></textarea></label>
+                        <label>전개 순서 <textarea aria-label={`${card.title} 전개 순서`} bind:value={cardDraft.sequence}></textarea></label>
+                        <label>반드시 포함 <textarea aria-label={`${card.title} 반드시 포함`} bind:value={cardDraft.mustInclude}></textarea></label>
+                        <label>피할 전개 <textarea aria-label={`${card.title} 피할 전개`} bind:value={cardDraft.avoid}></textarea></label>
+                        <label class="direction-ending-field">선호 결말 <input aria-label={`${card.title} 선호 결말`} bind:value={cardDraft.endingPreference} /></label>
+                      </div>
+                    </details>
+                    <div class="row"><button class="primary" on:click={() => saveCard(card)}>저장</button><button class="ghost" on:click={() => editingCardId = ''}>취소</button></div>
+                  </div>
+                {:else}
+                  <div class="row spread"><div><div class="tag-row">{#each card.tags || [] as tag}<span class="badge">{tag}</span>{/each}</div><h3>{card.title}</h3></div><span class="badge canon">선택 가능</span></div>
+                  <p>{card.body}</p>
+                  {#if hasCardRules(card)}
+                    <div class="rule-grid direction-rule-grid">
+                      {#if card.parsed_rules.goals?.length}<div><strong>지침 목표</strong><span>{card.parsed_rules.goals.join(' · ')}</span></div>{/if}
+                      {#if card.parsed_rules.sequence?.length}<div><strong>전개 순서</strong><span>{card.parsed_rules.sequence.join(' → ')}</span></div>{/if}
+                      {#if card.parsed_rules.must_include?.length}<div><strong>반드시 포함</strong><span>{card.parsed_rules.must_include.join(' · ')}</span></div>{/if}
+                      {#if card.parsed_rules.avoid?.length}<div><strong>피할 전개</strong><span>{card.parsed_rules.avoid.join(' · ')}</span></div>{/if}
+                      {#if card.parsed_rules.ending_preference}<div><strong>선호 결말</strong><span>{card.parsed_rules.ending_preference}</span></div>{/if}
+                    </div>
+                  {/if}
+                  <div class="row wrap"><button class="secondary" on:click={() => editCard(card)}>내용 수정</button><button class="ghost" on:click={() => suggestCard(card)}>AI로 세부 규칙 정리</button><button class="danger-button" on:click={() => deleteCard(card)}>삭제</button></div>
+                {/if}
+              </article>
+            {/each}
+            {#if !cards.length}<div class="empty-state direction-empty"><strong>아직 집필 지침이 없습니다.</strong><p>위에서 이 프로젝트의 글이 반복해서 지킬 원칙을 추가하세요.</p></div>{/if}
+          </div>
+          {#if cardSuggestion}
+            <section class="card suggestion-review stack">
+              <div><p class="eyebrow">AI 정리 결과</p><h3>원문은 그대로 두고, 생성에 쓸 세부 규칙만 추가합니다.</h3></div>
+              <div class="rule-grid">
+                <div><strong>목표</strong><span>{(cardSuggestion.suggestion.goals || []).join(' · ')}</span></div>
+                <div><strong>전개 순서</strong><span>{(cardSuggestion.suggestion.sequence || []).join(' → ')}</span></div>
+                <div><strong>반드시 포함</strong><span>{(cardSuggestion.suggestion.must_include || []).join(' · ')}</span></div>
+                <div><strong>피할 전개</strong><span>{(cardSuggestion.suggestion.avoid || []).join(' · ')}</span></div>
+                <div><strong>선호 결말</strong><span>{cardSuggestion.suggestion.ending_preference}</span></div>
+              </div>
+              <div class="row"><button class="primary" on:click={applyCardSuggestion}>세부 규칙 저장</button><button class="ghost" on:click={() => cardSuggestion = null}>취소</button></div>
+            </section>
+          {/if}
+        </div>
       </section>
     {:else if activeTab === 'recipes'}
       <section class="recipe-manager">

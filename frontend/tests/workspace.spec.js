@@ -4,7 +4,15 @@ const routes = ['/', '/editor', '/playbook', '/documents', '/lorebook'];
 
 async function expectStepHelp(page, label, text) {
   await page.getByLabel(label).click();
-  await expect(page.getByRole('tooltip').filter({ hasText: text })).toBeVisible();
+  const tooltip = page.getByRole('tooltip').filter({ hasText: text });
+  await expect(tooltip).toBeVisible();
+  await expect(tooltip).toHaveCSS('position', 'fixed');
+  const box = await tooltip.boundingBox();
+  const viewport = page.viewportSize();
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.y).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+  expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
 }
 
 async function removeProjectFixture(request, apiOrigin, projectId) {
@@ -389,10 +397,16 @@ test('a project can be added after projects already exist', async ({ page }, tes
     await expect.poll(() => boundaryAiButton.evaluate((element) => element.getBoundingClientRect().width === element.parentElement.getBoundingClientRect().width)).toBe(true);
 
     await page.getByRole('navigation', { name: '세계관 자료 관리' }).getByRole('button', { name: /^집필 지침/ }).click();
+    await expectStepHelp(page, '집필 지침 설명', '이 프로젝트의 글에서 반복해 지킬');
     await page.getByText('새 집필 지침 만들기', { exact: true }).click();
+    const directionScroll = page.locator('.direction-workspace-scroll');
+    if (testInfo.project.name === 'desktop') {
+      await expect(directionScroll).toHaveCSS('overflow-y', 'auto');
+      expect(await directionScroll.evaluate((element) => element.clientHeight > 0)).toBe(true);
+    }
     await page.getByLabel('지침 이름').fill('유용한 기술의 대가');
     await page.getByLabel('이 프로젝트의 글에서 무엇을 지킬까요?').fill('효능은 유지하고 대가가 누적되는 과정을 보여 준다.');
-    await page.locator('.direction-create .direction-rule-editor > summary').click();
+    await expect(page.locator('.direction-create .direction-rule-editor')).toHaveJSProperty('open', true);
     await page.getByLabel('새 집필 지침 목표').fill('기술의 실제 효능을 보여 준다');
     await page.getByLabel('새 집필 지침 전개 순서').fill('도입\n성공\n의존\n대가');
     await page.getByLabel('새 집필 지침 반드시 포함').fill('대체재가 없는 이유');
@@ -410,6 +424,10 @@ test('a project can be added after projects already exist', async ({ page }, tes
     const directionCard = page.locator('.direction-card').filter({ hasText: '유용한 기술의 대가' });
     await expect(directionCard).toContainText('도입 → 성공 → 의존 → 대가');
     await expect(directionCard).toContainText('해결보다 선택의 비용을 남긴다');
+    await directionCard.getByRole('button', { name: '내용 수정' }).click();
+    const directionEditForm = page.locator('.direction-card').filter({ has: page.getByLabel('유용한 기술의 대가 지침 목표') });
+    await expect(directionEditForm.locator('.direction-rule-editor')).toHaveJSProperty('open', true);
+    await directionEditForm.getByRole('button', { name: '취소' }).click();
 
     await page.getByRole('navigation', { name: '세계관 자료 관리' }).getByRole('button', { name: /^전개 방식/ }).click();
     await expectStepHelp(page, '전개 방식 설명', '공용 기본 방식은 프로젝트와 관계없이');
