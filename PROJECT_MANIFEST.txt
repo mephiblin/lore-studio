@@ -25,6 +25,7 @@ backend/app/services/__init__.py
 backend/app/services/audits.py
 backend/app/services/authority.py
 backend/app/services/config_loader.py
+backend/app/services/concept_ai.py
 backend/app/services/context_compiler.py
 backend/app/services/harness.py
 backend/app/services/model_gateway.py
@@ -37,6 +38,7 @@ backend/tests/test_api_integration.py
 backend/tests/test_authority.py
 backend/tests/test_config_loader.py
 backend/tests/test_context_compiler.py
+backend/tests/test_concept_ai.py
 backend/tests/test_draft_editing.py
 backend/tests/test_generation_pipeline.py
 backend/tests/test_local_models.py
@@ -114,6 +116,7 @@ sample/concept-pages/lighthouse-order.md
 sample/direction-card.yaml
 sample/playbook-request.json
 schema/concept-page.schema.json
+schema/concept-ai-edit.schema.json
 schema/direction-card.schema.json
 schema/draft-save.schema.json
 schema/lore-document.schema.json

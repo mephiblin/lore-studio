@@ -1,7 +1,7 @@
 # Lore Studio v1.0 구현 상태
 
-마지막 갱신: 2026-08-07
-기준: `65c44fb` (`main`)까지의 실제 local-first v1.0 구현
+마지막 갱신: 2026-08-09
+기준: `agent/project-taxonomy-and-ui-polish` 브랜치의 실제 local-first 구현
 상태: **완료 — 실제 모델 모드로 실행 중**
 
 ## 완료 기능
@@ -16,6 +16,7 @@
 - 작업 흐름·모델 상태 중복을 제거한 콤팩트 프로젝트 허브, 300px 노션형 커버 카드, 커버 이미지 축소·교체·제거
 - 글 만들기 추천/전체 바 제거, 자료 선택 카드를 프로젝트 카드와 같은 16:9 이미지·본문·하단 메타 구조로 통일, 주요 메뉴 색상의 선택 상태 적용
 - 세계관 자료/프로젝트 자료 종류/프로젝트 집필 지침 분리, 이름 기반 관계 생성·삭제와 자연어 관계 표시
+- 세계관 자료 Tiptap 툴바의 선택 영역 `AI 수정`과 전체·현재 위치·이어쓰기 `AI 작성`, 실행별 임시 참고 자료 선택, 본문 변경 감지, `CANDIDATE` 비교·명시 반영, 저장 전 상태 보존
 - 주제·배경·주요 요소·갈등·집필 지침·공용/프로젝트 전개 방식·결과물 형태를 한 질문씩 진행하는 설문형 글 만들기, 시점·시제 생성 기록 저장
 - 프로젝트별 집필 지침(DirectionCard)과 전개 방식(WritingRecipe)을 별도 단계로 유지하고, 공용 기본 방식과 현재 프로젝트 소유 방식만 선택하도록 API 범위 격리
 - UI 핵심 용어를 `세계관 자료 / 집필 지침 / 전개 방식 / 결과물 형태 / 초안 / 완성본 / 로어북`으로 통일하고 정보 구조 문서에 사용 규칙 고정
@@ -35,11 +36,11 @@ Utility 9-case 결과는 Qwen3.5-4B가 namespace 누출로 탈락했고 Gemma4-2
 ## 최종 검증
 
 - Ruff PASS
-- pytest `14 passed, 3 skipped` (실제 endpoint opt-in tests는 기본 run에서 skip)
+- pytest `16 passed, 3 skipped` (실제 endpoint opt-in tests는 기본 run에서 skip)
 - 실제 모델 opt-in `3 passed` (Writer/Utility, Embedding, Vision)
 - bundle/schema/YAML PASS
 - Svelte production build PASS
-- 실제 데이터 Playwright `26 passed, 6 skipped` (1600×900/390×844·360×844, 73개 자료 목록 높이, 단계 이동·설명 툴팁, 프로젝트별 자료 종류 편집, 모바일 프로젝트 생성 창, 읽기/편집 모드, 기존 생성 gate·원고 저장·완성 설정·로어북 분리 포함)
+- 실제 데이터 Playwright `28 passed, 6 skipped` (1600×900/390×844·360×844, 세계관 자료 AI 수정·작성, 73개 자료 목록 높이, 단계 이동·설명 툴팁, 프로젝트별 자료 종류 편집, 모바일 프로젝트 생성 창, 읽기/편집 모드, 기존 생성 gate·원고 저장·완성 설정·로어북 분리 포함)
 - 모델 서비스 미연결 UI E2E `10 passed`
 - Compose build/up 및 DB health PASS
 - PostgreSQL Alembic upgrade/downgrade/upgrade PASS

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.services.authority import AUTHORITY_STATES, canonical_role
 
@@ -239,6 +239,82 @@ class ConceptBoundarySuggestionRead(BaseModel):
     concept_page_id: str
     suggestion: WritingBoundarySuggestion
     persisted: bool = False
+
+
+class ConceptAiRewriteRequest(BaseModel):
+    body_json: dict[str, Any]
+    selection_from: int = Field(ge=1)
+    selection_to: int = Field(ge=2)
+    selection_text: str = Field(min_length=1, max_length=12_000)
+    operation: Literal[
+        "polish",
+        "shorter",
+        "longer",
+        "clarify",
+        "consistency",
+        "custom",
+    ] = "polish"
+    instruction: str = Field(default="", max_length=2000)
+    source_page_ids: list[str] = Field(default_factory=list, max_length=12)
+    locked_facts: list[str] | None = None
+    open_questions: list[str] | None = None
+    forbidden_changes: list[str] | None = None
+
+    @field_validator("selection_text")
+    @classmethod
+    def validate_selection_text(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("수정할 선택 영역에는 글자가 있어야 합니다.")
+        return value
+
+    @field_validator("source_page_ids")
+    @classmethod
+    def unique_source_page_ids(cls, value: list[str]) -> list[str]:
+        return list(dict.fromkeys(value))
+
+    @model_validator(mode="after")
+    def custom_operation_requires_instruction(self) -> ConceptAiRewriteRequest:
+        if self.operation == "custom" and not self.instruction.strip():
+            raise ValueError("직접 지시 수정에는 추가 지시가 필요합니다.")
+        return self
+
+
+class ConceptAiDraftRequest(BaseModel):
+    body_json: dict[str, Any]
+    prompt: str = Field(min_length=1, max_length=4000)
+    source_page_ids: list[str] = Field(default_factory=list, max_length=12)
+    placement: Literal["replace", "cursor", "append"] = "replace"
+    length: Literal["short", "normal", "long"] = "normal"
+    locked_facts: list[str] | None = None
+    open_questions: list[str] | None = None
+    forbidden_changes: list[str] | None = None
+
+    @field_validator("prompt")
+    @classmethod
+    def validate_prompt(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("AI 작성 지시를 입력해 주세요.")
+        return value
+
+    @field_validator("source_page_ids")
+    @classmethod
+    def unique_source_page_ids(cls, value: list[str]) -> list[str]:
+        return list(dict.fromkeys(value))
+
+
+class ConceptAiProposalRead(BaseModel):
+    run_id: str
+    concept_page_id: str
+    mode: Literal["rewrite_selection", "draft"]
+    status: Literal["CANDIDATE"] = "CANDIDATE"
+    persisted: bool = False
+    base_body_hash: str
+    original_text: str = ""
+    proposed_text: str
+    selection_from: int | None = None
+    selection_to: int | None = None
+    source_page_ids: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
 
 
 class WritingRecipeRead(ORMModel):

@@ -3,15 +3,73 @@
   import { Editor } from '@tiptap/core';
   import Placeholder from '@tiptap/extension-placeholder';
   import StarterKit from '@tiptap/starter-kit';
+  import { api } from '$lib/api';
   import { LoreBlock } from '$lib/extensions/LoreBlock';
 
   export let value = { type: 'doc', content: [] };
   export let onChange = () => {};
   export let editable = true;
+  export let aiPageId = '';
+  export let aiBoundaries = { locked_facts: [], open_questions: [], forbidden_changes: [] };
+  export let sourceOptions = [];
+  export let linkedSourceIds = [];
+  export let onNotice = () => {};
+
+  const operations = [
+    ['polish', '문맥에 맞게 다듬기'],
+    ['shorter', '더 짧게'],
+    ['longer', '더 자세히'],
+    ['clarify', '설명을 명확하게'],
+    ['consistency', '설정 충돌 줄이기'],
+    ['custom', '직접 지시']
+  ];
 
   let mount;
   let editor;
   let lastExternal = JSON.stringify(value || {});
+  let savedSelection = null;
+  let rewriteOpen = false;
+  let rewriteOperation = 'polish';
+  let rewriteInstruction = '';
+  let rewriteUsesLinked = true;
+  let draftOpen = false;
+  let draftPrompt = '';
+  let draftPlacement = 'replace';
+  let draftLength = 'normal';
+  let draftSourceIds = [];
+  let sourceQuery = '';
+  let proposal = null;
+  let proposalSnapshot = '';
+  let busy = '';
+  let aiError = '';
+  let cursorAtDraftOpen = 1;
+
+  $: filteredSources = sourceOptions.filter((source) => {
+    const query = sourceQuery.trim().toLowerCase();
+    return !query || `${source.title} ${source.summary || ''} ${source.role_label || ''}`.toLowerCase().includes(query);
+  });
+  $: selectionReady = !!savedSelection?.text?.trim() && savedSelection.text.length <= 12000;
+  $: currentSnapshot = editor ? JSON.stringify(value || editor.getJSON()) : '';
+  $: proposalStale = !!proposal && proposalSnapshot !== currentSnapshot;
+
+  function rememberSelection({ editor: currentEditor }) {
+    const { from, to, empty } = currentEditor.state.selection;
+    if (empty) return;
+    const text = currentEditor.state.doc.textBetween(from, to, '\n').trim();
+    if (!text) return;
+    savedSelection = {
+      from,
+      to,
+      text,
+      inline: currentEditor.state.doc.resolve(from).parent === currentEditor.state.doc.resolve(to).parent
+    };
+  }
+
+  function editorChanged(currentEditor) {
+    const json = currentEditor.getJSON();
+    lastExternal = JSON.stringify(json);
+    onChange(json);
+  }
 
   onMount(() => {
     editor = new Editor({
@@ -23,11 +81,8 @@
       ],
       content: value || { type: 'doc', content: [] },
       editable,
-      onUpdate: ({ editor }) => {
-        const json = editor.getJSON();
-        lastExternal = JSON.stringify(json);
-        onChange(json);
-      }
+      onSelectionUpdate: rememberSelection,
+      onUpdate: ({ editor: currentEditor }) => editorChanged(currentEditor)
     });
   });
 
@@ -37,11 +92,209 @@
     if (incoming !== lastExternal) {
       editor.commands.setContent(value || { type: 'doc', content: [] }, false);
       lastExternal = incoming;
+      savedSelection = null;
+      proposal = null;
     }
+  }
+
+  function keepSelection(event) {
+    event.preventDefault();
+  }
+
+  function openRewrite() {
+    aiError = '';
+    if (!selectionReady) {
+      aiError = savedSelection?.text?.length > 12000
+        ? 'AI 수정은 한 번에 1만 2천 자까지 선택할 수 있습니다.'
+        : '본문에서 수정할 문장을 먼저 선택해 주세요.';
+      return;
+    }
+    rewriteOpen = !rewriteOpen;
+    draftOpen = false;
+  }
+
+  function openDraft() {
+    aiError = '';
+    cursorAtDraftOpen = editor?.state.selection.from || 1;
+    draftSourceIds = [...new Set(linkedSourceIds)].filter((id) => sourceOptions.some((item) => item.id === id)).slice(0, 12);
+    sourceQuery = '';
+    draftOpen = true;
+    rewriteOpen = false;
+  }
+
+  function boundaryPayload() {
+    return {
+      locked_facts: aiBoundaries?.locked_facts || [],
+      open_questions: aiBoundaries?.open_questions || [],
+      forbidden_changes: aiBoundaries?.forbidden_changes || []
+    };
+  }
+
+  async function submitRewrite() {
+    if (!editor || !aiPageId || !selectionReady) return;
+    aiError = '';
+    busy = 'selection';
+    const body = editor.getJSON();
+    proposalSnapshot = JSON.stringify(body);
+    try {
+      proposal = await api.post(`/concept-pages/${aiPageId}/ai/rewrite-selection`, {
+        body_json: body,
+        selection_from: savedSelection.from,
+        selection_to: savedSelection.to,
+        selection_text: savedSelection.text,
+        operation: rewriteOperation,
+        instruction: rewriteInstruction,
+        source_page_ids: rewriteUsesLinked ? linkedSourceIds.slice(0, 12) : [],
+        ...boundaryPayload()
+      });
+      proposal = { ...proposal, placement: 'selection', selection: { ...savedSelection } };
+      rewriteOpen = false;
+    } catch (error) {
+      aiError = error.message;
+      proposal = null;
+    } finally {
+      busy = '';
+    }
+  }
+
+  async function submitDraft() {
+    if (!editor || !aiPageId || !draftPrompt.trim()) return;
+    aiError = '';
+    busy = 'draft';
+    const body = editor.getJSON();
+    proposalSnapshot = JSON.stringify(body);
+    try {
+      const response = await api.post(`/concept-pages/${aiPageId}/ai/draft`, {
+        body_json: body,
+        prompt: draftPrompt.trim(),
+        source_page_ids: draftSourceIds.slice(0, 12),
+        placement: draftPlacement,
+        length: draftLength,
+        ...boundaryPayload()
+      });
+      proposal = { ...response, placement: draftPlacement, cursor: cursorAtDraftOpen };
+      draftOpen = false;
+    } catch (error) {
+      aiError = error.message;
+      proposal = null;
+    } finally {
+      busy = '';
+    }
+  }
+
+  function textNode(text) {
+    return { type: 'text', text };
+  }
+
+  function textToNodes(text) {
+    const lines = text.replace(/\r/g, '').split('\n');
+    const nodes = [];
+    let paragraph = [];
+    let bullets = [];
+
+    function flushParagraph() {
+      const content = paragraph.join(' ').trim();
+      if (content) nodes.push({ type: 'paragraph', content: [textNode(content)] });
+      paragraph = [];
+    }
+
+    function flushBullets() {
+      if (bullets.length) {
+        nodes.push({
+          type: 'bulletList',
+          content: bullets.map((item) => ({
+            type: 'listItem',
+            content: [{ type: 'paragraph', content: [textNode(item)] }]
+          }))
+        });
+      }
+      bullets = [];
+    }
+
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      if (!line) {
+        flushParagraph();
+        flushBullets();
+      } else if (/^#{2,3}\s+/.test(line)) {
+        flushParagraph();
+        flushBullets();
+        const level = line.startsWith('### ') ? 3 : 2;
+        nodes.push({ type: 'heading', attrs: { level }, content: [textNode(line.replace(/^#{2,3}\s+/, ''))] });
+      } else if (line.startsWith('- ')) {
+        flushParagraph();
+        bullets.push(line.slice(2).trim());
+      } else if (line.startsWith('> ')) {
+        flushParagraph();
+        flushBullets();
+        nodes.push({
+          type: 'blockquote',
+          content: [{ type: 'paragraph', content: [textNode(line.slice(2).trim())] }]
+        });
+      } else {
+        flushBullets();
+        paragraph.push(line);
+      }
+    }
+    flushParagraph();
+    flushBullets();
+    return nodes.length ? nodes : [{ type: 'paragraph' }];
+  }
+
+  function applyProposal() {
+    if (!editor || !proposal || proposalStale) return;
+    if (proposal.mode === 'rewrite_selection') {
+      const selection = proposal.selection;
+      const currentText = editor.state.doc.textBetween(selection.from, selection.to, '\n').trim();
+      if (currentText !== proposal.original_text.trim()) {
+        aiError = '선택했던 문장이 달라졌습니다. 다시 선택한 뒤 AI 수정을 요청해 주세요.';
+        return;
+      }
+      if (selection.inline) {
+        const replacement = proposal.proposed_text.replace(/\s*\n\s*/g, ' ');
+        const transaction = editor.state.tr.replaceWith(
+          selection.from,
+          selection.to,
+          editor.schema.text(replacement, editor.state.doc.resolve(selection.from).marks())
+        );
+        editor.view.dispatch(transaction);
+        editor.commands.focus(selection.from + replacement.length);
+      } else {
+        editor.chain().focus().insertContentAt(
+          { from: selection.from, to: selection.to },
+          textToNodes(proposal.proposed_text)
+        ).run();
+      }
+    } else {
+      const nodes = textToNodes(proposal.proposed_text);
+      if (proposal.placement === 'replace') {
+        editor.commands.setContent({ type: 'doc', content: nodes }, true);
+      } else if (proposal.placement === 'append') {
+        editor.chain().focus().insertContentAt(editor.state.doc.content.size, nodes).run();
+      } else {
+        const position = Math.min(proposal.cursor, editor.state.doc.content.size);
+        editor.chain().focus().insertContentAt(position, nodes).run();
+      }
+    }
+    proposal = null;
+    savedSelection = null;
+    onNotice('AI 제안을 본문에 반영했습니다. 아직 저장되지 않았습니다.');
+  }
+
+  function retryProposal() {
+    if (!proposal) return;
+    if (proposal.mode === 'rewrite_selection') submitRewrite();
+    else submitDraft();
+  }
+
+  function closeDraftOnEscape(event) {
+    if (event.key === 'Escape' && draftOpen) draftOpen = false;
   }
 
   onDestroy(() => editor?.destroy());
 </script>
+
+<svelte:window on:keydown={closeDraftOnEscape} />
 
 <div class="editor-shell">
   <div class="editor-toolbar" aria-label="본문 서식">
@@ -50,9 +303,128 @@
     <button type="button" on:click={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}>제목</button>
     <button type="button" on:click={() => editor?.chain().focus().toggleBulletList().run()}>목록</button>
     <button type="button" on:click={() => editor?.chain().focus().toggleBlockquote().run()}>인용</button>
+    <span class="toolbar-divider" aria-hidden="true"></span>
+    <button
+      type="button"
+      class="ai-tool"
+      class:active={rewriteOpen}
+      disabled={!editable || !aiPageId || !selectionReady || !!busy}
+      title={selectionReady ? '선택한 부분만 문맥에 맞게 수정' : '본문에서 수정할 문장을 먼저 선택하세요'}
+      on:mousedown={keepSelection}
+      on:click={openRewrite}
+    >AI 수정</button>
+    <button
+      type="button"
+      class="ai-tool primary-ai"
+      disabled={!editable || !aiPageId || !!busy}
+      on:mousedown={keepSelection}
+      on:click={openDraft}
+    >AI 작성</button>
   </div>
+
+  {#if rewriteOpen}
+    <form class="ai-inline-panel" aria-label="선택 영역 AI 수정" on:submit|preventDefault={submitRewrite}>
+      <div class="selection-preview"><span>선택 영역</span><q>{savedSelection?.text}</q></div>
+      <div class="rewrite-controls">
+        <label>수정 방식
+          <select bind:value={rewriteOperation}>
+            {#each operations as [value, label]}<option {value}>{label}</option>{/each}
+          </select>
+        </label>
+        <label class="rewrite-instruction">추가 지시
+          <input bind:value={rewriteInstruction} placeholder="선택 사항" />
+        </label>
+      </div>
+      {#if linkedSourceIds.length}
+        <label class="reference-toggle"><input type="checkbox" bind:checked={rewriteUsesLinked} /> 연결된 자료 {Math.min(linkedSourceIds.length, 12)}개 참고</label>
+      {/if}
+      <div class="panel-actions">
+        <button type="button" class="ghost-button" on:click={() => rewriteOpen = false}>취소</button>
+        <button type="submit" class="identity-button" disabled={!!busy || (rewriteOperation === 'custom' && !rewriteInstruction.trim())}>{busy === 'selection' ? '제안 중…' : '수정 제안'}</button>
+      </div>
+    </form>
+  {/if}
+
+  {#if aiError}<div class="ai-error" role="alert">{aiError}</div>{/if}
+
+  {#if proposal}
+    <section class="proposal-panel" aria-label="AI 본문 제안">
+      <div class="proposal-heading">
+        <div><span class="candidate-label">검토할 제안</span><strong>{proposal.mode === 'rewrite_selection' ? '선택 영역 수정' : '본문 초안'}</strong></div>
+        <button type="button" class="icon-close" aria-label="AI 제안 닫기" on:click={() => proposal = null}>×</button>
+      </div>
+      {#if proposal.mode === 'rewrite_selection'}
+        <div class="proposal-original"><span>기존</span><p>{proposal.original_text}</p></div>
+      {/if}
+      <div class="proposal-copy"><span>제안</span><pre>{proposal.proposed_text}</pre></div>
+      {#if proposal.warnings?.length}
+        <ul class="proposal-warnings">{#each proposal.warnings as warning}<li>{warning}</li>{/each}</ul>
+      {/if}
+      {#if proposalStale}<p class="stale-warning">제안 뒤에 본문이 바뀌었습니다. 현재 본문에 덮어쓰지 않도록 다시 제안해 주세요.</p>{/if}
+      <div class="panel-actions">
+        <button type="button" class="ghost-button" on:click={() => proposal = null}>취소</button>
+        <button type="button" class="ghost-button" disabled={!!busy} on:click={retryProposal}>{busy ? '제안 중…' : '다시 제안'}</button>
+        <button type="button" class="identity-button" disabled={proposalStale || !!busy} on:click={applyProposal}>본문에 반영</button>
+      </div>
+    </section>
+  {/if}
+
   <div bind:this={mount} class="editor-content"></div>
 </div>
+
+{#if draftOpen}
+  <div class="ai-modal-backdrop" role="presentation" on:mousedown={(event) => event.target === event.currentTarget && (draftOpen = false)}>
+    <div class="ai-draft-modal" role="dialog" aria-modal="true" aria-labelledby="ai-draft-title">
+      <form class="ai-draft-form" on:submit|preventDefault={submitDraft}>
+      <header>
+        <div><span>세계관 자료</span><h2 id="ai-draft-title">AI 작성</h2></div>
+        <button type="button" class="icon-close" aria-label="AI 작성 닫기" on:click={() => draftOpen = false}>×</button>
+      </header>
+      <label class="prompt-field">무엇을 작성할까요?
+        <textarea bind:value={draftPrompt} placeholder="예: 이 장소의 출입 절차와 주민이 느끼는 긴장을 3개 단락으로 작성해 줘."></textarea>
+      </label>
+
+      <fieldset>
+        <legend>본문에 넣을 위치</legend>
+        <div class="segmented">
+          <label class:checked={draftPlacement === 'replace'}><input type="radio" bind:group={draftPlacement} value="replace" />본문 전체 초안</label>
+          <label class:checked={draftPlacement === 'cursor'}><input type="radio" bind:group={draftPlacement} value="cursor" />현재 위치에 추가</label>
+          <label class:checked={draftPlacement === 'append'}><input type="radio" bind:group={draftPlacement} value="append" />이어쓰기</label>
+        </div>
+      </fieldset>
+
+      <div class="draft-meta">
+        <label>분량
+          <select bind:value={draftLength}><option value="short">짧게</option><option value="normal">보통</option><option value="long">길게</option></select>
+        </label>
+        <div class="reference-count"><strong>참고 자료</strong><span>{draftSourceIds.length}/12 선택</span></div>
+      </div>
+
+      <section class="source-picker" aria-label="이번 AI 작성의 참고 자료">
+        <input aria-label="참고 자료 검색" bind:value={sourceQuery} placeholder="자료 검색" />
+        <p>이 선택은 이번 작성에만 사용하며 자료 사이의 영구 연결을 만들지 않습니다. 연결된 자료는 미리 선택했습니다.</p>
+        <div class="source-list">
+          {#each filteredSources as source}
+            <label class:selected={draftSourceIds.includes(source.id)}>
+              <input type="checkbox" bind:group={draftSourceIds} value={source.id} disabled={!draftSourceIds.includes(source.id) && draftSourceIds.length >= 12} />
+              <span><strong>{source.title}</strong><small>{source.role_label}{source.linked ? ' · 연결됨' : ''}{source.summary ? ` · ${source.summary}` : ''}</small></span>
+            </label>
+          {/each}
+          {#if !filteredSources.length}<div class="empty-source">조건에 맞는 자료가 없습니다.</div>{/if}
+        </div>
+      </section>
+
+      <footer>
+        <small>결과는 저장 전 검토할 제안으로만 생성됩니다.</small>
+        <div class="panel-actions">
+          <button type="button" class="ghost-button" on:click={() => draftOpen = false}>취소</button>
+          <button type="submit" class="identity-button" disabled={!draftPrompt.trim() || !!busy}>{busy === 'draft' ? '초안 작성 중…' : '초안 제안'}</button>
+        </div>
+      </footer>
+      </form>
+    </div>
+  </div>
+{/if}
 
 <style>
   .editor-shell {
@@ -65,9 +437,15 @@
     background: var(--paper);
     box-shadow: 0 10px 30px rgba(20, 43, 53, .06);
   }
-  .editor-toolbar { flex:0 0 auto; display:flex; gap:4px; padding:8px 10px; border-bottom:1px solid var(--line); background:var(--paper-deep); }
+  .editor-toolbar { flex:0 0 auto; display:flex; align-items:center; gap:4px; padding:8px 10px; border-bottom:1px solid var(--line); background:var(--paper-deep); }
   .editor-toolbar button { min-width:34px; min-height:32px; border:1px solid transparent; background:transparent; border-radius:3px; padding:5px 8px; color:var(--muted-text); font-size:12px; }
-  .editor-toolbar button:hover { background:#fff; border-color:var(--line); color:var(--ink); }
+  .editor-toolbar button:hover:not(:disabled) { background:#fff; border-color:var(--line); color:var(--ink); }
+  .editor-toolbar button:disabled { cursor:not-allowed; opacity:.42; }
+  .toolbar-divider { width:1px; height:20px; margin:0 4px; background:var(--line-strong); }
+  .editor-toolbar .ai-tool { min-width:58px; font-weight:800; color:var(--nav-deep, #173f38); }
+  .editor-toolbar .ai-tool.active { border-color:var(--nav-deep, #173f38); background:#fff; }
+  .editor-toolbar .primary-ai { background:var(--nav-deep, #173f38); color:var(--nav-accent, #f2cf5b); }
+  .editor-toolbar .primary-ai:hover:not(:disabled) { background:var(--nav-deep, #173f38); color:var(--nav-accent, #f2cf5b); filter:brightness(1.08); }
   .editor-content { min-height: 0; flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
   .editor-content :global(.ProseMirror) {
     min-height: 430px;
@@ -99,11 +477,79 @@
   }
   .editor-content :global(section[data-lore-block]) { position:relative; margin:14px 0; padding:10px 18px; border-left:3px solid var(--signal); background:#f6f8f6; }
   .editor-content :global(section[data-lore-block][locked="true"]) { border-left-color:var(--lichen); }
+
+  .ai-inline-panel, .proposal-panel { flex:0 0 auto; padding:12px 14px; border-bottom:1px solid var(--line); background:#fffdf8; }
+  .selection-preview { display:flex; align-items:baseline; gap:10px; min-width:0; margin-bottom:10px; }
+  .selection-preview span, .proposal-copy > span, .proposal-original > span { flex:0 0 auto; color:var(--muted); font-size:11px; font-weight:800; letter-spacing:.06em; }
+  .selection-preview q { overflow:hidden; color:var(--ink); font:13px/1.5 Georgia, "Noto Serif KR", serif; text-overflow:ellipsis; white-space:nowrap; }
+  .rewrite-controls { display:grid; grid-template-columns:minmax(150px, .8fr) minmax(180px, 1.2fr); gap:10px; }
+  .rewrite-controls label, .prompt-field { display:grid; gap:5px; color:var(--muted-text); font-size:12px; font-weight:700; }
+  .rewrite-controls select, .rewrite-controls input { width:100%; min-height:34px; }
+  .reference-toggle { display:flex; align-items:center; gap:7px; margin-top:9px; color:var(--muted-text); font-size:12px; }
+  .reference-toggle input { width:auto; }
+  .panel-actions { display:flex; align-items:center; justify-content:flex-end; gap:7px; margin-top:10px; }
+  .identity-button, .ghost-button, .icon-close { border-radius:4px; font-weight:800; }
+  .identity-button { border:1px solid var(--nav-deep, #173f38); background:var(--nav-deep, #173f38); color:var(--nav-accent, #f2cf5b); padding:8px 13px; }
+  .identity-button:disabled { opacity:.48; }
+  .ghost-button { border:1px solid var(--line); background:var(--paper); color:var(--muted-text); padding:8px 12px; }
+  .ai-error { flex:0 0 auto; padding:9px 14px; border-bottom:1px solid #e5c3bd; background:#fff4f1; color:#923c2f; font-size:12px; }
+  .proposal-panel { max-height:45%; overflow:auto; background:#f8faf7; }
+  .proposal-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+  .proposal-heading > div { display:flex; align-items:center; gap:8px; }
+  .candidate-label { border-radius:999px; background:#e8efe8; color:var(--nav-deep, #173f38); padding:3px 7px; font-size:10px; font-weight:900; letter-spacing:.04em; }
+  .icon-close { border:0; background:transparent; color:var(--muted); padding:2px 6px; font-size:21px; line-height:1; }
+  .proposal-original, .proposal-copy { display:grid; grid-template-columns:42px minmax(0, 1fr); gap:8px; margin-top:10px; }
+  .proposal-original p, .proposal-copy pre { max-height:150px; overflow:auto; margin:0; white-space:pre-wrap; }
+  .proposal-original p { color:var(--muted-text); font-size:12px; }
+  .proposal-copy pre { color:var(--ink); font:13px/1.65 Georgia, "Noto Serif KR", serif; }
+  .proposal-warnings { margin:9px 0 0 50px; padding-left:16px; color:#765f25; font-size:11px; }
+  .stale-warning { margin:9px 0 0; color:#923c2f; font-size:12px; font-weight:700; }
+
+  .ai-modal-backdrop { position:fixed; inset:0; z-index:1000; display:grid; place-items:center; padding:20px; background:rgba(15, 29, 27, .42); backdrop-filter:blur(2px); }
+  .ai-draft-modal { width:min(620px, 100%); max-height:min(760px, calc(100vh - 40px)); display:flex; flex-direction:column; gap:16px; overflow:hidden; border:1px solid rgba(255,255,255,.5); border-radius:9px; background:var(--paper); box-shadow:0 24px 80px rgba(10,30,27,.28); padding:20px; }
+  .ai-draft-form { min-height:0; display:flex; flex:1 1 auto; flex-direction:column; gap:16px; overflow:hidden; }
+  .ai-draft-modal header { display:flex; align-items:flex-start; justify-content:space-between; }
+  .ai-draft-modal header span { color:var(--signal); font-size:11px; font-weight:900; letter-spacing:.09em; text-transform:uppercase; }
+  .ai-draft-modal h2 { margin:2px 0 0; color:var(--ink); font:700 25px/1.2 Georgia, "Noto Serif KR", serif; }
+  .prompt-field textarea { min-height:100px; resize:vertical; }
+  .ai-draft-modal fieldset { min-width:0; margin:0; padding:0; border:0; }
+  .ai-draft-modal legend { margin-bottom:7px; color:var(--muted-text); font-size:12px; font-weight:800; }
+  .segmented { display:grid; grid-template-columns:repeat(3, 1fr); gap:5px; }
+  .segmented label { display:flex; justify-content:center; border:1px solid var(--line); border-radius:4px; padding:8px 6px; color:var(--muted-text); font-size:12px; font-weight:700; }
+  .segmented label.checked { border-color:var(--nav-deep, #173f38); background:var(--nav-deep, #173f38); color:var(--nav-accent, #f2cf5b); }
+  .segmented input { position:absolute; opacity:0; pointer-events:none; }
+  .draft-meta { display:flex; align-items:end; justify-content:space-between; gap:16px; }
+  .draft-meta label { display:grid; gap:5px; color:var(--muted-text); font-size:12px; font-weight:800; }
+  .draft-meta select { min-width:120px; }
+  .reference-count { display:flex; align-items:center; gap:8px; font-size:12px; }
+  .reference-count span { color:var(--muted); }
+  .source-picker { min-height:0; display:flex; flex:1 1 auto; flex-direction:column; gap:8px; }
+  .source-picker > p { margin:0; color:var(--muted); font-size:11px; line-height:1.5; }
+  .source-list { min-height:90px; max-height:260px; overflow:auto; border:1px solid var(--line); border-radius:5px; background:#fff; }
+  .source-list label { display:flex; align-items:flex-start; gap:9px; padding:10px 11px; border-bottom:1px solid var(--line); }
+  .source-list label:last-child { border-bottom:0; }
+  .source-list label.selected { background:#f1f6ef; }
+  .source-list input { width:auto; margin-top:3px; }
+  .source-list span { min-width:0; display:grid; gap:2px; }
+  .source-list strong { color:var(--ink); font-size:13px; }
+  .source-list small { overflow:hidden; color:var(--muted); font-size:11px; text-overflow:ellipsis; white-space:nowrap; }
+  .empty-source { padding:20px; color:var(--muted); font-size:12px; text-align:center; }
+  .ai-draft-modal footer { display:flex; align-items:center; justify-content:space-between; gap:14px; padding-top:4px; border-top:1px solid var(--line); }
+  .ai-draft-modal footer small { color:var(--muted); }
+
   @media (min-width: 821px) {
     .editor-shell { height: 100%; min-height: 0; }
     .editor-content :global(.ProseMirror) { min-height: 100%; }
   }
   @media (max-width: 540px) {
-    .editor-content :global(.ProseMirror) { min-height: 360px; padding: 22px 18px; font-size: 15px; }
+    .editor-toolbar { flex-wrap:wrap; }
+    .editor-content :global(.ProseMirror) { min-height: 360px; padding:22px 18px; font-size:15px; }
+    .rewrite-controls { grid-template-columns:1fr; }
+    .ai-modal-backdrop { align-items:end; padding:0; }
+    .ai-draft-modal { width:100%; max-height:92vh; border-radius:12px 12px 0 0; padding:18px; }
+    .segmented { grid-template-columns:1fr; }
+    .draft-meta, .ai-draft-modal footer { align-items:stretch; flex-direction:column; }
+    .ai-draft-modal footer .panel-actions { width:100%; margin-top:0; }
+    .ai-draft-modal footer .identity-button { flex:1; }
   }
 </style>

@@ -42,6 +42,9 @@ from app.schemas import (
     CategoryDefinitionCreate,
     CategoryDefinitionRead,
     CategoryDefinitionUpdate,
+    ConceptAiDraftRequest,
+    ConceptAiProposalRead,
+    ConceptAiRewriteRequest,
     ConceptBoundarySuggestionRead,
     ConceptBoundarySuggestionRequest,
     ConceptPageCreate,
@@ -80,6 +83,13 @@ from app.schemas import (
     WritingRecipeUpdate,
 )
 from app.services.authority import AUTHORITY_STATES, AuthorityTransitionError, promote_page
+from app.services.concept_ai import (
+    ConceptAiError,
+    body_hash,
+    compile_concept_ai_context,
+    draft_concept_body,
+    rewrite_concept_selection,
+)
 from app.services.config_loader import (
     load_direction_card_presets,
     load_output_profiles,
@@ -553,6 +563,158 @@ async def suggest_concept_writing_boundaries(
     )
     db.commit()
     return {"concept_page_id": page.id, "suggestion": suggestion, "persisted": False}
+
+
+@router.post(
+    "/concept-pages/{page_id}/ai/rewrite-selection",
+    response_model=ConceptAiProposalRead,
+)
+async def rewrite_concept_page_selection(
+    page_id: str,
+    payload: ConceptAiRewriteRequest,
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    page = _get_or_404(db, ConceptPage, page_id, "컨셉 페이지")
+    if payload.selection_from >= payload.selection_to:
+        raise _error(422, "INVALID_SELECTION", "수정할 본문 범위를 다시 선택해 주세요.")
+    try:
+        context, source_ids, body = compile_concept_ai_context(
+            db,
+            page,
+            body_json=payload.body_json,
+            source_page_ids=payload.source_page_ids,
+            locked_facts=payload.locked_facts,
+            open_questions=payload.open_questions,
+            forbidden_changes=payload.forbidden_changes,
+            selection_text=payload.selection_text,
+        )
+        if not body:
+            raise ConceptAiError("CONCEPT_BODY_REQUIRED", "먼저 수정할 본문을 작성해 주세요.")
+        if " ".join(payload.selection_text.split()) not in " ".join(body.split()):
+            raise ConceptAiError(
+                "SELECTION_NOT_IN_BODY", "선택한 문장이 현재 본문과 일치하지 않습니다. 다시 선택해 주세요."
+            )
+        proposed_text, model_warnings, result = await rewrite_concept_selection(
+            harness.gateway,
+            context=context,
+            selection_text=payload.selection_text,
+            selection_from=payload.selection_from,
+            selection_to=payload.selection_to,
+            operation=payload.operation,
+            instruction=payload.instruction,
+        )
+    except ConceptAiError as exc:
+        raise _error(exc.status_code, exc.code, str(exc)) from exc
+    except ModelGatewayError as exc:
+        raise _error(502, exc.code, str(exc)) from exc
+
+    current_hash = body_hash(payload.body_json)
+    run = GenerationRun(
+        project_id=page.project_id,
+        task="concept_selection_rewrite",
+        model_role="writer",
+        model=result.model,
+        endpoint=result.endpoint,
+        params_json=result.params,
+        usage_json=result.usage,
+        input_hash=current_hash,
+        input_json={
+            "concept_page_id": page.id,
+            "body_json": payload.body_json,
+            "selection": {
+                "from": payload.selection_from,
+                "to": payload.selection_to,
+                "text": payload.selection_text,
+            },
+            "operation": payload.operation,
+            "instruction": payload.instruction,
+            "context": context,
+        },
+        prompt_components={"concept_editor": "selection_rewrite_v1"},
+        selected_concept_ids=[page.id, *source_ids],
+        output_text=result.content,
+    )
+    db.add(run)
+    db.commit()
+    return {
+        "run_id": run.id,
+        "concept_page_id": page.id,
+        "mode": "rewrite_selection",
+        "base_body_hash": current_hash,
+        "original_text": payload.selection_text,
+        "proposed_text": proposed_text,
+        "selection_from": payload.selection_from,
+        "selection_to": payload.selection_to,
+        "source_page_ids": source_ids,
+        "warnings": [*context["warnings"], *model_warnings],
+    }
+
+
+@router.post(
+    "/concept-pages/{page_id}/ai/draft",
+    response_model=ConceptAiProposalRead,
+)
+async def draft_concept_page_body(
+    page_id: str,
+    payload: ConceptAiDraftRequest,
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    page = _get_or_404(db, ConceptPage, page_id, "컨셉 페이지")
+    try:
+        context, source_ids, _body = compile_concept_ai_context(
+            db,
+            page,
+            body_json=payload.body_json,
+            source_page_ids=payload.source_page_ids,
+            locked_facts=payload.locked_facts,
+            open_questions=payload.open_questions,
+            forbidden_changes=payload.forbidden_changes,
+        )
+        proposed_text, model_warnings, result = await draft_concept_body(
+            harness.gateway,
+            context=context,
+            prompt=payload.prompt,
+            placement=payload.placement,
+            length=payload.length,
+        )
+    except ConceptAiError as exc:
+        raise _error(exc.status_code, exc.code, str(exc)) from exc
+    except ModelGatewayError as exc:
+        raise _error(502, exc.code, str(exc)) from exc
+
+    current_hash = body_hash(payload.body_json)
+    run = GenerationRun(
+        project_id=page.project_id,
+        task="concept_body_draft",
+        model_role="writer",
+        model=result.model,
+        endpoint=result.endpoint,
+        params_json=result.params,
+        usage_json=result.usage,
+        input_hash=current_hash,
+        input_json={
+            "concept_page_id": page.id,
+            "body_json": payload.body_json,
+            "prompt": payload.prompt,
+            "placement": payload.placement,
+            "length": payload.length,
+            "context": context,
+        },
+        prompt_components={"concept_editor": "body_draft_v1"},
+        selected_concept_ids=[page.id, *source_ids],
+        output_text=result.content,
+    )
+    db.add(run)
+    db.commit()
+    return {
+        "run_id": run.id,
+        "concept_page_id": page.id,
+        "mode": "draft",
+        "base_body_hash": current_hash,
+        "proposed_text": proposed_text,
+        "source_page_ids": source_ids,
+        "warnings": [*context["warnings"], *model_warnings],
+    }
 
 
 @router.patch("/concept-pages/{page_id}", response_model=ConceptPageRead)

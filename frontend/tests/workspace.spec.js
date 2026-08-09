@@ -112,6 +112,94 @@ test('world material editor keeps writing primary and metadata compact', async (
   await expect(relation).not.toContainText(/HOME_OF|CULMINATES_IN|CONTAINS|INHABITS|SERVES/);
 });
 
+test('world material AI edits stay reviewable and use temporary references', async ({ page }) => {
+  test.skip(process.env.E2E_EXPECT_DATA !== 'true', 'requires the curated Black Route world project');
+
+  await page.route('**/api/v1/concept-pages/*/ai/rewrite-selection', async (route) => {
+    const payload = route.request().postDataJSON();
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        run_id: 'rewrite-run',
+        concept_page_id: 'page',
+        mode: 'rewrite_selection',
+        status: 'CANDIDATE',
+        persisted: false,
+        base_body_hash: 'test',
+        original_text: payload.selection_text,
+        proposed_text: '기억세는 손실 가능성을 시민에게 나누어 지우는 제도다.',
+        selection_from: payload.selection_from,
+        selection_to: payload.selection_to,
+        source_page_ids: payload.source_page_ids,
+        warnings: []
+      })
+    });
+  });
+  await page.route('**/api/v1/concept-pages/*/ai/draft', async (route) => {
+    const payload = route.request().postDataJSON();
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        run_id: 'draft-run',
+        concept_page_id: 'page',
+        mode: 'draft',
+        status: 'CANDIDATE',
+        persisted: false,
+        base_body_hash: 'test',
+        original_text: '',
+        proposed_text: '## 징수 뒤의 흔적\n\n시민은 잃을 가능성까지 장부에 남긴다.',
+        source_page_ids: payload.source_page_ids,
+        warnings: ['저장 전 검토가 필요합니다.']
+      })
+    });
+  });
+
+  await page.goto('/editor');
+  await page.getByLabel('현재 프로젝트').selectOption({ label: '검은 항로 연대기' });
+  const memoryTaxPage = page.locator('.archive-page-list button').filter({ has: page.getByText('기억세', { exact: true }) });
+  await memoryTaxPage.click();
+  await expect(page.locator('.relation-card').first()).toBeVisible();
+
+  const rewriteButton = page.getByRole('button', { name: 'AI 수정' });
+  await expect(rewriteButton).toBeDisabled();
+  await page.locator('.ProseMirror').click();
+  await page.keyboard.press('Control+A');
+  await expect(rewriteButton).toBeEnabled();
+  await rewriteButton.click();
+  const rewritePanel = page.getByRole('form', { name: '선택 영역 AI 수정' });
+  await expect(rewritePanel).toBeVisible();
+  await expect(rewritePanel).toContainText('연결된 자료');
+  await rewritePanel.getByRole('button', { name: '수정 제안' }).click();
+
+  const proposal = page.getByRole('region', { name: 'AI 본문 제안' });
+  await expect(proposal).toContainText('기억세는 손실 가능성을 시민에게 나누어 지우는 제도다.');
+  await expect(page.locator('.editor-content')).not.toContainText('시민에게 나누어 지우는 제도다');
+  await proposal.getByRole('button', { name: '본문에 반영' }).click();
+  await expect(page.locator('.editor-content')).toContainText('시민에게 나누어 지우는 제도다');
+  await expect(page.getByText('아직 저장되지 않았습니다.')).toBeVisible();
+
+  await page.getByRole('button', { name: 'AI 작성' }).click();
+  const dialog = page.getByRole('dialog', { name: 'AI 작성' });
+  await expect(dialog).toBeVisible();
+  const dialogBounds = await dialog.boundingBox();
+  const viewport = page.viewportSize();
+  expect(dialogBounds.x).toBeGreaterThanOrEqual(0);
+  expect(dialogBounds.y).toBeGreaterThanOrEqual(0);
+  expect(dialogBounds.x + dialogBounds.width).toBeLessThanOrEqual(viewport.width);
+  expect(dialogBounds.y + dialogBounds.height).toBeLessThanOrEqual(viewport.height);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await expect(dialog).toContainText('이번 작성에만 사용');
+  expect(await dialog.locator('.source-list label.selected').count()).toBeGreaterThan(0);
+  await dialog.getByLabel('무엇을 작성할까요?').fill('기억세 징수 뒤의 흔적을 설명해 줘.');
+  await dialog.getByText('이어쓰기', { exact: true }).click();
+  await dialog.getByRole('button', { name: '초안 제안' }).click();
+  await expect(proposal).toContainText('징수 뒤의 흔적');
+  await proposal.getByRole('button', { name: '본문에 반영' }).click();
+  await expect(page.locator('.editor-content')).toContainText('시민은 잃을 가능성까지 장부에 남긴다.');
+});
+
 test('small mobile navigation and workflow steps stay inside the viewport', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'mobile', 'small-viewport check only');
   await page.setViewportSize({ width: 360, height: 844 });

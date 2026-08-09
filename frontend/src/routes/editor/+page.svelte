@@ -4,7 +4,7 @@
   import ProjectCreator from '$lib/components/ProjectCreator.svelte';
   import HelpTip from '$lib/components/HelpTip.svelte';
   import { api } from '$lib/api';
-  import { moveDescriptions, moveLabels, relationLabel, relationLabels } from '$lib/labels';
+  import { moveDescriptions, moveLabels, relationLabel, relationLabels, roleLabel } from '$lib/labels';
   import { initialProjectId, rememberProject } from '$lib/project';
 
   let projects = [];
@@ -30,6 +30,8 @@
   let editingRecipeId = '';
   let cardDraft = null;
   let categoryForm = { name: '', description: '' };
+  let aiSourceOptions = [];
+  let linkedSourceIds = [];
 
   const starterRecipeSteps = () => [
     { move: 'ORIENT', label: '맥락', purpose: moveDescriptions.ORIENT },
@@ -60,6 +62,19 @@
 
   $: projectRecipes = recipes.filter((recipe) => recipe.project_id === projectId);
   $: sharedRecipes = recipes.filter((recipe) => !recipe.project_id);
+  $: linkedSourceIds = selectedPage
+    ? [...new Set(relations.map((relation) => otherPage(relation)))]
+    : [];
+  $: aiSourceOptions = pages
+    .filter((page) => page.id !== selectedPage?.id && page.status !== 'rejected' && page.usage_role !== 'REJECTED')
+    .map((page) => ({
+      id: page.id,
+      title: page.title,
+      summary: page.summary,
+      usage_role: page.usage_role,
+      role_label: roleLabel(page.usage_role),
+      linked: linkedSourceIds.includes(page.id)
+    }));
 
   const purposeRoles = {
     setting: 'DRAFT_SETTING',
@@ -606,7 +621,19 @@
               <button class="primary" on:click={savePage}>변경 저장</button>
             </div>
             {#key selectedPage.id}
-              <TiptapEditor value={selectedPage.body_json} onChange={(body) => selectedPage = { ...selectedPage, body_json: body }} />
+              <TiptapEditor
+                value={selectedPage.body_json}
+                onChange={(body) => selectedPage = { ...selectedPage, body_json: body }}
+                aiPageId={selectedPage.id}
+                aiBoundaries={{
+                  locked_facts: lines(selectedPage.lockedFactsText, selectedPage.locked_facts),
+                  open_questions: lines(selectedPage.openQuestionsText, selectedPage.open_questions),
+                  forbidden_changes: lines(selectedPage.forbiddenChangesText, selectedPage.forbidden_changes)
+                }}
+                sourceOptions={aiSourceOptions}
+                {linkedSourceIds}
+                onNotice={(notice) => { message = notice; error = ''; }}
+              />
             {/key}
           {:else}<div class="empty-state">왼쪽에서 자료를 만들거나 선택하세요.</div>{/if}
         </section>

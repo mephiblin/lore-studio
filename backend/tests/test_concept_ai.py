@@ -1,0 +1,231 @@
+import json
+
+from conftest import isolated_session
+from fastapi.testclient import TestClient
+from sqlalchemy import select
+
+import app.api.router as router_module
+from app.db import get_db
+from app.main import app
+from app.models import ConceptPage, GenerationRun
+from app.services.model_gateway import ModelCallResult
+
+
+class ConceptAiGateway:
+    def __init__(self) -> None:
+        self.calls: list[dict] = []
+
+    async def complete(self, messages, **kwargs):  # type: ignore[no-untyped-def]
+        payload = json.loads(messages[1]["content"])
+        self.calls.append({"payload": payload, "kwargs": kwargs})
+        content_text = (
+            "성문은 해가 지기 전에 닫히며, 수호자는 침묵으로 통행을 막는다."
+            if payload["task"] == "rewrite_selection"
+            else "## 해질의 성문\n\n성문은 저녁마다 닫힌다.\n\n> 수호자의 정체는 아직 드러나지 않는다."
+        )
+        return ModelCallResult(
+            content=json.dumps(
+                {"content_text": content_text, "warnings": ["사용자 검토가 필요합니다."]},
+                ensure_ascii=False,
+            ),
+            role="writer",
+            model="writer-test",
+            endpoint="http://models.test/v1",
+            params={"response_format": kwargs["response_mode"]},
+            usage={"total_tokens": 73},
+        )
+
+
+def _paragraph(text: str) -> dict:
+    return {
+        "type": "doc",
+        "content": [{"type": "paragraph", "content": [{"type": "text", "text": text}]}],
+    }
+
+
+def test_concept_ai_returns_reviewable_proposals_without_saving(monkeypatch) -> None:
+    db = isolated_session()
+
+    def override_db():  # type: ignore[no-untyped-def]
+        yield db
+
+    gateway = ConceptAiGateway()
+    monkeypatch.setattr(router_module.harness, "gateway", gateway)
+    app.dependency_overrides[get_db] = override_db
+    client = TestClient(app)
+    try:
+        project = client.post(
+            "/api/v1/projects", json={"name": "AI 본문", "slug": "concept-ai"}
+        ).json()
+        category = client.get(
+            "/api/v1/categories", params={"project_id": project["id"]}
+        ).json()[0]
+        current = client.post(
+            "/api/v1/concept-pages",
+            json={
+                "project_id": project["id"],
+                "title": "해질의 성문",
+                "category_key": category["key"],
+                "body_json": _paragraph("저장된 예전 본문"),
+            },
+        ).json()
+        fact_source = client.post(
+            "/api/v1/concept-pages",
+            json={
+                "project_id": project["id"],
+                "title": "성문 규칙",
+                "category_key": category["key"],
+                "summary": "해질 전 폐문한다.",
+                "body_json": _paragraph("해가 지면 성문은 열 수 없다."),
+                "locked_facts": ["성문은 해질 전에 닫힌다."],
+            },
+        ).json()
+        inspiration = client.post(
+            "/api/v1/concept-pages",
+            json={
+                "project_id": project["id"],
+                "title": "분위기 참고",
+                "category_key": category["key"],
+                "usage_role": "INSPIRATION",
+                "summary": "고립감과 침묵의 분위기",
+                "body_json": _paragraph("다른 작품의 고유한 성문 이름"),
+            },
+        ).json()
+        unsaved_body = _paragraph("성문은 늦게 닫혔다. 수호자의 얼굴은 보이지 않았다.")
+
+        rewrite = client.post(
+            f"/api/v1/concept-pages/{current['id']}/ai/rewrite-selection",
+            json={
+                "body_json": unsaved_body,
+                "selection_from": 1,
+                "selection_to": 13,
+                "selection_text": "성문은 늦게 닫혔다.",
+                "operation": "consistency",
+                "source_page_ids": [fact_source["id"], inspiration["id"]],
+                "open_questions": ["수호자의 정체는 아직 공개하지 않는다."],
+            },
+        )
+
+        assert rewrite.status_code == 200
+        proposal = rewrite.json()
+        assert proposal["status"] == "CANDIDATE"
+        assert proposal["persisted"] is False
+        assert proposal["mode"] == "rewrite_selection"
+        assert proposal["original_text"] == "성문은 늦게 닫혔다."
+        assert proposal["proposed_text"].startswith("성문은 해가 지기 전에")
+        assert proposal["source_page_ids"] == [fact_source["id"], inspiration["id"]]
+
+        rewrite_payload = gateway.calls[0]["payload"]
+        assert rewrite_payload["target"]["selection_text"] == "성문은 늦게 닫혔다."
+        context = rewrite_payload["read_only_context"]
+        assert context["current_page"]["body_context"]["text"].startswith("성문은 늦게")
+        assert context["current_page"]["writing_boundaries"]["open_questions"] == [
+            "수호자의 정체는 아직 공개하지 않는다."
+        ]
+        assert context["reference_material"]["fact_eligible"][0]["title"] == "성문 규칙"
+        style_reference = context["reference_material"]["style_or_inspiration_only"][0]
+        assert style_reference["fact_eligible"] is False
+        assert style_reference["body_omitted"] is True
+        assert "다른 작품의 고유한 성문 이름" not in json.dumps(context, ensure_ascii=False)
+
+        draft = client.post(
+            f"/api/v1/concept-pages/{current['id']}/ai/draft",
+            json={
+                "body_json": unsaved_body,
+                "prompt": "폐문 절차를 설명하는 초안을 써 줘.",
+                "source_page_ids": [fact_source["id"]],
+                "placement": "append",
+                "length": "short",
+            },
+        )
+        assert draft.status_code == 200
+        assert draft.json()["status"] == "CANDIDATE"
+        assert draft.json()["persisted"] is False
+        assert draft.json()["proposed_text"].startswith("## 해질의 성문")
+        assert gateway.calls[1]["payload"]["placement"] == "append"
+
+        stored = db.get(ConceptPage, current["id"])
+        assert stored is not None
+        assert stored.body_json == _paragraph("저장된 예전 본문")
+        runs = list(
+            db.scalars(
+                select(GenerationRun).where(
+                    GenerationRun.task.in_(["concept_selection_rewrite", "concept_body_draft"])
+                )
+            ).all()
+        )
+        assert {run.task for run in runs} == {"concept_selection_rewrite", "concept_body_draft"}
+        assert all(run.input_hash for run in runs)
+        assert all(run.selected_concept_ids[0] == current["id"] for run in runs)
+    finally:
+        app.dependency_overrides.clear()
+        db.close()
+
+
+def test_concept_ai_rejects_reference_from_another_project(monkeypatch) -> None:
+    db = isolated_session()
+
+    def override_db():  # type: ignore[no-untyped-def]
+        yield db
+
+    gateway = ConceptAiGateway()
+    monkeypatch.setattr(router_module.harness, "gateway", gateway)
+    app.dependency_overrides[get_db] = override_db
+    client = TestClient(app)
+    try:
+        first = client.post(
+            "/api/v1/projects", json={"name": "첫 세계", "slug": "first-world"}
+        ).json()
+        second = client.post(
+            "/api/v1/projects", json={"name": "둘째 세계", "slug": "second-world"}
+        ).json()
+        first_category = client.get(
+            "/api/v1/categories", params={"project_id": first["id"]}
+        ).json()[0]
+        second_category = client.get(
+            "/api/v1/categories", params={"project_id": second["id"]}
+        ).json()[0]
+        current = client.post(
+            "/api/v1/concept-pages",
+            json={
+                "project_id": first["id"],
+                "title": "첫 자료",
+                "category_key": first_category["key"],
+            },
+        ).json()
+        foreign = client.post(
+            "/api/v1/concept-pages",
+            json={
+                "project_id": second["id"],
+                "title": "외부 자료",
+                "category_key": second_category["key"],
+            },
+        ).json()
+
+        stale_selection = client.post(
+            f"/api/v1/concept-pages/{current['id']}/ai/rewrite-selection",
+            json={
+                "body_json": _paragraph("현재 본문"),
+                "selection_from": 1,
+                "selection_to": 5,
+                "selection_text": "본문에 없는 문장",
+            },
+        )
+        assert stale_selection.status_code == 422
+        assert stale_selection.json()["detail"]["code"] == "SELECTION_NOT_IN_BODY"
+
+        response = client.post(
+            f"/api/v1/concept-pages/{current['id']}/ai/draft",
+            json={
+                "body_json": _paragraph("현재 본문"),
+                "prompt": "초안을 작성해 줘.",
+                "source_page_ids": [foreign["id"]],
+            },
+        )
+
+        assert response.status_code == 422
+        assert response.json()["detail"]["code"] == "INVALID_AI_REFERENCE"
+        assert gateway.calls == []
+    finally:
+        app.dependency_overrides.clear()
+        db.close()
