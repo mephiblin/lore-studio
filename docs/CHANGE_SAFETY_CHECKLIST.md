@@ -2,6 +2,8 @@
 
 기능 수정 뒤에 생길 수 있는 오류, 설계 모순, 상태 꼬임, 고아 UI, 반응형 훼손을 배포 전에 찾기 위한 공통 점검표입니다. 작은 수정은 관련 항목만 적용할 수 있지만, 데이터 모델·화면 흐름·공용 레이아웃·삭제 동작을 바꾼 경우에는 전체 항목을 확인합니다.
 
+프로젝트 로컬 [`$lore-studio-ui-safety`](../.codex/skills/lore-studio-ui-safety/SKILL.md)는 이 체크리스트와 `UI_PAGE_CONTRACT.md`를 함께 읽어 점검 범위와 증거를 구성합니다. 새 실패 유형·안전 경계·재현 가능한 검사법이 생기면 이 문서와 관련 테스트를 같은 변경에서 갱신합니다.
+
 ## 판정 규칙
 
 - `[x]`는 실제 확인 또는 자동 검증 증거가 있는 항목에만 표시한다.
@@ -146,6 +148,7 @@
 ## 11. 자동 검증
 
 ```bash
+python3 .codex/skills/lore-studio-ui-safety/scripts/check_contract_sync.py
 git diff --check
 rg -n '(<{7}|={7}|>{7})' backend frontend docs schema config --glob '!CHANGE_SAFETY_CHECKLIST.md'
 make lint

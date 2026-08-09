@@ -1,0 +1,4 @@
+interface:
+  display_name: "Lore Studio UI 안전 점검"
+  short_description: "페이지 계약과 회귀 위험을 검사하고 기준 문서를 동기화합니다"
+  default_prompt: "Use $lore-studio-ui-safety to inspect Lore Studio UI safety and update affected contracts."

@@ -6,6 +6,7 @@
 
 ## 자동 검증
 
+- 프로젝트 로컬 `$lore-studio-ui-safety`: skill package 형식 검증 PASS, 기준 문서·5개 route·Alembic head·manifest·API 경유·충돌/디버그 표식 정적 preflight `7 passed, 0 failures`
 - Ruff: `All checks passed`
 - pytest: `23 passed, 3 skipped` (Writer/Utility, Embedding, Vision 실제 endpoint tests는 기본 suite에서 의도적으로 skip)
 - 실제 모델 opt-in: `3 passed` (Writer/Utility structured output, BGE-M3 1024차원, Vision data URL)

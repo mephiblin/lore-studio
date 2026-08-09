@@ -1,3 +1,6 @@
+.codex/skills/lore-studio-ui-safety/SKILL.md
+.codex/skills/lore-studio-ui-safety/agents/openai.yaml
+.codex/skills/lore-studio-ui-safety/scripts/check_contract_sync.py
 .env.example
 .github/workflows/ci.yml
 .gitignore
@@ -13,6 +16,9 @@ backend/alembic/env.py
 backend/alembic/versions/20260805_0001_initial_v1.py
 backend/alembic/versions/20260805_0002_document_final_body.py
 backend/alembic/versions/20260805_0003_separate_lorebook.py
+backend/alembic/versions/20260808_0004_project_owned_categories.py
+backend/alembic/versions/20260809_0005_voice_profiles.py
+backend/alembic/versions/20260809_0006_project_delete_audit.py
 backend/app/__init__.py
 backend/app/api/__init__.py
 backend/app/api/router.py
@@ -35,6 +41,7 @@ backend/app/services/utility_tools.py
 backend/app/services/writing_moves.py
 backend/pyproject.toml
 backend/tests/conftest.py
+backend/tests/fixtures/voice_profiles.json
 backend/tests/test_api_integration.py
 backend/tests/test_authority.py
 backend/tests/test_config_loader.py
@@ -46,6 +53,8 @@ backend/tests/test_local_models.py
 backend/tests/test_model_gateway.py
 backend/tests/test_search.py
 backend/tests/test_writing_recipes.py
+backend/tests/test_voice_profiles.py
+backend/tests/test_writing_boundaries.py
 config/direction_card_presets/misclassified_by_institution.yaml
 config/direction_card_presets/solution_becomes_dependency.yaml
 config/output_profiles/in_universe_report.yaml
@@ -72,6 +81,7 @@ docker-compose.yml
 docs/ACCEPTANCE_TESTS.md
 docs/ARCHITECTURE.md
 docs/BACKUP_RESTORE.md
+docs/CHANGE_SAFETY_CHECKLIST.md
 docs/DATA_MODEL.md
 docs/DEVELOPMENT.md
 docs/EMBEDDING_ISOLATION.md
@@ -85,6 +95,8 @@ docs/PROJECT_SPECIFICATION.md
 docs/ROADMAP.md
 docs/SECURITY_AND_DATA.md
 docs/USER_GUIDE.md
+docs/UI_PAGE_CONTRACT.md
+docs/VOICE_PROFILE_IMPLEMENTATION_PLAN.md
 docs/WRITING_SYSTEM.md
 docs/model-evaluations/utility-models.json
 docs/model-evaluations/utility-models.md
@@ -118,11 +130,14 @@ sample/concept-pages/lighthouse-order.md
 sample/direction-card.yaml
 sample/playbook-request.json
 schema/concept-page.schema.json
+schema/category-definition.schema.json
 schema/concept-ai-edit.schema.json
 schema/direction-card.schema.json
 schema/draft-save.schema.json
 schema/lore-document.schema.json
 schema/playbook-session.schema.json
+schema/project.schema.json
+schema/voice-profile.schema.json
 schema/writing-recipe.schema.json
 scripts/compare_utility_models.py
 scripts/download_fallback_model.py

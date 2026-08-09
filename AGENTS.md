@@ -36,3 +36,9 @@
 5. 자동화가 사용자의 설정 권한을 침해하지 않는가
 
 화려한 에이전트 자율성, 그래프 시각화, 자동 세계관 생성은 위 기반보다 뒤에 둔다.
+
+## 프로젝트 로컬 skill
+
+- UI 점검, 회귀 검사, 페이지 양식 변경, 사용자에게 보이는 기능 추가·수정 요청에는 [`.codex/skills/lore-studio-ui-safety/SKILL.md`](.codex/skills/lore-studio-ui-safety/SKILL.md)를 읽고 적용한다. 사용자는 `$lore-studio-ui-safety`로 명시 호출할 수 있다.
+- 페이지 역할·레이아웃·카드·스크롤·상태 표현이 바뀌면 `docs/UI_PAGE_CONTRACT.md`, 새 실패 유형·안전 경계·검사법이 생기면 `docs/CHANGE_SAFETY_CHECKLIST.md`와 테스트를 같은 변경에서 갱신한다.
+- route·검증 명령·기준 문서 위치·skill trigger가 달라져 다음 점검 절차가 변하면 project-local skill과 정적 검사 script도 함께 갱신한다. 구현 class 이름만 바뀌고 사용자 동작 계약이 같다면 문서를 억지로 수정하지 않는다.

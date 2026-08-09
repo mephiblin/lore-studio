@@ -58,5 +58,6 @@ make test-models
 - 개발/상태: [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md), [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md), [`docs/CHANGE_SAFETY_CHECKLIST.md`](docs/CHANGE_SAFETY_CHECKLIST.md)
 - 제품·작문 계약: [`docs/PROJECT_SPECIFICATION.md`](docs/PROJECT_SPECIFICATION.md), [`docs/WRITING_SYSTEM.md`](docs/WRITING_SYSTEM.md)
 - 검증·남은 작업: [`VERIFICATION.md`](VERIFICATION.md), [`TASKS.md`](TASKS.md)
+- 프로젝트 UI 점검 skill: [`.codex/skills/lore-studio-ui-safety/SKILL.md`](.codex/skills/lore-studio-ui-safety/SKILL.md)
 
 모델 파일, `.env`, 사용자 데이터, 백업, 평가 원문과 생성 artifact는 Git에서 제외됩니다.

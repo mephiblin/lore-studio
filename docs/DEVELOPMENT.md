@@ -20,3 +20,5 @@ make validate
 CI는 Ruff/pytest, bundle schema/YAML, Svelte build, Compose config, 모델 서비스 미연결 상태의 Playwright UI, secret/large-model guard를 실행합니다. 생성·임베딩 실호출은 DGX에서 `make test-models`로 별도 수행합니다.
 
 기능 변경 완료 전에는 [`CHANGE_SAFETY_CHECKLIST.md`](CHANGE_SAFETY_CHECKLIST.md)로 코드 상태, 취소·저장 흐름, 삭제 경계, 고아 UI, 반응형 레이아웃, 문서 일치를 확인합니다.
+
+UI·페이지 점검과 사용자에게 보이는 기능 변경에는 project-local skill [`lore-studio-ui-safety`](../.codex/skills/lore-studio-ui-safety/SKILL.md)를 사용합니다. `$lore-studio-ui-safety`로 명시 호출할 수 있으며, 시작 시 `python3 .codex/skills/lore-studio-ui-safety/scripts/check_contract_sync.py`로 기준 문서·route·migration·manifest·API 경유 규칙을 검사합니다.

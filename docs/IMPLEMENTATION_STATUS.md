@@ -35,6 +35,7 @@
 - 결과물 견본의 형식·시점·시제·분량 실시간 요약, 확인 항목의 수정 후 즉시 복귀, 실제 작성 진행에 따른 3단계 완료 색상
 - 세계관 자료의 저장 후 읽기 모드·명시적 글 편집, 프로젝트·세계관 자료·로어북 삭제, 출처 초안을 보존하는 로어북 삭제 API·감사 기록
 - 글 만들기 대규모 자료 카드의 비겹침 방지·독립 스크롤·전역 하단 바와 겹치지 않는 고정 `자료 더 보기`
+- `$lore-studio-ui-safety` 프로젝트 로컬 skill과 읽기 전용 정적 preflight: UI 계약·변경 체크리스트 기반 반복 점검, 5개 route·migration head·manifest·API 경유 규칙 확인, 기능 계약과 점검 절차의 변경 범위에 따른 문서·테스트·skill 동기화
 
 ## 실제 환경 증거
 
@@ -53,6 +54,7 @@ Utility 9-case 결과는 Qwen3.5-4B가 namespace 누출로 탈락했고 Gemma4-2
 - 모델 서비스 미연결 UI E2E `10 passed`
 - Compose build/up 및 DB health PASS
 - PostgreSQL Alembic `20260809_0006` 기존 데이터 upgrade, 프로젝트 삭제 감사 묘비 보존 및 임시 fresh DB upgrade/downgrade/upgrade PASS
+- 프로젝트 로컬 skill package 검증과 UI 계약 정적 preflight `7 passed, 0 failures`
 
 ## 남은 제한
 

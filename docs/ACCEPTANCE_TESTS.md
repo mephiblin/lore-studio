@@ -37,5 +37,6 @@
 | 33 | 저장 자료 읽기 모드·안전 삭제 | PASS | 세계관 자료 글 편집 gate, 프로젝트·자료·로어북 명시 확인 삭제, 출처 초안 보존·AuditLog |
 | 34 | 대규모 자료 하단 동작 | PASS | 73개 카드 행 비겹침 방지·독립 스크롤, `자료 더 보기`와 전역 하단 바 desktop/mobile 비겹침 |
 | 35 | 페이지 UI 안전성 재감사 | PASS | 글 만들기 footer 수직 밀도, 문체·필력 공통 작업면 간격·높이·스크롤, 100개 설정 카드 높이 보존, 3개 viewport 고아·overflow 검사 |
+| 36 | 프로젝트 로컬 UI 안전 점검 | PASS | `$lore-studio-ui-safety`가 UI 계약·변경 체크리스트를 로드하고 route·migration·manifest·API 경유 정적 preflight를 실행하며 변경 유형별 문서·테스트 동기화 범위를 지정 |
 
 대표 실제 프로젝트 slug는 `black-route-chronicle`이며 로컬 전용 DB에 정식 세계관 자료 9개와 관계·집필 지침을 보관합니다. 기본 전개 방식 프리셋은 공용이고, 사용자가 만든 전개 방식과 참고 분석 승인 결과는 프로젝트에 귀속됩니다. 최신 자동 검증 수치는 루트 `VERIFICATION.md`를 권위 기록으로 사용합니다.
