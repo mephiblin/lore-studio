@@ -223,6 +223,21 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
 .editor-commandbar { justify-content: space-between; gap: 10px; padding-block: 5px; }
 .editor-commandbar .section-tabs { flex: 0 0 auto; margin: 0; padding: 0; border: 0; background: transparent; box-shadow: none; }
 .editor-commandbar .project-tools { margin-left: auto; }
+.workflow-commandbar { justify-content: space-between; align-items: stretch; gap: 10px; padding-block: 5px; }
+.workflow-commandbar .wizard-progress { flex: 1 1 auto; min-width: 0; grid-template-columns: repeat(8, minmax(0, 1fr)); margin: 0; overflow: visible; border: 0; border-radius: 4px; background: transparent; }
+.workflow-commandbar .document-wizard-progress { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.workflow-commandbar .project-tools { flex: 0 0 auto; margin-left: auto; }
+.workflow-commandbar .wizard-step-button { min-height: 48px; gap: 6px; padding: 6px 23px 6px 8px; }
+.workflow-commandbar .wizard-step-button span { width: 19px; height: 19px; flex-basis: 19px; font-size: 10px; }
+.workflow-commandbar .wizard-step-button > div { gap: 3px; overflow: hidden; }
+.workflow-commandbar .wizard-step-button strong { overflow: hidden; font-size: 10px; text-overflow: ellipsis; }
+.workflow-commandbar .wizard-step-button small { font-size: 8px; }
+.workflow-commandbar .wizard-progress-item > .help-tip-wrap { top: 5px; right: 4px; }
+.workflow-commandbar .wizard-progress-item > .help-tip-wrap .help-tip-button { width: 16px; height: 16px; }
+@media (min-width: 821px) and (max-width: 1150px) {
+  .workflow-commandbar { align-items: stretch; flex-direction: column; }
+  .workflow-commandbar .project-tools { order: -1; margin-left: 0; }
+}
 .project-tools { display: flex; align-items: end; gap: 9px; }
 .project-tools > label { min-width: 250px; }
 .page-tools .project-tools > label { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
@@ -286,18 +301,11 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
 .suggestion-review { position: sticky; bottom: 14px; z-index: 8; box-shadow: var(--shadow); }
 .suggestion-review h3 { margin: 0; }
 .category-settings-list { min-height: 0; display: grid; gap: 5px; align-content: start; }
-.category-settings-row { min-width: 0; display: grid; grid-template-columns: minmax(360px, 1fr) minmax(330px, .7fr) auto; gap: 14px; align-items: end; padding: 12px 13px; border: 1px solid var(--line); border-radius: 5px; background: #fff; }
+.category-settings-row { min-width: 0; display: grid; grid-template-columns: minmax(360px, 1fr) auto; gap: 14px; align-items: end; padding: 12px 13px; border: 1px solid var(--line); border-radius: 5px; background: #fff; }
 .category-settings-row:hover { border-color: var(--line-strong); }
 .category-row-fields { min-width: 0; display: grid; grid-template-columns: minmax(120px, .34fr) minmax(220px, 1fr) auto; gap: 9px; align-items: end; }
 .category-row-fields input { min-width: 0; height: 36px; padding: 7px 8px; }
 .category-usage { align-self: center; padding-top: 17px; color: var(--muted-text); font-size: 10px; font-weight: 700; white-space: nowrap; }
-.category-recommendations { min-width: 0; margin: 0; padding: 0; border: 0; }
-.category-recommendations legend { min-height: 20px; display: flex; align-items: center; gap: 5px; padding: 0; color: var(--muted-text); font-size: 10px; font-weight: 720; }
-.category-recommendations .help-tip-button { width: 17px; height: 17px; }
-.category-slot-list { display: flex; flex-wrap: wrap; gap: 5px; min-height: 36px; align-items: center; }
-.category-slot-list label { display: flex; align-items: center; gap: 7px; }
-.category-slot-list input { width: auto; }
-.category-slot-list label { padding: 5px 7px; border: 1px solid var(--line); border-radius: 4px; background: var(--paper-deep); font-size: 10px; white-space: nowrap; }
 .category-row-actions { display: flex; gap: 5px; align-items: center; }
 .category-row-actions button { min-height: 36px; padding: 7px 10px; }
 .recipe-step-editor { min-width: 0; display: grid; gap: 7px; margin: 0; padding: 0; border: 0; }
@@ -441,8 +449,8 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
 .wizard-progress-item > .help-tip-wrap:hover .help-tip-bubble, .wizard-progress-item > .help-tip-wrap:focus-within .help-tip-bubble, .wizard-progress-item > .help-tip-wrap.open .help-tip-bubble { transform: translateY(0); }
 .wizard-progress-item:nth-child(-n+2) > .help-tip-wrap .help-tip-bubble { right: auto; left: 0; }
 .wizard-progress-item:nth-child(-n+2) > .help-tip-wrap .help-tip-bubble::after { right: auto; left: 4px; }
-.wizard-layout { padding: clamp(18px, 3vw, 30px); }
-.wizard-picker { min-width: 0; box-shadow: none; }
+.wizard-layout { padding: 0; }
+.wizard-picker { min-width: 0; border: 0; border-radius: 0; box-shadow: none; }
 .wizard-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(var(--gallery-card-min), 100%), var(--gallery-card-width))); gap: 13px; align-items: start; justify-content: start; max-height: 680px; overflow-y: auto; padding: 2px; }
 .wizard-choice-card { position: relative; display: block; padding: 0; text-align: left; color: var(--ink); }
 .wizard-choice-card.selected { border-color: var(--nav-accent); background: var(--nav-active); box-shadow: 0 10px 26px rgba(16,43,54,.16); }
@@ -614,6 +622,8 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
   .run-actions { display: grid; grid-template-columns: 1fr 1fr; }
   .completion-banner { align-items: stretch; flex-direction: column; }
   .wizard-progress { grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: visible; }
+  .workflow-commandbar .wizard-progress { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .workflow-commandbar .document-wizard-progress { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .wizard-progress-item { border-bottom: 1px solid var(--line); }
   .wizard-progress-item:nth-child(4n) { border-right: 0; }
   .wizard-progress-item:nth-last-child(-n+4) { border-bottom: 0; }
@@ -645,10 +655,10 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
   .document-wizard-progress .wizard-step-button { padding-inline: 8px 24px; }
   .document-wizard-progress .wizard-progress-item:nth-child(3n) { border-right: 0; }
   .document-wizard-progress .wizard-progress-item:nth-child(-n+3) { border-bottom: 0; }
-  .document-wizard-progress .wizard-progress-item:nth-child(1) > .help-tip-wrap .help-tip-bubble { right: auto; left: -2px; }
-  .document-wizard-progress .wizard-progress-item:nth-child(1) > .help-tip-wrap .help-tip-bubble::after { right: auto; left: 6px; }
-  .document-wizard-progress .wizard-progress-item:nth-child(2) > .help-tip-wrap .help-tip-bubble { right: auto; left: -121px; }
-  .document-wizard-progress .wizard-progress-item:nth-child(2) > .help-tip-wrap .help-tip-bubble::after { right: auto; left: 125px; }
+  .document-wizard-progress .wizard-progress-item:nth-child(1) > .help-tip-wrap .help-tip-bubble { right: auto; left: -80px; }
+  .document-wizard-progress .wizard-progress-item:nth-child(1) > .help-tip-wrap .help-tip-bubble::after { right: auto; left: 84px; }
+  .document-wizard-progress .wizard-progress-item:nth-child(2) > .help-tip-wrap .help-tip-bubble { right: auto; left: -160px; }
+  .document-wizard-progress .wizard-progress-item:nth-child(2) > .help-tip-wrap .help-tip-bubble::after { right: auto; left: 164px; }
   .document-wizard-progress .wizard-progress-item:nth-child(3) > .help-tip-wrap .help-tip-bubble { right: 0; left: auto; }
   .document-wizard-progress .wizard-progress-item:nth-child(3) > .help-tip-wrap .help-tip-bubble::after { right: 4px; left: auto; }
   .document-edit-stage, .finalization-settings, .lorebook-layout { grid-template-columns: 1fr; }
@@ -760,13 +770,11 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
   .playbook-page { padding-bottom: 0; }
   .playbook-workspace { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
   .playbook-workspace > .wizard-shell { min-height: 100%; }
-  .playbook-workspace .wizard-progress { position: sticky; z-index: 12; top: 0; }
   .playbook-workspace .wizard-actions { position: sticky; z-index: 11; bottom: 0; }
   .playbook-workspace > .completion-banner { margin-bottom: 4px; }
 
   .documents-page > .document-workflow { flex: 1 1 auto; min-height: 0; }
   .document-workflow { display: flex; flex-direction: column; }
-  .document-workflow > .wizard-progress,
   .document-workflow > .document-contextbar,
   .document-workflow > .wizard-actions { flex: 0 0 auto; }
   .document-workflow > .workflow-empty,
@@ -821,8 +829,8 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
   .nav-collapsed .nav-list a { padding: 6px 2px; border-left-width: 0; }
   .app-main, .app-main.workspace-main { height: auto; overflow: visible; }
   .workspace-page { height: auto; min-height: 0; display: block; overflow: visible; }
-  .editor-commandbar { display: flex; align-items: stretch; flex-direction: column; }
-  .editor-commandbar .project-tools { order: -1; margin-left: 0; }
+  .editor-commandbar, .workflow-commandbar { display: flex; align-items: stretch; flex-direction: column; }
+  .editor-commandbar .project-tools, .workflow-commandbar .project-tools { order: -1; margin-left: 0; }
   .editor-commandbar .section-tabs { width: 100%; }
   .editor-commandbar .section-tabs button { min-width: 0; flex: 1; padding-inline: 5px; font-size: 11px; white-space: nowrap; }
   .editor-commandbar .section-tabs button span { display: none; }

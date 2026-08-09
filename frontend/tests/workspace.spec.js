@@ -37,6 +37,15 @@ for (const route of routes) {
     if (await page.locator('.wizard-progress').count()) {
       expect(await page.locator('.wizard-progress').evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     }
+    if (route === '/playbook') {
+      await expect(page.locator('.page-tools > nav[aria-label="글 만들기 선택 단계"]')).toBeVisible();
+      await expect(page.locator('.wizard-shell > nav[aria-label="글 만들기 선택 단계"]')).toHaveCount(0);
+      await expect(page.locator('.wizard-layout')).toHaveCSS('padding', '0px');
+    }
+    if (route === '/documents') {
+      await expect(page.locator('.page-tools > nav[aria-label="원고 완성 단계"]')).toBeVisible();
+      await expect(page.locator('.document-workflow > nav[aria-label="원고 완성 단계"]')).toHaveCount(0);
+    }
   });
 }
 
@@ -249,6 +258,8 @@ test('a project can be added after projects already exist', async ({ page }, tes
     await page.getByRole('navigation', { name: '세계관 자료 관리' }).getByRole('button', { name: /^자료 종류/ }).click();
     await expect(page.locator('.category-intro')).toHaveCount(0);
     await expect(page.locator('.category-settings-row')).toHaveCount(5);
+    await expect(page.getByText('글 만들기 추천')).toHaveCount(0);
+    await expect(page.locator('.category-recommendations')).toHaveCount(0);
     await expectStepHelp(page, '자료 종류 설명', '자료 종류는 프로젝트별 분류');
     await page.getByText('새 자료 종류 만들기', { exact: true }).click();
     await expect(page.getByLabel('새 자료 종류 이름')).toBeVisible();

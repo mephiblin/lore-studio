@@ -41,13 +41,6 @@
     plannerRules: '', auditRules: ''
   });
 
-  const categorySlotOptions = [
-    { key: 'subject', label: '주제' },
-    { key: 'background', label: '배경' },
-    { key: 'elements', label: '주요 요소' },
-    { key: 'conflicts', label: '갈등·변수' }
-  ];
-
   $: visiblePages = pages.filter((page) => {
     const matchesText = !pageFilter || `${page.title} ${page.summary} ${(page.tags || []).join(' ')}`.toLowerCase().includes(pageFilter.toLowerCase());
     return matchesText && (categoryFilter === 'all' || page.category_key === categoryFilter);
@@ -314,19 +307,6 @@
     return pages.filter((page) => page.category_key === category.key).length;
   }
 
-  function categorySlots(category) {
-    return category.template_json?.recommended_slots || [];
-  }
-
-  function toggleCategorySlot(category, slot) {
-    const current = categorySlots(category);
-    const recommended_slots = current.includes(slot)
-      ? current.filter((item) => item !== slot)
-      : [...current, slot];
-    category.template_json = { ...(category.template_json || {}), recommended_slots };
-    categories = [...categories];
-  }
-
   async function createCategory() {
     if (!projectId || !categoryForm.name.trim()) return;
     error = ''; message = '';
@@ -335,7 +315,7 @@
         project_id: projectId,
         name: categoryForm.name.trim(),
         description: categoryForm.description.trim(),
-        template_json: { recommended_slots: categorySlotOptions.map((item) => item.key) }
+        template_json: {}
       });
       categories = [...categories, category].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
       pageForm = { ...pageForm, category_key: category.key };
@@ -736,7 +716,7 @@
     {:else}
       <section class="category-manager">
         <header class="local-surface-header">
-          <div class="heading-with-help"><h2>자료 종류</h2><HelpTip label="자료 종류 설명" text="자료 종류는 프로젝트별 분류입니다. 이름과 기준, 글 만들기에서 먼저 추천할 단계를 바꿀 수 있고, 종류를 수정해도 기존 자료 본문은 유지됩니다." /></div>
+          <div class="heading-with-help"><h2>자료 종류</h2><HelpTip label="자료 종류 설명" text="자료 종류는 프로젝트별 분류입니다. 이름과 분류 기준을 바꿔도 기존 자료 본문과 연결은 유지됩니다." /></div>
           <span>{categories.length}개</span>
         </header>
         <details class="editor-create-disclosure category-create">
@@ -755,14 +735,6 @@
                 <label class="category-description">분류 기준 <input aria-label={`${category.name} 분류 기준`} bind:value={category.description} placeholder="이 종류에 들어갈 자료의 기준" /></label>
                 <span class="category-usage">{categoryUsedCount(category)}개 자료</span>
               </div>
-              <fieldset class="category-recommendations">
-                <legend>글 만들기 추천 <HelpTip label={`${category.name} 추천 위치 설명`} text="이 종류의 자료를 글 만들기의 어느 선택 단계에서 먼저 보여 줄지 정합니다. 선택하지 않아도 전체 범위에서는 찾을 수 있습니다." /></legend>
-                <div class="category-slot-list">
-                  {#each categorySlotOptions as slot}
-                    <label><input type="checkbox" checked={categorySlots(category).includes(slot.key)} on:change={() => toggleCategorySlot(category, slot.key)} /> {slot.label}</label>
-                  {/each}
-                </div>
-              </fieldset>
               <div class="category-row-actions"><button class="secondary" disabled={!category.name.trim()} on:click={() => saveCategory(category)}>저장</button><button class="ghost danger" on:click={() => deleteCategory(category)}>삭제</button></div>
             </article>
           {/each}

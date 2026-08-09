@@ -31,15 +31,7 @@
     },
     "template_json": {
       "type": "object",
-      "properties": {
-        "recommended_slots": {
-          "type": "array",
-          "uniqueItems": true,
-          "items": {
-            "enum": ["subject", "background", "elements", "conflicts"]
-          }
-        }
-      },
+      "description": "자료 종류별 선택 속성과 표시 템플릿",
       "additionalProperties": true
     }
   },

@@ -265,14 +265,7 @@
 </script>
 
 <div class="page workspace-page documents-page">
-  <div class="page-tools">
-    <div class="project-tools"><label style="min-width:260px">현재 프로젝트<select bind:value={projectId} on:change={changeProject}>{#each projects as project}<option value={project.id}>{project.name}</option>{/each}</select></label><ProjectCreator onCreated={projectCreated} /></div>
-  </div>
-
-  {#if error}<p class="notice-error">{error}</p>{/if}
-  {#if busy}<div class="working-banner" role="status"><span></span><strong>{busy}…</strong><small>현재 초안과 설정은 그대로 보존됩니다.</small></div>{/if}
-
-  <section class="wizard-shell document-workflow">
+  <div class="page-tools workflow-commandbar document-commandbar">
     <nav class="wizard-progress document-wizard-progress" aria-label="원고 완성 단계">
       {#each workflowSteps as step, index}
         <div class="wizard-progress-item">
@@ -283,7 +276,13 @@
         </div>
       {/each}
     </nav>
+    <div class="project-tools"><label style="min-width:260px">현재 프로젝트<select bind:value={projectId} on:change={changeProject}>{#each projects as project}<option value={project.id}>{project.name}</option>{/each}</select></label><ProjectCreator onCreated={projectCreated} /></div>
+  </div>
 
+  {#if error}<p class="notice-error">{error}</p>{/if}
+  {#if busy}<div class="working-banner" role="status"><span></span><strong>{busy}…</strong><small>현재 초안과 설정은 그대로 보존됩니다.</small></div>{/if}
+
+  <section class="wizard-shell document-workflow">
     {#if documents.length}<div class="document-contextbar"><label class="workflow-document-select">작업할 초안 {#if draftDirty}<span class="draft-dirty">저장 안 됨</span>{/if}<select value={selected?.id || ''} on:change={(event) => changeDocument(documents.find((item) => item.id === event.currentTarget.value) || null)}>{#each documents as document}<option value={document.id}>{document.title}</option>{/each}</select></label></div>{/if}
 
     {#if !selected}

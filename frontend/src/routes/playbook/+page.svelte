@@ -41,8 +41,7 @@
   $: activeSlot = activeStep?.slot || '';
   $: activeIds = activeSlot === 'subject' ? subjectIds : activeSlot === 'background' ? backgroundIds : activeSlot === 'elements' ? elementIds : activeSlot === 'conflicts' ? conflictIds : [];
   $: wizardCandidates = visiblePages
-    .filter((page) => !slotFor(page.id) || slotFor(page.id) === activeSlot)
-    .sort((a, b) => Number(recommendedForSlot(b, activeSlot)) - Number(recommendedForSlot(a, activeSlot)));
+    .filter((page) => !slotFor(page.id) || slotFor(page.id) === activeSlot);
   $: wizardPages = wizardCandidates.slice(0, pageLimit);
   $: totalSupporting = backgroundIds.length + elementIds.length + conflictIds.length;
   $: hasCurrentSelection = activeIds.length || activeStep?.key === 'settings' || activeStep?.key === 'guidance' && directionCardIds.length || activeStep?.key === 'recipe' && !!recipeId;
@@ -98,12 +97,6 @@
   }
 
   function resetRun() { session = preview = plan = generatedDocument = null; planDirty = false; }
-
-  function recommendedForSlot(page, slot) {
-    const category = categories.find((item) => item.key === page.category_key);
-    const slots = category?.template_json?.recommended_slots;
-    return !Array.isArray(slots) || slots.includes(slot);
-  }
 
   function categoryName(page) {
     return categories.find((item) => item.key === page?.category_key)?.name || page?.custom_category || page?.category_key || '종류 없음';
@@ -242,15 +235,7 @@
 </script>
 
 <div class="page playbook-page workspace-page">
-  <div class="page-tools">
-    <div class="project-tools"><label class="project-select">현재 프로젝트<select bind:value={projectId} on:change={changeProject}>{#each projects as project}<option value={project.id}>{project.name}</option>{/each}</select></label><ProjectCreator onCreated={projectCreated} /></div>
-  </div>
-
-  {#if error}<p class="notice-error">{error}</p>{/if}
-  {#if busy}<div class="working-banner" role="status"><span></span><strong>{busy}…</strong><small>선택한 자료와 현재 단계는 저장됩니다.</small></div>{/if}
-
-  <div class="playbook-workspace">
-  <section class="wizard-shell">
+  <div class="page-tools workflow-commandbar">
     <nav class="wizard-progress" aria-label="글 만들기 선택 단계">
       {#each wizardSteps as step, index}
         <div class="wizard-progress-item">
@@ -261,7 +246,14 @@
         </div>
       {/each}
     </nav>
+    <div class="project-tools"><label class="project-select">현재 프로젝트<select bind:value={projectId} on:change={changeProject}>{#each projects as project}<option value={project.id}>{project.name}</option>{/each}</select></label><ProjectCreator onCreated={projectCreated} /></div>
+  </div>
 
+  {#if error}<p class="notice-error">{error}</p>{/if}
+  {#if busy}<div class="working-banner" role="status"><span></span><strong>{busy}…</strong><small>선택한 자료와 현재 단계는 저장됩니다.</small></div>{/if}
+
+  <div class="playbook-workspace">
+  <section class="wizard-shell">
     {#if activeSlot}
       <div class="wizard-layout">
         <div class="wizard-picker card">

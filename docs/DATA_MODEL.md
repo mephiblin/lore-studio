@@ -4,7 +4,7 @@
 
 | 영역 | 테이블 | 핵심 경계 |
 |---|---|---|
-| 프로젝트 | projects, category_definitions | 최상위 namespace, 프로젝트 커버·사용자 설정, 프로젝트 소유 자료 종류·추천 위치 |
+| 프로젝트 | projects, category_definitions | 최상위 namespace, 프로젝트 커버·사용자 설정, 프로젝트 소유 자료 종류 |
 | 자료 | concept_pages, concept_page_revisions, concept_relations, attachments | 프로젝트 자료 종류 FK, 자유 Tiptap 본문, role/authority, era/continuity, facts/questions/forbidden |
 | 지침/전개 | direction_cards, direction_card_pools, writing_recipes, voice_profiles | DirectionCard는 프로젝트 집필 지침, WritingRecipe는 `project_id=NULL`인 공용 기본 방식과 프로젝트 소유 방식을 함께 지원하며 원문·parsed suggestion·version을 분리 |
 | 실행 | playbook_sessions, generation_runs, generation_stages | seed/선택/설정/plan/evidence와 모델 감사 |

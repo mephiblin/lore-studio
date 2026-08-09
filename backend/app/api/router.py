@@ -256,9 +256,7 @@ def _resolve_category_key(
                 key=f"custom-{new_id().replace('-', '')[:12]}",
                 name=custom_name,
                 description="기존 사용자 정의 종류에서 이전됨",
-                template_json={
-                    "recommended_slots": ["subject", "background", "elements", "conflicts"]
-                },
+                template_json={},
                 is_builtin=False,
             )
             db.add(category)

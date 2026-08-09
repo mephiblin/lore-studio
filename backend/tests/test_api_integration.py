@@ -55,7 +55,7 @@ def test_project_category_page_recipe_and_authority_api() -> None:
             json={
                 "project_id": project_id,
                 "name": "현상",
-                "template_json": {"recommended_slots": ["subject", "conflicts"]},
+                "template_json": {},
             },
         )
         assert category_response.status_code == 201
