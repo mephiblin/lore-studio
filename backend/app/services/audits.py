@@ -62,6 +62,46 @@ def run_audits(
                 )
 
     moves = [block.rhetorical_move for block in blocks]
+    recipe = context_pack.get("writing_recipe", {})
+    if isinstance(recipe, dict):
+        required_moves = [
+            str(move).strip().upper()
+            for move in recipe.get("required_moves", [])
+            if str(move).strip()
+        ]
+        optional_moves = {
+            str(move).strip().upper()
+            for move in recipe.get("optional_moves", [])
+            if str(move).strip()
+        }
+        allowed_moves = set(required_moves) | optional_moves
+        normalized_moves = [str(move).strip().upper() for move in moves]
+        cursor = 0
+        missing_or_reordered: list[str] = []
+        for required in required_moves:
+            try:
+                cursor = normalized_moves.index(required, cursor) + 1
+            except ValueError:
+                missing_or_reordered.append(required)
+        unknown_moves = [move for move in normalized_moves if allowed_moves and move not in allowed_moves]
+        if missing_or_reordered or unknown_moves:
+            findings.append(
+                AuditFinding(
+                    project_id=document.project_id,
+                    document_id=document.id,
+                    audit_type="DISCOURSE",
+                    severity="warning",
+                    code="RECIPE_SEQUENCE_MISMATCH",
+                    message="선택한 전개 방식의 필수 순서와 현재 문단 순서가 다릅니다.",
+                    evidence_json={
+                        "required_moves": required_moves,
+                        "actual_moves": normalized_moves,
+                        "missing_or_reordered": missing_or_reordered,
+                        "unknown_moves": unknown_moves,
+                        "audit_rules": list(recipe.get("audit_rules", [])),
+                    },
+                )
+            )
     for move, count in Counter(moves).items():
         if count >= 4 and move in {"TURN", "INTERPRET", "ORIENT"}:
             findings.append(

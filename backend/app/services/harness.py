@@ -109,17 +109,47 @@ def _normalize_plan(data: dict[str, Any], pack: dict[str, Any]) -> dict[str, Any
         raise ValueError("Planner 출력에 하나 이상의 blocks가 필요합니다.")
     target = LENGTH_BUDGETS.get(str(pack.get("generation_settings", {}).get("length", "normal")), 3000)
     selected_ids = [str(item.get("id")) for item in pack.get("selected_concepts", []) if item.get("id")]
+    recipe = pack.get("writing_recipe", {}) if isinstance(pack.get("writing_recipe"), dict) else {}
+    required_moves = [str(move).strip().upper() for move in recipe.get("required_moves", []) if str(move).strip()]
+    optional_moves = [str(move).strip().upper() for move in recipe.get("optional_moves", []) if str(move).strip()]
+    move_purposes = {
+        str(item.get("id", "")).strip().upper(): str(item.get("purpose", "")).strip()
+        for item in recipe.get("moves", [])
+        if isinstance(item, dict) and str(item.get("id", "")).strip()
+    }
+    normalized_sources: list[dict[str, Any]] = [item for item in raw_blocks if isinstance(item, dict)]
+    recipe_adjusted = False
+    if required_moves:
+        contracted: list[dict[str, Any]] = []
+        for index, move in enumerate(required_moves):
+            source = dict(normalized_sources[index]) if index < len(normalized_sources) else {}
+            original_move = str(source.get("move") or source.get("rhetorical_move") or "").strip().upper()
+            if original_move != move:
+                recipe_adjusted = True
+                source["purpose"] = move_purposes.get(
+                    move, "선택한 전개 단계의 목적을 수행한다."
+                )
+            source["move"] = move
+            if not str(source.get("purpose", "")).strip():
+                source["purpose"] = move_purposes.get(move, "선택한 전개 단계의 목적을 수행한다.")
+            contracted.append(source)
+        for source in normalized_sources[len(required_moves):]:
+            move = str(source.get("move") or source.get("rhetorical_move") or "").strip().upper()
+            if move in optional_moves:
+                contracted.append({**source, "move": move})
+            else:
+                recipe_adjusted = True
+        normalized_sources = contracted
+
     blocks: list[dict[str, Any]] = []
-    for index, item in enumerate(raw_blocks, start=1):
-        if not isinstance(item, dict):
-            continue
+    for index, item in enumerate(normalized_sources, start=1):
         budget = item.get("word_budget")
         if not isinstance(budget, int):
             percentage = str(item.get("content_budget", "")).rstrip("%")
             try:
                 budget = max(50, int(target * float(percentage) / 100))
             except ValueError:
-                budget = max(50, target // len(raw_blocks))
+                budget = max(50, target // len(normalized_sources))
         evidence_ids = item.get("evidence_ids")
         if not isinstance(evidence_ids, list):
             evidence_ids = selected_ids if item.get("facts_to_use") else []
@@ -141,11 +171,14 @@ def _normalize_plan(data: dict[str, Any], pack: dict[str, Any]) -> dict[str, Any
     title = raw.get("title") or concept_role.get("title")
     if not title:
         title = next((item.get("title") for item in pack.get("selected_concepts", [])), "새 로어")
+    warnings = list(raw.get("warnings") or pack.get("warnings") or [])
+    if recipe_adjusted:
+        warnings.append("선택한 전개 방식의 필수 순서에 맞게 글의 흐름을 정렬했습니다.")
     return {
         "title": str(title),
         "angle": str(raw.get("angle") or pack.get("user_direction") or "선택 자료의 의미를 단계적으로 드러낸다."),
         "blocks": blocks,
-        "warnings": list(raw.get("warnings") or pack.get("warnings") or []),
+        "warnings": warnings,
         "planner_metadata": {
             key: raw[key]
             for key in ("concept_role", "conflict_resolution", "constraints_check")

@@ -6,7 +6,7 @@
 ## v1.0 완료
 
 - [x] 전용 PostgreSQL/pgvector volume·network·schema와 Alembic up/down/up
-- [x] 프로젝트별 자료 종류 생성·수정·안전 삭제, 세계관 자료, 관계/백링크, 프로젝트 집필 지침, 공유 전개 방식, 글 만들기 기록 CRUD
+- [x] 프로젝트별 자료 종류 생성·수정·안전 삭제, 세계관 자료, 관계/백링크, 프로젝트 집필 지침, 공용·프로젝트 전개 방식, 글 만들기 기록 CRUD
 - [x] 권위 상태와 감사 로그, revision, 후보 승인 경계
 - [x] Writer/Utility/Vision/Embedding 역할별 실제 모델 routing·health·retry·JSON Schema·streaming
 - [x] Utility 모델 합성 평가와 Qwen 탈락/Gemma 제한 fallback 기록

@@ -7,6 +7,17 @@ async function expectStepHelp(page, label, text) {
   await expect(page.getByRole('tooltip').filter({ hasText: text })).toBeVisible();
 }
 
+async function removeProjectFixture(request, apiOrigin, projectId) {
+  const pagesResponse = await request.get(`${apiOrigin}/api/v1/concept-pages?project_id=${projectId}`);
+  if (pagesResponse.ok()) {
+    for (const conceptPage of await pagesResponse.json()) {
+      await request.delete(`${apiOrigin}/api/v1/concept-pages/${conceptPage.id}`);
+    }
+  }
+  const projectResponse = await request.delete(`${apiOrigin}/api/v1/projects/${projectId}`);
+  expect(projectResponse.status()).toBe(204);
+}
+
 for (const route of routes) {
   test(`${route} renders without browser or API errors`, async ({ page }) => {
     const errors = [];
@@ -247,8 +258,46 @@ test('a project can be added after projects already exist', async ({ page }, tes
     await page.getByRole('button', { name: /세계관 자료/ }).click();
     await page.getByRole('button', { name: '+ 새 자료' }).click();
     await expect(page.getByLabel('자료 종류')).toContainText('세력');
+    await page.getByLabel('자료 이름').fill('경계 관측소');
+    await page.getByLabel('자료 종류').selectOption({ label: '세력' });
+    await page.getByRole('button', { name: '자료 만들기' }).click();
+
+    await page.getByRole('navigation', { name: '세계관 자료 관리' }).getByRole('button', { name: /^전개 방식/ }).click();
+    await expectStepHelp(page, '전개 방식 설명', '프로젝트 전용 흐름');
+    await page.getByText('새 전개 방식 만들기', { exact: true }).click();
+    await page.getByLabel('새 전개 방식 이름').fill('징후에서 결론으로');
+    await page.getByRole('button', { name: '전개 방식 만들기', exact: true }).click();
+    await expect(page.getByText("'징후에서 결론으로' 전개 방식을 만들었습니다.")).toBeVisible();
+    const recipeCard = page.locator('.recipe-settings-card').filter({ hasText: '징후에서 결론으로' });
+    await expect(recipeCard).toContainText('맥락');
+    await expect(recipeCard).toContainText('핵심');
+    await expect(recipeCard).toContainText('의미');
+    await recipeCard.getByRole('button', { name: '내용 수정' }).click();
+    await page.locator('.recipe-edit-form').getByLabel('이름').fill('징후에서 결론으로 개정');
+    await page.locator('.recipe-edit-form').getByRole('button', { name: '저장', exact: true }).click();
+    await expect(page.locator('.recipe-settings-card').filter({ hasText: '징후에서 결론으로 개정' })).toBeVisible();
+
+    await page.goto('/playbook');
+    await page.getByLabel('현재 프로젝트').selectOption({ label: projectName });
+    await page.locator('.wizard-choice-card').filter({ hasText: '경계 관측소' }).click();
+    await page.getByRole('button', { name: /배경으로 계속/ }).click();
+    await page.getByRole('button', { name: /주요 요소로 계속/ }).click();
+    await page.getByRole('button', { name: /갈등·변수로 계속/ }).click();
+    await page.getByRole('button', { name: /집필 지침으로 계속/ }).click();
+    await page.getByRole('button', { name: /전개 방식으로 계속/ }).click();
+    const projectRecipe = page.locator('.recipe-option').filter({ hasText: '징후에서 결론으로 개정' });
+    await expect(projectRecipe).toContainText('이 프로젝트에서 사용');
+    await projectRecipe.click();
+    await expect(projectRecipe).toHaveAttribute('aria-pressed', 'true');
+
+    await page.goto('/editor');
+    await page.getByLabel('현재 프로젝트').selectOption({ label: projectName });
+    await page.getByRole('navigation', { name: '세계관 자료 관리' }).getByRole('button', { name: /^전개 방식/ }).click();
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.locator('.recipe-settings-card').filter({ hasText: '징후에서 결론으로 개정' }).getByRole('button', { name: '삭제' }).click();
+    await expect(page.getByText("'징후에서 결론으로 개정' 전개 방식을 삭제했습니다.")).toBeVisible();
   } finally {
-    if (project && apiOrigin) await page.request.delete(`${apiOrigin}/api/v1/projects/${project.id}`);
+    if (project && apiOrigin) await removeProjectFixture(page.request, apiOrigin, project.id);
   }
 });
 

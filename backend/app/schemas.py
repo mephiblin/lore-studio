@@ -227,11 +227,34 @@ class WritingRecipeRead(ORMModel):
 
 class WritingRecipeCreate(BaseModel):
     project_id: str
-    key: str = Field(min_length=1, max_length=120)
-    version: str = Field(min_length=1, max_length=40)
+    key: str | None = Field(default=None, min_length=1, max_length=120)
+    version: str = Field(default="1.0.0", min_length=1, max_length=40)
     name: str = Field(min_length=1, max_length=300)
     description: str = ""
-    recipe_json: dict[str, Any] = Field(default_factory=dict)
+    recipe_json: dict[str, Any]
+
+    @field_validator("recipe_json")
+    @classmethod
+    def validate_recipe_json(cls, value: dict[str, Any]) -> dict[str, Any]:
+        preview = value.get("pattern_preview")
+        required = value.get("required_moves")
+        moves = value.get("moves")
+        if not isinstance(preview, list) or len(preview) < 3:
+            raise ValueError("전개 방식에는 세 단계 이상의 표시 순서가 필요합니다.")
+        if not isinstance(required, list) or len(required) < 3:
+            raise ValueError("전개 방식에는 세 단계 이상의 필수 문단 방식이 필요합니다.")
+        if len(preview) != len(required):
+            raise ValueError("표시 순서와 필수 문단 방식의 단계 수가 같아야 합니다.")
+        if not isinstance(moves, list) or not moves:
+            raise ValueError("각 문단 방식의 목적이 필요합니다.")
+        move_ids = {
+            str(item.get("id", "")).strip()
+            for item in moves
+            if isinstance(item, dict) and str(item.get("id", "")).strip()
+        }
+        if any(str(move).strip() not in move_ids for move in required):
+            raise ValueError("필수 문단 방식은 목적이 정의된 방식만 사용할 수 있습니다.")
+        return value
 
 
 class WritingRecipeUpdate(BaseModel):
@@ -239,6 +262,13 @@ class WritingRecipeUpdate(BaseModel):
     description: str | None = None
     recipe_json: dict[str, Any] | None = None
     approved: bool | None = None
+
+    @field_validator("recipe_json")
+    @classmethod
+    def validate_recipe_json(cls, value: dict[str, Any] | None) -> dict[str, Any] | None:
+        if value is None:
+            return value
+        return WritingRecipeCreate.validate_recipe_json(value)
 
 
 class PlaybookSessionCreate(BaseModel):

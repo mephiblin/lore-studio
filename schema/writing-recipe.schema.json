@@ -6,8 +6,11 @@
     "key",
     "version",
     "name",
+    "pattern_preview",
+    "required_moves",
     "moves",
-    "planner_rules"
+    "planner_rules",
+    "audit_rules"
   ],
   "properties": {
     "key": {
@@ -22,6 +25,13 @@
     "description": {
       "type": "string"
     },
+    "project_id": {
+      "description": "null이면 공용 기본 방식, 문자열이면 해당 프로젝트 소유 방식",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "best_for": {
       "type": "string"
     },
@@ -34,8 +44,34 @@
     },
     "moves": {
       "type": "array",
+      "minItems": 1,
       "items": {
-        "type": "object"
+        "type": "object",
+        "required": [
+          "id",
+          "purpose"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "purpose": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "required_moves": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "string"
+      }
+    },
+    "optional_moves": {
+      "type": "array",
+      "items": {
+        "type": "string"
       }
     },
     "planner_rules": {

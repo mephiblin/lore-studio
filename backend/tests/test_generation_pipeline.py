@@ -6,7 +6,15 @@ from conftest import HandlerTransport, isolated_session
 from sqlalchemy import select
 
 from app.config import settings
-from app.models import GenerationRun, GenerationStage, LoreBlock, PlaybookSession, Project, WritingRecipe
+from app.models import (
+    AuditFinding,
+    GenerationRun,
+    GenerationStage,
+    LoreBlock,
+    PlaybookSession,
+    Project,
+    WritingRecipe,
+)
 from app.services.harness import LoreHarness
 from app.services.model_gateway import ModelGateway
 
@@ -87,7 +95,9 @@ def test_generation_persists_required_stages_and_lore_blocks(monkeypatch) -> Non
 
     harness = LoreHarness(ModelGateway(transport=HandlerTransport(model_handler)))
     harness.context_preview(db, session)
-    asyncio.run(harness.plan(db, session))
+    plan = asyncio.run(harness.plan(db, session))
+    assert [block["move"] for block in plan["blocks"]] == ["ORIENT", "ANCHOR", "WITHHOLD"]
+    assert "필수 순서" in " ".join(plan["warnings"])
     document = asyncio.run(harness.generate(db, session))
 
     stages = set(db.scalars(select(GenerationStage.step)).all())
@@ -105,6 +115,14 @@ def test_generation_persists_required_stages_and_lore_blocks(monkeypatch) -> Non
     }.issubset(stages)
     assert db.query(LoreBlock).filter_by(document_id=document.id).count() >= 1
     assert db.query(GenerationRun).filter_by(session_id=session.id).count() == 2
+    recipe_warning = db.scalar(
+        select(AuditFinding).where(
+            AuditFinding.document_id == document.id,
+            AuditFinding.code == "RECIPE_SEQUENCE_MISMATCH",
+        )
+    )
+    assert recipe_warning is not None
+    assert recipe_warning.evidence_json["required_moves"] == ["ORIENT", "ANCHOR", "WITHHOLD"]
 
     result = asyncio.run(
         harness.finalize_document(

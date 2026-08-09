@@ -4,13 +4,14 @@
   import ProjectCreator from '$lib/components/ProjectCreator.svelte';
   import HelpTip from '$lib/components/HelpTip.svelte';
   import { api } from '$lib/api';
-  import { relationLabel, relationLabels } from '$lib/labels';
+  import { moveDescriptions, moveLabels, relationLabel, relationLabels } from '$lib/labels';
   import { initialProjectId, rememberProject } from '$lib/project';
 
   let projects = [];
   let projectId = '';
   let pages = [];
   let cards = [];
+  let recipes = [];
   let categories = [];
   let selectedPage = null;
   let activeTab = 'pages';
@@ -25,8 +26,20 @@
   let busy = '';
   let newPageOpen = false;
   let editingCardId = '';
+  let editingRecipeId = '';
   let cardDraft = { title: '', body: '', tags: '' };
   let categoryForm = { name: '', description: '' };
+
+  const starterRecipeSteps = () => [
+    { move: 'ORIENT', label: '맥락', purpose: moveDescriptions.ORIENT },
+    { move: 'ANCHOR', label: '핵심', purpose: moveDescriptions.ANCHOR },
+    { move: 'INTERPRET', label: '의미', purpose: moveDescriptions.INTERPRET }
+  ];
+
+  const emptyRecipeForm = () => ({
+    name: '', description: '', bestFor: '', steps: starterRecipeSteps(),
+    plannerRules: '', auditRules: ''
+  });
 
   const categorySlotOptions = [
     { key: 'subject', label: '주제' },
@@ -43,7 +56,11 @@
 
   let pageForm = { title: '', category_key: '', purpose: 'setting' };
   let cardForm = { title: '', body: '', tags: '' };
+  let recipeForm = emptyRecipeForm();
+  let recipeDraft = emptyRecipeForm();
   let relationForm = { target_page_id: '', relation_type: 'RELATED_TO', notes: '' };
+
+  $: projectRecipes = recipes.filter((recipe) => recipe.project_id === projectId);
 
   const purposeRoles = {
     setting: 'DRAFT_SETTING',
@@ -80,11 +97,12 @@
     message = '';
     categoryFilter = 'all';
     try {
-      [pages, cards, indexStats, categories] = await Promise.all([
+      [pages, cards, indexStats, categories, recipes] = await Promise.all([
         api.get(`/concept-pages?project_id=${projectId}`),
         api.get(`/direction-cards?project_id=${projectId}`),
         api.get(`/index/stats?project_id=${projectId}`),
-        api.get(`/categories?project_id=${projectId}`)
+        api.get(`/categories?project_id=${projectId}`),
+        api.get(`/writing-recipes?project_id=${projectId}`)
       ]);
       pageForm = {
         ...pageForm,
@@ -151,6 +169,111 @@
 
   function lines(text, fallback) {
     return typeof text === 'string' ? text.split('\n').map((item) => item.trim()).filter(Boolean) : fallback;
+  }
+
+  function recipeToForm(recipe) {
+    const data = recipe.recipe_json || {};
+    const previews = data.pattern_preview || [];
+    const purposes = new Map((data.moves || []).map((move) => [move.id, move.purpose]));
+    const requiredMoves = (data.required_moves || []).length >= 3
+      ? data.required_moves
+      : starterRecipeSteps().map((step) => step.move);
+    return {
+      name: recipe.name,
+      description: recipe.description || '',
+      bestFor: data.best_for || '',
+      steps: requiredMoves.map((move, index) => ({
+        move,
+        label: previews[index] || moveLabels[move] || move,
+        purpose: purposes.get(move) || moveDescriptions[move] || ''
+      })),
+      plannerRules: (data.planner_rules || []).join('\n'),
+      auditRules: (data.audit_rules || []).join('\n')
+    };
+  }
+
+  function recipePayload(form) {
+    const steps = form.steps.filter((step) => step.label.trim());
+    const moves = [...new Map(steps.map((step) => [step.move, {
+      id: step.move,
+      purpose: step.purpose.trim() || moveDescriptions[step.move] || step.label.trim()
+    }])).values()];
+    return {
+      name: form.name.trim(),
+      description: form.description.trim(),
+      recipe_json: {
+        name: form.name.trim(),
+        description: form.description.trim(),
+        best_for: form.bestFor.trim(),
+        pattern_preview: steps.map((step) => step.label.trim()),
+        required_moves: steps.map((step) => step.move),
+        optional_moves: [],
+        moves,
+        planner_rules: lines(form.plannerRules, []),
+        style_defaults: {},
+        audit_rules: lines(form.auditRules, [])
+      }
+    };
+  }
+
+  function updateRecipeStep(target, index, field, value) {
+    target.steps[index] = { ...target.steps[index], [field]: value };
+    if (target === recipeDraft) recipeDraft = { ...target, steps: [...target.steps] };
+    else recipeForm = { ...target, steps: [...target.steps] };
+  }
+
+  function addRecipeStep(target) {
+    target.steps = [...target.steps, { move: 'COMPLICATE', label: '변화', purpose: moveDescriptions.COMPLICATE }];
+    if (target === recipeDraft) recipeDraft = { ...target };
+    else recipeForm = { ...target };
+  }
+
+  function removeRecipeStep(target, index) {
+    if (target.steps.length <= 3) return;
+    target.steps = target.steps.filter((_, stepIndex) => stepIndex !== index);
+    if (target === recipeDraft) recipeDraft = { ...target };
+    else recipeForm = { ...target };
+  }
+
+  async function createRecipe() {
+    if (!projectId || !recipeForm.name.trim() || recipeForm.steps.some((step) => !step.label.trim())) return;
+    error = ''; message = '';
+    try {
+      const recipe = await api.post('/writing-recipes', {
+        project_id: projectId,
+        ...recipePayload(recipeForm)
+      });
+      recipes = [...recipes, recipe].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+      recipeForm = emptyRecipeForm();
+      message = `'${recipe.name}' 전개 방식을 만들었습니다.`;
+    } catch (e) { error = e.message; }
+  }
+
+  function editRecipe(recipe) {
+    editingRecipeId = recipe.id;
+    recipeDraft = recipeToForm(recipe);
+  }
+
+  async function saveRecipe(recipe) {
+    if (!recipeDraft.name.trim() || recipeDraft.steps.some((step) => !step.label.trim())) return;
+    error = ''; message = '';
+    try {
+      const updated = await api.patch(`/writing-recipes/${recipe.id}`, recipePayload(recipeDraft));
+      recipes = recipes.map((item) => item.id === recipe.id ? updated : item)
+        .sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+      editingRecipeId = '';
+      message = `'${updated.name}' 전개 방식을 저장했습니다.`;
+    } catch (e) { error = e.message; }
+  }
+
+  async function deleteRecipe(recipe) {
+    if (!confirm(`'${recipe.name}' 전개 방식을 삭제할까요? 사용한 글 만들기 기록이 있으면 삭제할 수 없습니다.`)) return;
+    error = ''; message = '';
+    try {
+      await api.delete(`/writing-recipes/${recipe.id}`);
+      recipes = recipes.filter((item) => item.id !== recipe.id);
+      message = `'${recipe.name}' 전개 방식을 삭제했습니다.`;
+    } catch (e) { error = e.message; }
   }
 
   function decoratePage(page) {
@@ -343,7 +466,8 @@
   async function approveReference() {
     const result = await api.post(`/reference-analyses/${referenceAnalysis.id}/approve`, {});
     referenceAnalysis = { ...referenceAnalysis, status: result.status };
-    message = '구성·문체 분석 결과를 승인했습니다.';
+    recipes = await api.get(`/writing-recipes?project_id=${projectId}`);
+    message = '구성·문체 분석 결과를 승인했습니다. 전개 방식에서 확인할 수 있습니다.';
   }
 
   async function reindexPage() {
@@ -366,6 +490,7 @@
         <button class:active={activeTab === 'pages'} on:click={() => activeTab = 'pages'}>세계관 자료 <span>{pages.length}</span></button>
         <button class:active={activeTab === 'categories'} on:click={() => activeTab = 'categories'}>자료 종류 <span>{categories.length}</span></button>
         <button class:active={activeTab === 'directions'} on:click={() => activeTab = 'directions'}>집필 지침 <span>{cards.length}</span></button>
+        <button class:active={activeTab === 'recipes'} on:click={() => activeTab = 'recipes'}>전개 방식 <span>{projectRecipes.length}</span></button>
       </nav>
     {/if}
     <div class="project-tools">
@@ -534,6 +659,79 @@
             <div class="row"><button class="primary" on:click={applyCardSuggestion}>세부 규칙 저장</button><button class="ghost" on:click={() => cardSuggestion = null}>취소</button></div>
           </section>
         {/if}
+      </section>
+    {:else if activeTab === 'recipes'}
+      <section class="recipe-manager">
+        <header class="local-surface-header">
+          <div class="heading-with-help"><h2>전개 방식</h2><HelpTip label="전개 방식 설명" text="정보를 어떤 순서로 공개할지 정하는 프로젝트 전용 흐름입니다. 공용 기본 방식과 함께 글 만들기에서 하나를 선택하며, 원고의 소재나 사실을 대신하지 않습니다." /></div>
+          <span>{projectRecipes.length}개</span>
+        </header>
+        <details class="editor-create-disclosure recipe-create">
+          <summary>새 전개 방식 만들기</summary>
+          <div class="stack disclosure-body">
+            <div class="grid-2">
+              <label>이름 <input aria-label="새 전개 방식 이름" bind:value={recipeForm.name} placeholder="예: 징후에서 진실로" /></label>
+              <label>잘 맞는 글 <input bind:value={recipeForm.bestFor} placeholder="예: 미스터리, 폐허, 조사 기록" /></label>
+            </div>
+            <label>설명 <textarea bind:value={recipeForm.description} placeholder="이 순서가 독자에게 어떤 경험을 만드는지 적어 주세요."></textarea></label>
+            <fieldset class="recipe-step-editor">
+              <legend>전개 순서 <HelpTip label="새 전개 방식 순서 설명" text="각 줄이 원고의 필수 문단 방식이 됩니다. 위에서 아래 순서로 글의 흐름을 만듭니다." /></legend>
+              {#each recipeForm.steps as step, index}
+                <div class="recipe-step-row">
+                  <span>{String(index + 1).padStart(2, '0')}</span>
+                  <label>문단 방식<select aria-label={`${index + 1}번 새 전개 문단 방식`} value={step.move} on:change={(event) => updateRecipeStep(recipeForm, index, 'move', event.currentTarget.value)}>{#each Object.entries(moveLabels) as [value, label]}<option {value}>{label}</option>{/each}</select></label>
+                  <label>카드 표시<input aria-label={`${index + 1}번 새 전개 카드 표시`} value={step.label} on:input={(event) => updateRecipeStep(recipeForm, index, 'label', event.currentTarget.value)} placeholder="예: 첫 징후" /></label>
+                  <label class="recipe-purpose-field">이 단계의 목적<input value={step.purpose} on:input={(event) => updateRecipeStep(recipeForm, index, 'purpose', event.currentTarget.value)} /></label>
+                  <button class="icon-button" aria-label={`${index + 1}번 전개 단계 삭제`} disabled={recipeForm.steps.length <= 3} on:click={() => removeRecipeStep(recipeForm, index)}>×</button>
+                </div>
+              {/each}
+              <button class="ghost recipe-add-step" on:click={() => addRecipeStep(recipeForm)}>+ 단계 추가</button>
+            </fieldset>
+            <div class="grid-2 recipe-rule-fields">
+              <label>구성할 때 지킬 규칙 <textarea bind:value={recipeForm.plannerRules} placeholder="한 줄에 하나씩 입력"></textarea></label>
+              <label>완성 후 확인할 기준 <textarea bind:value={recipeForm.auditRules} placeholder="한 줄에 하나씩 입력"></textarea></label>
+            </div>
+            <button class="primary" disabled={!recipeForm.name.trim() || recipeForm.steps.length < 3 || recipeForm.steps.some((step) => !step.label.trim())} on:click={createRecipe}>전개 방식 만들기</button>
+          </div>
+        </details>
+        <div class="recipe-settings-list">
+          {#each projectRecipes as recipe}
+            <article class="recipe-settings-card">
+              {#if editingRecipeId === recipe.id}
+                <div class="stack recipe-edit-form">
+                  <div class="grid-2"><label>이름 <input bind:value={recipeDraft.name} /></label><label>잘 맞는 글 <input bind:value={recipeDraft.bestFor} /></label></div>
+                  <label>설명 <textarea bind:value={recipeDraft.description}></textarea></label>
+                  <fieldset class="recipe-step-editor">
+                    <legend>전개 순서</legend>
+                    {#each recipeDraft.steps as step, index}
+                      <div class="recipe-step-row">
+                        <span>{String(index + 1).padStart(2, '0')}</span>
+                        <label>문단 방식<select aria-label={`${index + 1}번 ${recipe.name} 문단 방식`} value={step.move} on:change={(event) => updateRecipeStep(recipeDraft, index, 'move', event.currentTarget.value)}>{#each Object.entries(moveLabels) as [value, label]}<option {value}>{label}</option>{/each}</select></label>
+                        <label>카드 표시<input value={step.label} on:input={(event) => updateRecipeStep(recipeDraft, index, 'label', event.currentTarget.value)} /></label>
+                        <label class="recipe-purpose-field">이 단계의 목적<input value={step.purpose} on:input={(event) => updateRecipeStep(recipeDraft, index, 'purpose', event.currentTarget.value)} /></label>
+                        <button class="icon-button" aria-label={`${index + 1}번 ${recipe.name} 단계 삭제`} disabled={recipeDraft.steps.length <= 3} on:click={() => removeRecipeStep(recipeDraft, index)}>×</button>
+                      </div>
+                    {/each}
+                    <button class="ghost recipe-add-step" on:click={() => addRecipeStep(recipeDraft)}>+ 단계 추가</button>
+                  </fieldset>
+                  <div class="grid-2 recipe-rule-fields"><label>구성할 때 지킬 규칙 <textarea bind:value={recipeDraft.plannerRules}></textarea></label><label>완성 후 확인할 기준 <textarea bind:value={recipeDraft.auditRules}></textarea></label></div>
+                  <div class="row"><button class="primary" disabled={!recipeDraft.name.trim() || recipeDraft.steps.some((step) => !step.label.trim())} on:click={() => saveRecipe(recipe)}>저장</button><button class="ghost" on:click={() => editingRecipeId = ''}>취소</button></div>
+                </div>
+              {:else}
+                <div class="row spread"><div><span class="recipe-origin">이 프로젝트에서 사용</span><h3>{recipe.name}</h3></div><span class="badge canon">{(recipe.recipe_json?.required_moves || []).length}단계</span></div>
+                <p>{recipe.description || '설명이 없습니다.'}</p>
+                <div class="recipe-flow recipe-settings-flow" aria-label={`${recipe.name} 순서`}>
+                  {#each recipe.recipe_json?.pattern_preview || [] as part, index}
+                    <span>{part}</span>{#if index < (recipe.recipe_json?.pattern_preview || []).length - 1}<i>→</i>{/if}
+                  {/each}
+                </div>
+                {#if recipe.recipe_json?.best_for}<small><b>잘 맞는 글</b> {recipe.recipe_json.best_for}</small>{/if}
+                <div class="row wrap recipe-settings-actions"><button class="secondary" on:click={() => editRecipe(recipe)}>내용 수정</button><button class="danger-button" on:click={() => deleteRecipe(recipe)}>삭제</button></div>
+              {/if}
+            </article>
+          {/each}
+          {#if !projectRecipes.length}<div class="empty-state direction-empty"><strong>이 프로젝트만의 전개 방식이 없습니다.</strong><p>위에서 새로 만들거나, 문체 참고 자료의 구성·문체 분석 결과를 승인하세요. 공용 기본 방식은 글 만들기에서 계속 사용할 수 있습니다.</p></div>{/if}
+        </div>
       </section>
     {:else}
       <section class="category-manager">

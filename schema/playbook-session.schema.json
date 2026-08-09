@@ -59,7 +59,7 @@
       "type": "string"
     },
     "writing_recipe_id": {
-      "description": "프로젝트와 무관한 공유 전개 방식(WritingRecipe) ID",
+      "description": "공용 기본 전개 방식 또는 현재 프로젝트 소유 전개 방식(WritingRecipe) ID",
       "type": "string"
     },
     "output_profile": {

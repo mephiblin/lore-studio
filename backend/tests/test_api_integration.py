@@ -136,14 +136,26 @@ def test_project_category_page_recipe_and_authority_api() -> None:
             "/api/v1/writing-recipes",
             json={
                 "project_id": project_id,
-                "key": "api-recipe",
-                "version": "1.0.0",
                 "name": "API 레시피",
-                "recipe_json": {"moves": ["ORIENT", "ANCHOR"]},
+                "recipe_json": {
+                    "pattern_preview": ["맥락", "핵심", "의미"],
+                    "required_moves": ["ORIENT", "ANCHOR", "INTERPRET"],
+                    "optional_moves": [],
+                    "moves": [
+                        {"id": "ORIENT", "purpose": "맥락을 설명한다."},
+                        {"id": "ANCHOR", "purpose": "핵심 사실을 제시한다."},
+                        {"id": "INTERPRET", "purpose": "의미를 해석한다."},
+                    ],
+                    "planner_rules": [],
+                    "audit_rules": [],
+                },
             },
         )
         assert recipe_response.status_code == 201
         assert recipe_response.json()["version"] == "1.0.0"
+        assert recipe_response.json()["key"].startswith("custom-")
+        assert recipe_response.json()["recipe_json"]["key"] == recipe_response.json()["key"]
+        assert recipe_response.json()["recipe_json"]["version"] == "1.0.0"
 
         shared_recipe = WritingRecipe(
             project_id=None,
@@ -169,15 +181,40 @@ def test_project_category_page_recipe_and_authority_api() -> None:
             "공유 전개 방식",
         }
 
-        rejected_session = client.post(
+        project_session = client.post(
             "/api/v1/playbook-sessions",
             json={
                 "project_id": project_id,
                 "writing_recipe_id": recipe_response.json()["id"],
             },
         )
+        assert project_session.status_code == 201
+
+        versioned_recipe = client.patch(
+            f"/api/v1/writing-recipes/{recipe_response.json()['id']}",
+            json={"name": "API 레시피 개정"},
+        )
+        assert versioned_recipe.status_code == 200
+        assert versioned_recipe.json()["id"] != recipe_response.json()["id"]
+        assert versioned_recipe.json()["version"] == "1.0.1"
+        assert versioned_recipe.json()["recipe_json"]["version"] == "1.0.1"
+        assert project_session.json()["writing_recipe_id"] == recipe_response.json()["id"]
+        assert {
+            item["name"]
+            for item in client.get(
+                "/api/v1/writing-recipes", params={"project_id": project_id}
+            ).json()
+        } == {"API 레시피 개정", "공유 전개 방식"}
+
+        rejected_session = client.post(
+            "/api/v1/playbook-sessions",
+            json={
+                "project_id": other_project["id"],
+                "writing_recipe_id": recipe_response.json()["id"],
+            },
+        )
         assert rejected_session.status_code == 422
-        assert rejected_session.json()["detail"]["code"] == "SHARED_WRITING_RECIPE_REQUIRED"
+        assert rejected_session.json()["detail"]["code"] == "PROJECT_WRITING_RECIPE_REQUIRED"
 
         accepted_session = client.post(
             "/api/v1/playbook-sessions",
@@ -187,6 +224,12 @@ def test_project_category_page_recipe_and_authority_api() -> None:
             },
         )
         assert accepted_session.status_code == 201
+
+        used_recipe_delete = client.delete(
+            f"/api/v1/writing-recipes/{recipe_response.json()['id']}"
+        )
+        assert used_recipe_delete.status_code == 409
+        assert used_recipe_delete.json()["detail"]["code"] == "WRITING_RECIPE_IN_USE"
     finally:
         app.dependency_overrides.clear()
         db.close()

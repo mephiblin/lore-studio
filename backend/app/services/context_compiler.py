@@ -54,6 +54,8 @@ def compile_context(
     recipe = db.get(WritingRecipe, writing_recipe_id or session.writing_recipe_id)
     if not project or not recipe:
         raise ValueError("프로젝트 또는 집필 레시피를 찾을 수 없습니다.")
+    if not recipe.approved or recipe.project_id not in {None, session.project_id}:
+        raise ValueError("현재 프로젝트에서 사용할 수 없는 전개 방식입니다.")
 
     selected_ids: list[str] = []
     slot_map = session.concept_slots or {}

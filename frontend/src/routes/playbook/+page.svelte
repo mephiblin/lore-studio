@@ -24,7 +24,7 @@
     { key: 'elements', slot: 'elements', short: '주요 요소', title: '꼭 함께 다룰 것은 무엇인가요?', copy: '글에서 비중 있게 등장할 인물·사건·유물 등을 고르세요. 여러 개를 선택할 수 있습니다.', next: '갈등·변수로 계속' },
     { key: 'conflicts', slot: 'conflicts', short: '갈등·변수', title: '무엇이 긴장과 변화를 만드나요?', copy: '충돌, 위험, 반전의 원인이 될 자료를 고르세요. 없어도 됩니다.', next: '집필 지침으로 계속' },
     { key: 'guidance', short: '집필 지침', title: '이번 글에서 무엇을 강조하거나 피할까요?', copy: '현재 프로젝트에 저장한 강조점과 금지 원칙입니다. 여러 개를 고르거나 건너뛸 수 있습니다.', next: '전개 방식으로 계속' },
-    { key: 'recipe', short: '전개 방식', title: '글을 어떤 방식으로 풀어갈까요?', copy: '세계관 자료와 무관한 공통 전개 방식입니다. 정보가 드러나는 순서 하나를 고르세요.', required: true, next: '결과물 형태로 계속' },
+    { key: 'recipe', short: '전개 방식', title: '글을 어떤 방식으로 풀어갈까요?', copy: '공용 기본 방식과 이 프로젝트에서 만든 방식 중 정보가 드러나는 순서 하나를 고르세요.', required: true, next: '결과물 형태로 계속' },
     { key: 'settings', short: '결과물 형태', title: '어떤 결과물로 만들까요?', copy: '결과물 종류, 시점·시제와 분량을 정하세요.', next: '확인·작성으로 계속' },
     { key: 'review', short: '확인·작성', title: '선택을 확인하고 초안을 만드세요.', copy: '사용할 세계관을 확인하고, 글의 흐름을 정한 뒤 초안을 작성합니다.' }
   ];
@@ -62,8 +62,7 @@
 
   async function loadInitial() {
     try {
-      [projects, recipes] = await Promise.all([api.get('/projects'), api.get('/writing-recipes')]);
-      recipeId = recipes.find((item) => item.key === 'progressive_exposition')?.id || recipes[0]?.id || '';
+      projects = await api.get('/projects');
       projectId = initialProjectId(projects);
       if (projectId) await loadProjectData();
     } catch (e) { error = e.message; }
@@ -83,11 +82,15 @@
   async function loadProjectData() {
     if (!projectId) return;
     try {
-      [pages, cards, categories] = await Promise.all([
+      [pages, cards, categories, recipes] = await Promise.all([
         api.get(`/concept-pages?project_id=${projectId}`),
         api.get(`/direction-cards?project_id=${projectId}`),
-        api.get(`/categories?project_id=${projectId}`)
+        api.get(`/categories?project_id=${projectId}`),
+        api.get(`/writing-recipes?project_id=${projectId}`)
       ]);
+      recipeId = recipes.some((item) => item.id === recipeId)
+        ? recipeId
+        : recipes.find((item) => item.key === 'progressive_exposition')?.id || recipes[0]?.id || '';
       subjectIds = []; backgroundIds = []; elementIds = []; conflictIds = []; directionCardIds = [];
       wizardStep = 0; furthestStep = 0; pageLimit = 18;
       resetRun();
@@ -307,7 +310,7 @@
         {#each recipes as recipe}
           <button class:selected={recipeId === recipe.id} class="recipe-option" aria-pressed={recipeId === recipe.id} on:click={() => selectRecipe(recipe.id)}>
             <span class="choice-check">{recipeId === recipe.id ? '✓' : '○'}</span>
-            <span class="recipe-scope">모든 프로젝트에서 사용</span>
+            <span class="recipe-scope">{recipe.project_id ? '이 프로젝트에서 사용' : '모든 프로젝트에서 사용'}</span>
             <strong>{recipe.name}</strong>
             <p>{recipe.description}</p>
             <span class="recipe-flow" aria-label={`${recipe.name} 순서`}>
@@ -318,7 +321,7 @@
             {#if recipe.recipe_json?.best_for}<small><b>잘 맞는 글</b> {recipe.recipe_json.best_for}</small>{/if}
           </button>
         {/each}
-        {#if !recipes.length}<div class="empty-state">사용할 수 있는 공유 전개 방식이 없습니다.</div>{/if}
+        {#if !recipes.length}<a class="empty-state" href="/editor">사용할 수 있는 전개 방식이 없습니다. 세계관 자료에서 만들기 →</a>{/if}
       </div>
     {:else if activeStep.key === 'settings'}
       <div class="settings-grid wizard-settings">

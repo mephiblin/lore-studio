@@ -106,6 +106,89 @@ def _error(status_code: int, code: str, message: str) -> HTTPException:
     return HTTPException(status_code=status_code, detail={"code": code, "message": message})
 
 
+def _require_recipe_for_project(recipe: WritingRecipe, project_id: str) -> None:
+    if not recipe.approved or recipe.project_id not in {None, project_id}:
+        raise _error(
+            422,
+            "PROJECT_WRITING_RECIPE_REQUIRED",
+            "현재 프로젝트의 전개 방식 또는 모든 프로젝트가 함께 쓰는 전개 방식만 선택할 수 있습니다.",
+        )
+
+
+RECIPE_MOVE_LABELS = {
+    "ORIENT": "배경 설명",
+    "NARROW": "주제로 초점 이동",
+    "ANCHOR": "핵심 사실 제시",
+    "COMPLICATE": "문제·예외 추가",
+    "COMPARE": "차이 비교",
+    "EXEMPLIFY": "사례 제시",
+    "ESCALATE": "긴장 고조",
+    "INTERPRET": "의미 해설",
+    "WITHHOLD": "의문 남기기",
+    "TURN": "관점 전환",
+    "STING": "마지막 여운",
+}
+
+
+def _recipe_json_with_identity(
+    recipe_json: dict[str, Any], *, key: str, version: str, name: str, description: str
+) -> dict[str, Any]:
+    return {
+        **recipe_json,
+        "key": key,
+        "version": version,
+        "name": name,
+        "description": description,
+    }
+
+
+def _normalize_reference_recipe(analysis: ReferenceAnalysis) -> dict[str, Any]:
+    candidate = dict(analysis.recipe_candidate_json or {})
+    allowed = set(RECIPE_MOVE_LABELS)
+    required = [
+        str(move).strip().upper()
+        for move in candidate.get("required_moves", [])
+        if str(move).strip().upper() in allowed
+    ]
+    if len(required) < 3:
+        required = [
+            str(item.get("primary_move", "")).strip().upper()
+            for item in (analysis.analysis_json or {}).get("paragraphs", [])
+            if str(item.get("primary_move", "")).strip().upper() in allowed
+        ]
+    for fallback in ("ORIENT", "ANCHOR", "INTERPRET"):
+        if len(required) >= 3:
+            break
+        required.append(fallback)
+
+    preview = [str(item).strip() for item in candidate.get("pattern_preview", []) if str(item).strip()]
+    if len(preview) != len(required):
+        preview = [RECIPE_MOVE_LABELS[move] for move in required]
+
+    defined_moves = {
+        str(item.get("id", "")).strip().upper(): str(item.get("purpose", "")).strip()
+        for item in candidate.get("moves", [])
+        if isinstance(item, dict) and str(item.get("id", "")).strip().upper() in allowed
+    }
+    moves = [
+        {"id": move, "purpose": defined_moves.get(move) or RECIPE_MOVE_LABELS[move]}
+        for move in dict.fromkeys(required)
+    ]
+    return {
+        **candidate,
+        "pattern_preview": preview,
+        "required_moves": required,
+        "optional_moves": [
+            str(move).strip().upper()
+            for move in candidate.get("optional_moves", [])
+            if str(move).strip().upper() in allowed and str(move).strip().upper() not in required
+        ],
+        "moves": moves,
+        "planner_rules": [str(rule) for rule in candidate.get("planner_rules", [])],
+        "audit_rules": [str(rule) for rule in candidate.get("audit_rules", [])],
+    }
+
+
 def _draft_document_or_404(db: Session, document_id: str) -> LoreDocument:
     document = _get_or_404(db, LoreDocument, document_id, "초안")
     if document.document_kind != "draft":
@@ -607,7 +690,11 @@ def list_writing_recipes(
         # The playbook's progression choices are global presets. Project recipes
         # created by reference analysis must never leak into another project.
         stmt = stmt.where(WritingRecipe.project_id.is_(None))
-    return list(db.scalars(stmt.order_by(WritingRecipe.name, WritingRecipe.version.desc())).all())
+    rows = list(db.scalars(stmt.order_by(WritingRecipe.updated_at.desc())).all())
+    latest: dict[tuple[str | None, str], WritingRecipe] = {}
+    for recipe in rows:
+        latest.setdefault((recipe.project_id, recipe.key), recipe)
+    return sorted(latest.values(), key=lambda recipe: (recipe.name, recipe.version), reverse=False)
 
 
 @router.post("/writing-recipes", response_model=WritingRecipeRead, status_code=status.HTTP_201_CREATED)
@@ -615,7 +702,16 @@ def create_writing_recipe(
     payload: WritingRecipeCreate, db: Session = Depends(get_db)
 ) -> WritingRecipe:
     _get_or_404(db, Project, payload.project_id, "프로젝트")
-    recipe = WritingRecipe(**payload.model_dump(), is_builtin=False, approved=True)
+    data = payload.model_dump()
+    data["key"] = data.get("key") or f"custom-{new_id().replace('-', '')[:12]}"
+    data["recipe_json"] = _recipe_json_with_identity(
+        data["recipe_json"],
+        key=data["key"],
+        version=data["version"],
+        name=data["name"],
+        description=data["description"],
+    )
+    recipe = WritingRecipe(**data, is_builtin=False, approved=True)
     db.add(recipe)
     try:
         db.commit()
@@ -633,8 +729,52 @@ def update_writing_recipe(
     recipe = _get_or_404(db, WritingRecipe, recipe_id, "집필 레시피")
     if recipe.is_builtin:
         raise _error(409, "BUILTIN_RECIPE_IMMUTABLE", "기본 레시피는 수정할 수 없습니다.")
-    for key, value in payload.model_dump(exclude_unset=True).items():
-        setattr(recipe, key, value)
+    changes = payload.model_dump(exclude_unset=True)
+    in_use = db.scalar(
+        select(PlaybookSession.id).where(PlaybookSession.writing_recipe_id == recipe.id)
+    )
+    if in_use:
+        parts = recipe.version.split(".")
+        try:
+            parts[-1] = str(int(parts[-1]) + 1)
+            next_version = ".".join(parts)
+        except ValueError:
+            next_version = f"{recipe.version}.1"
+        while db.scalar(
+            select(WritingRecipe.id).where(
+                WritingRecipe.project_id == recipe.project_id,
+                WritingRecipe.key == recipe.key,
+                WritingRecipe.version == next_version,
+            )
+        ):
+            next_version = f"{next_version}.1"
+        recipe = WritingRecipe(
+            project_id=recipe.project_id,
+            key=recipe.key,
+            version=next_version,
+            name=changes.get("name", recipe.name),
+            description=changes.get("description", recipe.description),
+            recipe_json=_recipe_json_with_identity(
+                changes.get("recipe_json", recipe.recipe_json),
+                key=recipe.key,
+                version=next_version,
+                name=changes.get("name", recipe.name),
+                description=changes.get("description", recipe.description),
+            ),
+            approved=changes.get("approved", recipe.approved),
+            is_builtin=False,
+        )
+        db.add(recipe)
+    else:
+        for key, value in changes.items():
+            setattr(recipe, key, value)
+        recipe.recipe_json = _recipe_json_with_identity(
+            recipe.recipe_json,
+            key=recipe.key,
+            version=recipe.version,
+            name=recipe.name,
+            description=recipe.description,
+        )
     db.commit()
     db.refresh(recipe)
     return recipe
@@ -645,6 +785,12 @@ def delete_writing_recipe(recipe_id: str, db: Session = Depends(get_db)) -> None
     recipe = _get_or_404(db, WritingRecipe, recipe_id, "집필 레시피")
     if recipe.is_builtin:
         raise _error(409, "BUILTIN_RECIPE_IMMUTABLE", "기본 레시피는 삭제할 수 없습니다.")
+    if db.scalar(select(PlaybookSession.id).where(PlaybookSession.writing_recipe_id == recipe.id)):
+        raise _error(
+            409,
+            "WRITING_RECIPE_IN_USE",
+            "이 전개 방식을 사용한 글 만들기 기록이 있어 삭제할 수 없습니다.",
+        )
     db.delete(recipe)
     db.commit()
 
@@ -653,12 +799,7 @@ def delete_writing_recipe(recipe_id: str, db: Session = Depends(get_db)) -> None
 def create_playbook_session(payload: PlaybookSessionCreate, db: Session = Depends(get_db)) -> PlaybookSession:
     _get_or_404(db, Project, payload.project_id, "프로젝트")
     recipe = _get_or_404(db, WritingRecipe, payload.writing_recipe_id, "전개 방식")
-    if recipe.project_id is not None or not recipe.approved:
-        raise _error(
-            422,
-            "SHARED_WRITING_RECIPE_REQUIRED",
-            "글 만들기에서는 모든 프로젝트가 함께 쓰는 전개 방식만 선택할 수 있습니다.",
-        )
+    _require_recipe_for_project(recipe, payload.project_id)
     session = PlaybookSession(**payload.model_dump())
     db.add(session)
     db.commit()
@@ -692,12 +833,7 @@ def update_playbook_session(
     changes = payload.model_dump(exclude_unset=True)
     if "writing_recipe_id" in changes:
         recipe = _get_or_404(db, WritingRecipe, changes["writing_recipe_id"], "전개 방식")
-        if recipe.project_id is not None or not recipe.approved:
-            raise _error(
-                422,
-                "SHARED_WRITING_RECIPE_REQUIRED",
-                "글 만들기에서는 모든 프로젝트가 함께 쓰는 전개 방식만 선택할 수 있습니다.",
-            )
+        _require_recipe_for_project(recipe, session.project_id)
     for key, value in changes.items():
         setattr(session, key, value)
     if changes:
@@ -1399,13 +1535,22 @@ def approve_reference_analysis(analysis_id: str, db: Session = Depends(get_db)) 
     analysis = _get_or_404(db, ReferenceAnalysis, analysis_id, "참고 분석")
     if analysis.status != "CANDIDATE":
         raise _error(409, "ANALYSIS_ALREADY_DECIDED", "이미 처리된 참고 분석입니다.")
+    recipe_key = f"reference_{analysis.id[:8]}"
+    recipe_name = f"참고 분석 {analysis.id[:8]}"
+    recipe_description = "사용자가 승인한 DISCOURSE_REFERENCE 구조 분석"
     recipe = WritingRecipe(
         project_id=analysis.project_id,
-        key=f"reference_{analysis.id[:8]}",
+        key=recipe_key,
         version="1.0.0",
-        name=f"참고 분석 {analysis.id[:8]}",
-        description="사용자가 승인한 DISCOURSE_REFERENCE 구조 분석",
-        recipe_json=analysis.recipe_candidate_json,
+        name=recipe_name,
+        description=recipe_description,
+        recipe_json=_recipe_json_with_identity(
+            _normalize_reference_recipe(analysis),
+            key=recipe_key,
+            version="1.0.0",
+            name=recipe_name,
+            description=recipe_description,
+        ),
         approved=True,
     )
     voice = VoiceProfile(

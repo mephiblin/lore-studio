@@ -37,8 +37,8 @@
 
   async function loadInitial() {
     try {
-      [projects, recipes, outputProfiles] = await Promise.all([
-        api.get('/projects'), api.get('/writing-recipes'), api.get('/presets/output-profiles')
+      [projects, outputProfiles] = await Promise.all([
+        api.get('/projects'), api.get('/presets/output-profiles')
       ]);
       if (projects.length) {
         projectId = initialProjectId(projects);
@@ -53,13 +53,14 @@
     const loadToken = ++documentLoadToken;
     error = ''; rememberProject(targetProjectId);
     try {
-      const [loadedDocuments, loadedCandidates, loadedPages] = await Promise.all([
+      const [loadedDocuments, loadedCandidates, loadedPages, loadedRecipes] = await Promise.all([
         api.get(`/documents?project_id=${targetProjectId}`),
         api.get(`/candidates?project_id=${targetProjectId}`),
-        api.get(`/concept-pages?project_id=${targetProjectId}`)
+        api.get(`/concept-pages?project_id=${targetProjectId}`),
+        api.get(`/writing-recipes?project_id=${targetProjectId}`)
       ]);
       if (loadToken !== documentLoadToken || projectId !== targetProjectId) return;
-      documents = loadedDocuments; candidates = loadedCandidates; pages = loadedPages;
+      documents = loadedDocuments; candidates = loadedCandidates; pages = loadedPages; recipes = loadedRecipes;
       const requestedId = $page.url.searchParams.get('document');
       await selectDocument(documents.find((document) => document.id === requestedId) || documents[0] || null);
     } catch (e) { error = e.message; }
