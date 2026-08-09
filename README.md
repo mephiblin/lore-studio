@@ -52,7 +52,7 @@ make test-models
 - 첫 설치: [`docs/LOCAL_SETUP.md`](docs/LOCAL_SETUP.md)
 - 모델: [`docs/LOCAL_MODELS.md`](docs/LOCAL_MODELS.md)
 - 사용 순서: [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md)
-- 화면 구조와 용어: [`docs/INFORMATION_ARCHITECTURE.md`](docs/INFORMATION_ARCHITECTURE.md)
+- 화면 구조와 용어: [`docs/INFORMATION_ARCHITECTURE.md`](docs/INFORMATION_ARCHITECTURE.md), [`docs/UI_PAGE_CONTRACT.md`](docs/UI_PAGE_CONTRACT.md)
 - 운영/백업: [`docs/OPERATIONS.md`](docs/OPERATIONS.md), [`docs/BACKUP_RESTORE.md`](docs/BACKUP_RESTORE.md)
 - 데이터 경계: [`docs/EMBEDDING_ISOLATION.md`](docs/EMBEDDING_ISOLATION.md), [`docs/SECURITY_AND_DATA.md`](docs/SECURITY_AND_DATA.md)
 - 개발/상태: [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md), [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md), [`docs/CHANGE_SAFETY_CHECKLIST.md`](docs/CHANGE_SAFETY_CHECKLIST.md)

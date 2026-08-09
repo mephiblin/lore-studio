@@ -18,6 +18,7 @@
 - [ ] 신규·수정 파일이 적절한 영역(`backend/app`, `frontend/src`, `schema`, `config`, `docs`)에 있다.
 - [ ] 새 기능에 필요한 API, 스키마, migration, 테스트, 문서 갱신 범위를 확인했다.
 - [ ] 기존 데이터가 있는 환경과 빈 데이터 환경에서 기대 결과를 각각 정의했다.
+- [ ] 변경한 화면을 `UI_PAGE_CONTRACT.md`의 페이지 골격·스크롤 소유권·상태 표현과 비교했다.
 
 ## 2. 불변 설계와 데이터 경계
 
@@ -177,6 +178,8 @@ docker compose exec -T backend alembic current
 - [ ] 로어북을 삭제해도 연결된 출처 초안은 원고 작업에서 열린다.
 - [ ] 프로젝트 삭제 뒤 AuditLog의 삭제 이름은 남고 `project_id`는 `NULL`이다.
 - [ ] 73개 자료에서 카드끼리 겹치지 않고 `자료 더 보기`와 하단 이동 바도 겹치지 않는다.
+
+페이지별 정상 양식과 훼손 판정 기준은 [`UI_PAGE_CONTRACT.md`](UI_PAGE_CONTRACT.md)를 권위 기준으로 사용합니다.
 
 ## 13. 완료 판정 기록
 
