@@ -26,12 +26,13 @@
   let referenceAnalysis = null;
   let busy = '';
   let newPageOpen = false;
-  let recipeCreateOpen = false;
-  let categoryCreateOpen = false;
+  let settingsModal = '';
+  let editingCategoryId = '';
   let editingCardId = '';
   let editingRecipeId = '';
   let cardDraft = null;
   let categoryForm = { name: '' };
+  let categoryDraft = { name: '' };
   let aiSourceOptions = [];
   let linkedSourceIds = [];
 
@@ -64,6 +65,17 @@
 
   $: projectRecipes = recipes.filter((recipe) => recipe.project_id === projectId);
   $: sharedRecipes = recipes.filter((recipe) => !recipe.project_id);
+  $: editingCategory = categories.find((category) => category.id === editingCategoryId);
+  $: editingCard = cards.find((card) => card.id === editingCardId);
+  $: editingRecipe = recipes.find((recipe) => recipe.id === editingRecipeId);
+  $: settingsModalTitle = ({
+    'category-create': '새 자료 종류',
+    'category-edit': '자료 종류 수정',
+    'direction-create': '새 집필 지침',
+    'direction-edit': '집필 지침 수정',
+    'recipe-create': '새 전개 방식',
+    'recipe-edit': '전개 방식 수정'
+  })[settingsModal] || '';
   $: linkedSourceIds = selectedPage
     ? [...new Set(relations.map((relation) => otherPage(relation)))]
     : [];
@@ -104,6 +116,7 @@
     if (!projectId) return;
     error = '';
     message = '';
+    closeSettingsModal();
     categoryFilter = 'all';
     try {
       [pages, cards, indexStats, categories, recipes] = await Promise.all([
@@ -311,7 +324,7 @@
       });
       recipes = [...recipes, recipe].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
       recipeForm = emptyRecipeForm();
-      recipeCreateOpen = false;
+      closeSettingsModal();
       message = `'${recipe.name}' 전개 방식을 만들었습니다.`;
     } catch (e) { error = e.message; }
   }
@@ -319,6 +332,7 @@
   function editRecipe(recipe) {
     editingRecipeId = recipe.id;
     recipeDraft = recipeToForm(recipe);
+    settingsModal = 'recipe-edit';
   }
 
   async function saveRecipe(recipe) {
@@ -328,7 +342,7 @@
       const updated = await api.patch(`/writing-recipes/${recipe.id}`, recipePayload(recipeDraft));
       recipes = recipes.map((item) => item.id === recipe.id ? updated : item)
         .sort((a, b) => a.name.localeCompare(b.name, 'ko'));
-      editingRecipeId = '';
+      closeSettingsModal();
       message = `'${updated.name}' 전개 방식을 저장했습니다.`;
     } catch (e) { error = e.message; }
   }
@@ -407,22 +421,29 @@
       categories = [...categories, category].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
       pageForm = { ...pageForm, category_key: category.key };
       categoryForm = { name: '' };
-      categoryCreateOpen = false;
+      closeSettingsModal();
       message = `'${category.name}' 자료 종류를 만들었습니다.`;
     } catch (e) { error = e.message; }
   }
 
+  function editCategory(category) {
+    editingCategoryId = category.id;
+    categoryDraft = { name: category.name };
+    settingsModal = 'category-edit';
+  }
+
   async function saveCategory(category) {
-    if (!category.name.trim()) return;
+    if (!categoryDraft.name.trim()) return;
     error = ''; message = '';
     try {
       const updated = await api.patch(`/categories/${category.id}`, {
-        name: category.name.trim(),
+        name: categoryDraft.name.trim(),
         description: '',
         template_json: category.template_json || {}
       });
       categories = categories.map((item) => item.id === updated.id ? updated : item)
         .sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+      closeSettingsModal();
       message = `'${updated.name}' 자료 종류를 저장했습니다.`;
     } catch (e) { error = e.message; }
   }
@@ -476,6 +497,7 @@
       });
       cards = [card, ...cards];
       cardForm = emptyCardForm();
+      closeSettingsModal();
       message = '집필 지침을 추가했습니다.';
     } catch (e) { error = e.message; }
   }
@@ -488,6 +510,7 @@
       tags: (card.tags || []).join(', '),
       ...cardRulesToForm(card)
     };
+    settingsModal = 'direction-edit';
   }
 
   async function saveCard(card) {
@@ -498,7 +521,7 @@
         parsed_rules: cardRulesFromForm(cardDraft, card.parsed_rules)
       });
       cards = cards.map((item) => item.id === updated.id ? updated : item);
-      editingCardId = '';
+      closeSettingsModal();
       message = '집필 지침을 저장했습니다.';
     } catch (e) { error = e.message; }
   }
@@ -529,6 +552,32 @@
     message = '세부 규칙을 저장했습니다. 원문은 바뀌지 않았습니다.';
   }
 
+  function openCategoryCreate() {
+    categoryForm = { name: '' };
+    settingsModal = 'category-create';
+  }
+
+  function openDirectionCreate() {
+    cardForm = emptyCardForm();
+    settingsModal = 'direction-create';
+  }
+
+  function openRecipeCreate() {
+    recipeForm = emptyRecipeForm();
+    settingsModal = 'recipe-create';
+  }
+
+  function closeSettingsModal() {
+    settingsModal = '';
+    editingCategoryId = '';
+    editingCardId = '';
+    editingRecipeId = '';
+  }
+
+  function handleModalKeydown(event) {
+    if (settingsModal && event.key === 'Escape') closeSettingsModal();
+  }
+
   async function analyzeReference() {
     if (!selectedPage) return;
     busy = 'AI가 문단 구조와 문체를 분석하는 중'; error = '';
@@ -556,6 +605,8 @@
     finally { busy = ''; }
   }
 </script>
+
+<svelte:window on:keydown={handleModalKeydown} />
 
 <div class="page workspace-page editor-page">
   <div class="page-tools editor-commandbar">
@@ -731,65 +782,27 @@
       <section class="directions-layout">
         <header class="local-surface-header">
           <div class="heading-with-help"><h2>집필 지침</h2><HelpTip label="집필 지침 설명" text="세계관 사실이나 전개 순서가 아니라, 이 프로젝트의 글에서 반복해 지킬 강조점·금지 사항·결말 원칙입니다. 글 만들기에서 원고별로 선택합니다." /></div>
-          <span>{cards.length}개</span>
+          <div class="local-surface-actions"><span>{cards.length}개</span><button class="primary" on:click={openDirectionCreate}>+ 새 집필 지침</button></div>
         </header>
         <div class="direction-workspace-scroll">
-          <details class="editor-create-disclosure direction-create">
-            <summary>새 집필 지침 만들기</summary>
-            <div class="stack disclosure-body">
-              <label>지침 이름 <input bind:value={cardForm.title} placeholder="예: 제도의 효능과 대가를 함께 보여 준다" /></label>
-              <label>이 프로젝트의 글에서 무엇을 지킬까요? <textarea bind:value={cardForm.body} placeholder="강조할 내용, 반드시 보여 줄 과정, 피할 해석을 자연스럽게 적어 주세요."></textarea></label>
-              <label>찾기용 태그 <input bind:value={cardForm.tags} placeholder="제도, 의존, 대가" /></label>
-              <details class="direction-rule-editor" open>
-                <summary>세부 규칙 직접 작성</summary>
-                <div class="direction-rule-fields">
-                  <label>지침 목표 <textarea aria-label="새 집필 지침 목표" bind:value={cardForm.goals} placeholder="한 줄에 하나씩"></textarea></label>
-                  <label>전개 순서 <textarea aria-label="새 집필 지침 전개 순서" bind:value={cardForm.sequence} placeholder="도입→성공→의존 순서를 한 줄에 하나씩"></textarea></label>
-                  <label>반드시 포함 <textarea aria-label="새 집필 지침 반드시 포함" bind:value={cardForm.mustInclude} placeholder="한 줄에 하나씩"></textarea></label>
-                  <label>피할 전개 <textarea aria-label="새 집필 지침 피할 전개" bind:value={cardForm.avoid} placeholder="한 줄에 하나씩"></textarea></label>
-                  <label class="direction-ending-field">선호 결말 <input aria-label="새 집필 지침 선호 결말" bind:value={cardForm.endingPreference} placeholder="예: 해결보다 선택의 비용을 남긴다" /></label>
-                </div>
-              </details>
-              <button class="primary" disabled={!cardForm.title.trim() || !cardForm.body.trim()} on:click={createCard}>지침 추가</button>
-            </div>
-          </details>
           <div class="direction-list">
             {#each cards as card}
               <article class="direction-card">
-                {#if editingCardId === card.id}
-                  <div class="stack">
-                    <label>지침 이름 <input bind:value={cardDraft.title} /></label>
-                    <label>지침 설명 <textarea bind:value={cardDraft.body}></textarea></label>
-                    <label>태그 <input bind:value={cardDraft.tags} /></label>
-                    <details class="direction-rule-editor" open>
-                      <summary>세부 규칙 직접 작성</summary>
-                      <div class="direction-rule-fields">
-                        <label>지침 목표 <textarea aria-label={`${card.title} 지침 목표`} bind:value={cardDraft.goals}></textarea></label>
-                        <label>전개 순서 <textarea aria-label={`${card.title} 전개 순서`} bind:value={cardDraft.sequence}></textarea></label>
-                        <label>반드시 포함 <textarea aria-label={`${card.title} 반드시 포함`} bind:value={cardDraft.mustInclude}></textarea></label>
-                        <label>피할 전개 <textarea aria-label={`${card.title} 피할 전개`} bind:value={cardDraft.avoid}></textarea></label>
-                        <label class="direction-ending-field">선호 결말 <input aria-label={`${card.title} 선호 결말`} bind:value={cardDraft.endingPreference} /></label>
-                      </div>
-                    </details>
-                    <div class="row"><button class="primary" on:click={() => saveCard(card)}>저장</button><button class="ghost" on:click={() => editingCardId = ''}>취소</button></div>
+                <div class="row spread"><div><div class="tag-row">{#each card.tags || [] as tag}<span class="badge">{tag}</span>{/each}</div><h3>{card.title}</h3></div><span class="badge canon">선택 가능</span></div>
+                <p>{card.body}</p>
+                {#if hasCardRules(card)}
+                  <div class="rule-grid direction-rule-grid">
+                    {#if card.parsed_rules.goals?.length}<div><strong>지침 목표</strong><span>{card.parsed_rules.goals.join(' · ')}</span></div>{/if}
+                    {#if card.parsed_rules.sequence?.length}<div><strong>전개 순서</strong><span>{card.parsed_rules.sequence.join(' → ')}</span></div>{/if}
+                    {#if card.parsed_rules.must_include?.length}<div><strong>반드시 포함</strong><span>{card.parsed_rules.must_include.join(' · ')}</span></div>{/if}
+                    {#if card.parsed_rules.avoid?.length}<div><strong>피할 전개</strong><span>{card.parsed_rules.avoid.join(' · ')}</span></div>{/if}
+                    {#if card.parsed_rules.ending_preference}<div><strong>선호 결말</strong><span>{card.parsed_rules.ending_preference}</span></div>{/if}
                   </div>
-                {:else}
-                  <div class="row spread"><div><div class="tag-row">{#each card.tags || [] as tag}<span class="badge">{tag}</span>{/each}</div><h3>{card.title}</h3></div><span class="badge canon">선택 가능</span></div>
-                  <p>{card.body}</p>
-                  {#if hasCardRules(card)}
-                    <div class="rule-grid direction-rule-grid">
-                      {#if card.parsed_rules.goals?.length}<div><strong>지침 목표</strong><span>{card.parsed_rules.goals.join(' · ')}</span></div>{/if}
-                      {#if card.parsed_rules.sequence?.length}<div><strong>전개 순서</strong><span>{card.parsed_rules.sequence.join(' → ')}</span></div>{/if}
-                      {#if card.parsed_rules.must_include?.length}<div><strong>반드시 포함</strong><span>{card.parsed_rules.must_include.join(' · ')}</span></div>{/if}
-                      {#if card.parsed_rules.avoid?.length}<div><strong>피할 전개</strong><span>{card.parsed_rules.avoid.join(' · ')}</span></div>{/if}
-                      {#if card.parsed_rules.ending_preference}<div><strong>선호 결말</strong><span>{card.parsed_rules.ending_preference}</span></div>{/if}
-                    </div>
-                  {/if}
-                  <div class="row wrap"><button class="secondary" on:click={() => editCard(card)}>내용 수정</button><button class="ghost" on:click={() => suggestCard(card)}>AI로 세부 규칙 정리</button><button class="danger-button" on:click={() => deleteCard(card)}>삭제</button></div>
                 {/if}
+                <div class="row wrap"><button class="secondary" on:click={() => editCard(card)}>내용 수정</button><button class="ghost" on:click={() => suggestCard(card)}>AI로 세부 규칙 정리</button><button class="danger-button" on:click={() => deleteCard(card)}>삭제</button></div>
               </article>
             {/each}
-            {#if !cards.length}<div class="empty-state direction-empty"><strong>아직 집필 지침이 없습니다.</strong><p>위에서 이 프로젝트의 글이 반복해서 지킬 원칙을 추가하세요.</p></div>{/if}
+            {#if !cards.length}<div class="empty-state direction-empty"><strong>아직 집필 지침이 없습니다.</strong><p>새 집필 지침을 눌러 이 프로젝트의 글이 반복해서 지킬 원칙을 추가하세요.</p></div>{/if}
           </div>
           {#if cardSuggestion}
             <section class="card suggestion-review stack">
@@ -810,11 +823,119 @@
       <section class="recipe-manager">
         <header class="local-surface-header">
           <div class="heading-with-help"><h2>전개 방식</h2><HelpTip label="전개 방식 설명" text="정보를 어떤 순서로 공개할지 정합니다. 공용 기본 방식은 프로젝트와 관계없이 항상 보이고, 현재 프로젝트에서 만든 방식은 같은 목록에 함께 보입니다." /></div>
-          <span>공용 {sharedRecipes.length}개 · 프로젝트 {projectRecipes.length}개</span>
+          <div class="local-surface-actions"><span>공용 {sharedRecipes.length}개 · 프로젝트 {projectRecipes.length}개</span><button class="primary" on:click={openRecipeCreate}>+ 새 전개 방식</button></div>
         </header>
-        <details class="editor-create-disclosure recipe-create" bind:open={recipeCreateOpen}>
-          <summary>새 전개 방식 만들기</summary>
-          <div class="stack disclosure-body">
+        <div class="recipe-settings-list">
+          {#each recipes as recipe}
+            <article class="recipe-settings-card">
+              <div class="recipe-card-route" aria-label={`${recipe.name} 필수 전개 순서`}>
+                <ol>
+                  {#each recipeSequence(recipe) as step, index}
+                    <li><span>{String(index + 1).padStart(2, '0')}</span><strong>{step.label}</strong></li>
+                  {/each}
+                </ol>
+              </div>
+              <div class="recipe-card-copy">
+                <span class="recipe-origin">{recipe.project_id ? '이 프로젝트에서 사용' : '모든 프로젝트에서 사용'}</span>
+                <h3>{recipe.name}</h3>
+                <p>{recipe.description || '정보를 공개할 필수 문단 순서입니다.'}</p>
+                {#if recipe.recipe_json?.best_for}<small><b>잘 맞는 글</b> {recipe.recipe_json.best_for}</small>{/if}
+              </div>
+              <footer class="recipe-card-footer">
+                <span>{recipeSequence(recipe).length}개 필수 단계</span>
+                {#if recipe.project_id}<div><button class="secondary" on:click={() => editRecipe(recipe)}>수정</button><button class="danger-button" on:click={() => deleteRecipe(recipe)}>삭제</button></div>{:else}<span>읽기 전용</span>{/if}
+              </footer>
+            </article>
+          {/each}
+          {#if !recipes.length}<div class="empty-state direction-empty"><strong>사용할 수 있는 전개 방식이 없습니다.</strong></div>{/if}
+        </div>
+      </section>
+    {:else}
+      <section class="category-manager">
+        <header class="local-surface-header">
+          <div class="heading-with-help"><h2>자료 종류</h2><HelpTip label="자료 종류 설명" text="이 프로젝트의 세계관 자료를 묶는 이름입니다. 이름을 바꿔도 기존 자료 본문과 연결은 유지됩니다." /></div>
+          <div class="local-surface-actions"><span>{categories.length}개</span><button class="primary" on:click={openCategoryCreate}>+ 새 자료 종류</button></div>
+        </header>
+        <div class="category-settings-list">
+          {#each categories as category}
+            <article class="category-settings-card">
+              <div class="category-card-mark" aria-hidden="true"><span>{categoryInitial(category)}</span></div>
+              <div class="category-card-copy"><h3>{category.name}</h3></div>
+              <footer class="category-card-footer"><span>{categoryUsedCount(category)}개 자료</span><div><button class="secondary" on:click={() => editCategory(category)}>수정</button><button class="ghost danger" on:click={() => deleteCategory(category)}>삭제</button></div></footer>
+            </article>
+          {/each}
+          {#if !categories.length}<div class="empty-state">아직 자료 종류가 없습니다. 새 자료 종류를 눌러 이 세계의 분류를 만드세요.</div>{/if}
+          </div>
+      </section>
+    {/if}
+  {/if}
+</div>
+
+{#if settingsModal}
+  <div class="settings-modal-backdrop" role="presentation" on:mousedown={(event) => event.target === event.currentTarget && closeSettingsModal()}>
+    <div class:wide={settingsModal.startsWith('direction') || settingsModal.startsWith('recipe')} class="settings-modal" role="dialog" aria-modal="true" aria-label={settingsModalTitle}>
+      <header>
+        <div><span>세계관 자료 설정</span><h2>{settingsModalTitle}</h2></div>
+        <button type="button" class="settings-modal-close" aria-label={`${settingsModalTitle} 닫기`} on:click={closeSettingsModal}>×</button>
+      </header>
+
+      {#if settingsModal === 'category-create'}
+        <form class="settings-modal-form category-create" on:submit|preventDefault={createCategory}>
+          <div class="settings-modal-body stack">
+            <label>이름 <input aria-label="새 자료 종류 이름" bind:value={categoryForm.name} placeholder="예: 세력, 마법 체계, 생물종" /></label>
+            <p class="modal-field-note">이름을 바꿔도 이 종류에 연결된 자료 본문은 유지됩니다.</p>
+          </div>
+          <footer><small>현재 프로젝트에만 추가됩니다.</small><div><button type="button" class="ghost" on:click={closeSettingsModal}>취소</button><button type="submit" class="primary" disabled={!categoryForm.name.trim()}>자료 종류 만들기</button></div></footer>
+        </form>
+      {:else if settingsModal === 'category-edit' && editingCategory}
+        <form class="settings-modal-form category-edit" on:submit|preventDefault={() => saveCategory(editingCategory)}>
+          <div class="settings-modal-body stack">
+            <label>자료 종류 이름 <input aria-label={`${editingCategory.name} 자료 종류 이름`} bind:value={categoryDraft.name} /></label>
+            <p class="modal-field-note">현재 {categoryUsedCount(editingCategory)}개 자료가 이 종류를 사용합니다. 이름만 변경되며 자료와 연결은 유지됩니다.</p>
+          </div>
+          <footer><small>내부 식별자는 변경되지 않습니다.</small><div><button type="button" class="ghost" on:click={closeSettingsModal}>취소</button><button type="submit" class="primary" disabled={!categoryDraft.name.trim()}>변경 저장</button></div></footer>
+        </form>
+      {:else if settingsModal === 'direction-create'}
+        <form class="settings-modal-form direction-create" on:submit|preventDefault={createCard}>
+          <div class="settings-modal-body stack">
+            <label>지침 이름 <input bind:value={cardForm.title} placeholder="예: 제도의 효능과 대가를 함께 보여 준다" /></label>
+            <label>이 프로젝트의 글에서 무엇을 지킬까요? <textarea bind:value={cardForm.body} placeholder="강조할 내용, 반드시 보여 줄 과정, 피할 해석을 자연스럽게 적어 주세요."></textarea></label>
+            <label>찾기용 태그 <input bind:value={cardForm.tags} placeholder="제도, 의존, 대가" /></label>
+            <fieldset class="direction-rule-editor modal-rule-editor">
+              <legend>세부 규칙 직접 작성</legend>
+              <div class="direction-rule-fields">
+                <label>지침 목표 <textarea aria-label="새 집필 지침 목표" bind:value={cardForm.goals} placeholder="한 줄에 하나씩"></textarea></label>
+                <label>전개 순서 <textarea aria-label="새 집필 지침 전개 순서" bind:value={cardForm.sequence} placeholder="도입→성공→의존 순서를 한 줄에 하나씩"></textarea></label>
+                <label>반드시 포함 <textarea aria-label="새 집필 지침 반드시 포함" bind:value={cardForm.mustInclude} placeholder="한 줄에 하나씩"></textarea></label>
+                <label>피할 전개 <textarea aria-label="새 집필 지침 피할 전개" bind:value={cardForm.avoid} placeholder="한 줄에 하나씩"></textarea></label>
+                <label class="direction-ending-field">선호 결말 <input aria-label="새 집필 지침 선호 결말" bind:value={cardForm.endingPreference} placeholder="예: 해결보다 선택의 비용을 남긴다" /></label>
+              </div>
+            </fieldset>
+          </div>
+          <footer><small>글 만들기에서 원고별로 선택할 수 있습니다.</small><div><button type="button" class="ghost" on:click={closeSettingsModal}>취소</button><button type="submit" class="primary" disabled={!cardForm.title.trim() || !cardForm.body.trim()}>지침 추가</button></div></footer>
+        </form>
+      {:else if settingsModal === 'direction-edit' && editingCard}
+        <form class="settings-modal-form direction-edit" on:submit|preventDefault={() => saveCard(editingCard)}>
+          <div class="settings-modal-body stack">
+            <label>지침 이름 <input bind:value={cardDraft.title} /></label>
+            <label>지침 설명 <textarea bind:value={cardDraft.body}></textarea></label>
+            <label>태그 <input bind:value={cardDraft.tags} /></label>
+            <fieldset class="direction-rule-editor modal-rule-editor">
+              <legend>세부 규칙 직접 작성</legend>
+              <div class="direction-rule-fields">
+                <label>지침 목표 <textarea aria-label={`${editingCard.title} 지침 목표`} bind:value={cardDraft.goals}></textarea></label>
+                <label>전개 순서 <textarea aria-label={`${editingCard.title} 전개 순서`} bind:value={cardDraft.sequence}></textarea></label>
+                <label>반드시 포함 <textarea aria-label={`${editingCard.title} 반드시 포함`} bind:value={cardDraft.mustInclude}></textarea></label>
+                <label>피할 전개 <textarea aria-label={`${editingCard.title} 피할 전개`} bind:value={cardDraft.avoid}></textarea></label>
+                <label class="direction-ending-field">선호 결말 <input aria-label={`${editingCard.title} 선호 결말`} bind:value={cardDraft.endingPreference} /></label>
+              </div>
+            </fieldset>
+          </div>
+          <footer><small>저장한 변경은 다음 글 만들기부터 사용됩니다.</small><div><button type="button" class="ghost" on:click={closeSettingsModal}>취소</button><button type="submit" class="primary" disabled={!cardDraft.title.trim() || !cardDraft.body.trim()}>변경 저장</button></div></footer>
+        </form>
+      {:else if settingsModal === 'recipe-create'}
+        <form class="settings-modal-form recipe-create" on:submit|preventDefault={createRecipe}>
+          <div class="settings-modal-body stack">
             <div class="grid-2">
               <label>이름 <input aria-label="새 전개 방식 이름" bind:value={recipeForm.name} placeholder="예: 징후에서 진실로" /></label>
               <label>잘 맞는 글 <input bind:value={recipeForm.bestFor} placeholder="예: 미스터리, 폐허, 조사 기록" /></label>
@@ -827,90 +948,40 @@
                   <span>{String(index + 1).padStart(2, '0')}</span>
                   <label>문단 방식<select aria-label={`${index + 1}번 새 전개 문단 방식`} value={step.move} on:change={(event) => updateRecipeStep(recipeForm, index, 'move', event.currentTarget.value)}>{#each Object.entries(moveLabels) as [value, label]}<option {value}>{label}</option>{/each}</select></label>
                   <p class="recipe-derived-purpose"><span>이 단계의 목적</span>{moveDescriptions[step.move]}</p>
-                  <button class="icon-button" aria-label={`${index + 1}번 전개 단계 삭제`} disabled={recipeForm.steps.length <= 3} on:click={() => removeRecipeStep(recipeForm, index)}>×</button>
+                  <button type="button" class="icon-button" aria-label={`${index + 1}번 전개 단계 삭제`} disabled={recipeForm.steps.length <= 3} on:click={() => removeRecipeStep(recipeForm, index)}>×</button>
                 </div>
               {/each}
-              <button class="ghost recipe-add-step" on:click={() => addRecipeStep(recipeForm)}>+ 단계 추가</button>
+              <button type="button" class="ghost recipe-add-step" on:click={() => addRecipeStep(recipeForm)}>+ 단계 추가</button>
             </fieldset>
             <div class="grid-2 recipe-rule-fields">
               <label>구성할 때 지킬 규칙 <textarea bind:value={recipeForm.plannerRules} placeholder="한 줄에 하나씩 입력"></textarea></label>
               <label>완성 후 확인할 기준 <textarea bind:value={recipeForm.auditRules} placeholder="한 줄에 하나씩 입력"></textarea></label>
             </div>
-            <button class="primary" disabled={!recipeForm.name.trim() || recipeForm.steps.length < 3} on:click={createRecipe}>전개 방식 만들기</button>
           </div>
-        </details>
-        <div class="recipe-settings-list">
-          {#each recipes as recipe}
-            <article class:editing={editingRecipeId === recipe.id} class="recipe-settings-card">
-              {#if editingRecipeId === recipe.id}
-                <div class="stack recipe-edit-form">
-                  <div class="grid-2"><label>이름 <input bind:value={recipeDraft.name} /></label><label>잘 맞는 글 <input bind:value={recipeDraft.bestFor} /></label></div>
-                  <label>설명 <textarea bind:value={recipeDraft.description}></textarea></label>
-                  <fieldset class="recipe-step-editor">
-                    <legend>전개 순서</legend>
-                    {#each recipeDraft.steps as step, index}
-                      <div class="recipe-step-row">
-                        <span>{String(index + 1).padStart(2, '0')}</span>
-                        <label>문단 방식<select aria-label={`${index + 1}번 ${recipe.name} 문단 방식`} value={step.move} on:change={(event) => updateRecipeStep(recipeDraft, index, 'move', event.currentTarget.value)}>{#each Object.entries(moveLabels) as [value, label]}<option {value}>{label}</option>{/each}</select></label>
-                        <p class="recipe-derived-purpose"><span>이 단계의 목적</span>{moveDescriptions[step.move]}</p>
-                        <button class="icon-button" aria-label={`${index + 1}번 ${recipe.name} 단계 삭제`} disabled={recipeDraft.steps.length <= 3} on:click={() => removeRecipeStep(recipeDraft, index)}>×</button>
-                      </div>
-                    {/each}
-                    <button class="ghost recipe-add-step" on:click={() => addRecipeStep(recipeDraft)}>+ 단계 추가</button>
-                  </fieldset>
-                  <div class="grid-2 recipe-rule-fields"><label>구성할 때 지킬 규칙 <textarea bind:value={recipeDraft.plannerRules}></textarea></label><label>완성 후 확인할 기준 <textarea bind:value={recipeDraft.auditRules}></textarea></label></div>
-                  <div class="row"><button class="primary" disabled={!recipeDraft.name.trim() || recipeDraft.steps.length < 3} on:click={() => saveRecipe(recipe)}>저장</button><button class="ghost" on:click={() => editingRecipeId = ''}>취소</button></div>
+          <footer><small>현재 프로젝트에만 추가되며 공용 방식은 바꾸지 않습니다.</small><div><button type="button" class="ghost" on:click={closeSettingsModal}>취소</button><button type="submit" class="primary" disabled={!recipeForm.name.trim() || recipeForm.steps.length < 3}>전개 방식 만들기</button></div></footer>
+        </form>
+      {:else if settingsModal === 'recipe-edit' && editingRecipe}
+        <form class="settings-modal-form recipe-edit-form" on:submit|preventDefault={() => saveRecipe(editingRecipe)}>
+          <div class="settings-modal-body stack">
+            <div class="grid-2"><label>이름 <input bind:value={recipeDraft.name} /></label><label>잘 맞는 글 <input bind:value={recipeDraft.bestFor} /></label></div>
+            <label>설명 <textarea bind:value={recipeDraft.description}></textarea></label>
+            <fieldset class="recipe-step-editor">
+              <legend>전개 순서</legend>
+              {#each recipeDraft.steps as step, index}
+                <div class="recipe-step-row">
+                  <span>{String(index + 1).padStart(2, '0')}</span>
+                  <label>문단 방식<select aria-label={`${index + 1}번 ${editingRecipe.name} 문단 방식`} value={step.move} on:change={(event) => updateRecipeStep(recipeDraft, index, 'move', event.currentTarget.value)}>{#each Object.entries(moveLabels) as [value, label]}<option {value}>{label}</option>{/each}</select></label>
+                  <p class="recipe-derived-purpose"><span>이 단계의 목적</span>{moveDescriptions[step.move]}</p>
+                  <button type="button" class="icon-button" aria-label={`${index + 1}번 ${editingRecipe.name} 단계 삭제`} disabled={recipeDraft.steps.length <= 3} on:click={() => removeRecipeStep(recipeDraft, index)}>×</button>
                 </div>
-              {:else}
-                <div class="recipe-card-route" aria-label={`${recipe.name} 필수 전개 순서`}>
-                  <ol>
-                    {#each recipeSequence(recipe) as step, index}
-                      <li><span>{String(index + 1).padStart(2, '0')}</span><strong>{step.label}</strong></li>
-                    {/each}
-                  </ol>
-                </div>
-                <div class="recipe-card-copy">
-                  <span class="recipe-origin">{recipe.project_id ? '이 프로젝트에서 사용' : '모든 프로젝트에서 사용'}</span>
-                  <h3>{recipe.name}</h3>
-                  <p>{recipe.description || '정보를 공개할 필수 문단 순서입니다.'}</p>
-                  {#if recipe.recipe_json?.best_for}<small><b>잘 맞는 글</b> {recipe.recipe_json.best_for}</small>{/if}
-                </div>
-                <footer class="recipe-card-footer">
-                  <span>{recipeSequence(recipe).length}개 필수 단계</span>
-                  {#if recipe.project_id}<div><button class="secondary" on:click={() => editRecipe(recipe)}>수정</button><button class="danger-button" on:click={() => deleteRecipe(recipe)}>삭제</button></div>{:else}<span>읽기 전용</span>{/if}
-                </footer>
-              {/if}
-            </article>
-          {/each}
-          {#if !recipes.length}<div class="empty-state direction-empty"><strong>사용할 수 있는 전개 방식이 없습니다.</strong></div>{/if}
-        </div>
-      </section>
-    {:else}
-      <section class="category-manager">
-        <header class="local-surface-header">
-          <div class="heading-with-help"><h2>자료 종류</h2><HelpTip label="자료 종류 설명" text="이 프로젝트의 세계관 자료를 묶는 이름입니다. 이름을 바꿔도 기존 자료 본문과 연결은 유지됩니다." /></div>
-          <span>{categories.length}개</span>
-        </header>
-        <details class="editor-create-disclosure category-create" bind:open={categoryCreateOpen}>
-          <summary>새 자료 종류 만들기</summary>
-          <div class="stack disclosure-body">
-            <label>이름 <input aria-label="새 자료 종류 이름" bind:value={categoryForm.name} placeholder="예: 세력, 마법 체계, 생물종" /></label>
-            <button class="primary" disabled={!categoryForm.name.trim()} on:click={createCategory}>자료 종류 만들기</button>
+              {/each}
+              <button type="button" class="ghost recipe-add-step" on:click={() => addRecipeStep(recipeDraft)}>+ 단계 추가</button>
+            </fieldset>
+            <div class="grid-2 recipe-rule-fields"><label>구성할 때 지킬 규칙 <textarea bind:value={recipeDraft.plannerRules}></textarea></label><label>완성 후 확인할 기준 <textarea bind:value={recipeDraft.auditRules}></textarea></label></div>
           </div>
-        </details>
-        <div class="category-settings-list">
-          {#each categories as category}
-            <article class="category-settings-card">
-              <div class="category-card-mark" aria-hidden="true"><span>{categoryInitial(category)}</span></div>
-              <div class="category-card-copy">
-                <label>자료 종류 이름 <input aria-label={`${category.name} 자료 종류 이름`} bind:value={category.name} /></label>
-              </div>
-              <footer class="category-card-footer"><span>{categoryUsedCount(category)}개 자료</span><div><button class="secondary" disabled={!category.name.trim()} on:click={() => saveCategory(category)}>저장</button><button class="ghost danger" on:click={() => deleteCategory(category)}>삭제</button></div></footer>
-            </article>
-          {/each}
-          {#if !categories.length}<div class="empty-state">아직 자료 종류가 없습니다. 위에서 이 세계의 분류를 만드세요.</div>{/if}
-          </div>
-      </section>
-    {/if}
-  {/if}
-</div>
+          <footer><small>기존 글 만들기 기록은 이전 버전을 유지합니다.</small><div><button type="button" class="ghost" on:click={closeSettingsModal}>취소</button><button type="submit" class="primary" disabled={!recipeDraft.name.trim() || recipeDraft.steps.length < 3}>변경 저장</button></div></footer>
+        </form>
+      {/if}
+    </div>
+  </div>
+{/if}

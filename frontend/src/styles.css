@@ -297,19 +297,18 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
 .icon-button:hover { color: var(--danger); border-color: #d7aaa6; }
 .directions-layout, .category-manager, .recipe-manager { min-height: 0; display: grid; gap: 10px; align-items: start; }
 .directions-layout { grid-template-rows: auto minmax(0, 1fr); }
-.category-manager, .recipe-manager { grid-template-rows: auto auto minmax(0, 1fr); }
+.category-manager, .recipe-manager { grid-template-rows: auto minmax(0, 1fr); }
 .local-surface-header { min-height: 46px; display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 4px 2px 10px; border-bottom: 1px solid var(--line); }
 .local-surface-header h2 { margin: 0; color: var(--ink); font: 600 20px/1.2 Georgia, "Noto Serif KR", serif; }
-.local-surface-header > span { color: var(--muted-text); font-size: 11px; font-weight: 720; }
-.editor-create-disclosure { border: 1px solid var(--line); border-radius: 6px; background: var(--paper-deep); }
-.editor-create-disclosure > summary { padding: 11px 13px; font-size: 12px; }
-.editor-create-disclosure[open] > summary { border-bottom: 1px solid var(--line); }
-.editor-create-disclosure .disclosure-body { padding: 13px; }
-.editor-create-disclosure .primary { justify-self: start; }
+.local-surface-header > span, .local-surface-actions > span { color: var(--muted-text); font-size: 11px; font-weight: 720; }
+.local-surface-actions { display: flex; align-items: center; gap: 10px; }
+.local-surface-actions .primary { min-height: 34px; padding: 7px 11px; }
 .direction-rule-editor { border: 1px solid var(--line); border-radius: 5px; background: rgba(255,255,255,.55); }
 .direction-rule-editor > summary { display: flex; align-items: center; gap: 7px; padding: 10px 11px; font-size: 11px; }
 .direction-rule-editor > summary span { color: var(--muted-text); font-size: 9px; font-weight: 650; }
 .direction-rule-editor[open] > summary { border-bottom: 1px solid var(--line); }
+.modal-rule-editor { min-width: 0; margin: 0; padding: 0; }
+.modal-rule-editor > legend { width: 100%; padding: 10px 11px; border-bottom: 1px solid var(--line); color: var(--ink); font-size: 11px; font-weight: 760; }
 .direction-rule-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; padding: 11px; }
 .direction-rule-fields textarea { min-height: 78px; }
 .direction-ending-field { grid-column: 1 / -1; }
@@ -333,6 +332,7 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
 .category-card-mark::before { content:""; position:absolute; inset:0; opacity:.18; background:repeating-linear-gradient(90deg, transparent 0 33px, #b8cdc5 33px 34px), repeating-linear-gradient(0deg, transparent 0 33px, #b8cdc5 33px 34px); }
 .category-card-mark span { position:relative; z-index:1; max-width:90%; overflow:hidden; font:600 25px/1 Georgia, "Noto Serif KR", serif; letter-spacing:-.04em; text-overflow:ellipsis; white-space:nowrap; }
 .category-card-copy { padding: 14px; }
+.category-card-copy h3 { margin: 0; overflow: hidden; color: var(--ink); font: 600 18px/1.25 Georgia, "Noto Serif KR", serif; text-overflow: ellipsis; white-space: nowrap; }
 .category-card-copy label { gap: 7px; color: var(--muted-text); font-size: 10px; }
 .category-card-copy input { min-width: 0; height: 38px; padding: 8px 9px; color: var(--ink); font: 600 16px/1.2 Georgia, "Noto Serif KR", serif; }
 .category-card-footer, .recipe-card-footer { min-height: 47px; display:flex; align-items:center; justify-content:space-between; gap:8px; padding:7px 10px 7px 13px; border-top:1px solid var(--line); background:var(--paper-deep); }
@@ -352,8 +352,6 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
 .recipe-add-step { justify-self: start; min-height: 34px; padding-block: 6px; }
 .recipe-rule-fields textarea { min-height: 78px; }
 .recipe-settings-card { display:grid; grid-template-rows:auto 1fr auto; }
-.recipe-settings-card.editing { grid-column:1 / -1; display:block; overflow:visible; padding:15px; }
-.recipe-settings-card.editing:hover { transform:none; }
 .recipe-card-route { min-height:156px; padding:12px 14px; color:#e9f0ed; background:var(--nav-deep); }
 .recipe-card-route ol { display:grid; gap:0; margin:0; padding:0; list-style:none; }
 .recipe-card-route li { min-width:0; display:grid; grid-template-columns:27px minmax(0, 1fr); gap:8px; align-items:center; min-height:25px; border-bottom:1px solid rgba(225,236,231,.12); }
@@ -367,6 +365,23 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
 .recipe-card-copy > small b { margin-right:5px; color:var(--ink-soft); }
 .recipe-origin { color: #527366; font-size: 9px; font-weight: 780; }
 .recipe-edit-form { min-width: 0; }
+
+/* World settings follow the AI writing surface: quiet backdrop, scrollable form, fixed decisions. */
+.settings-modal-backdrop { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(15, 29, 27, .42); backdrop-filter: blur(2px); }
+.settings-modal { width: min(620px, 100%); max-height: min(760px, calc(100dvh - 40px)); display: flex; flex-direction: column; overflow: hidden; border: 1px solid rgba(255,255,255,.5); border-radius: 9px; background: var(--paper); box-shadow: 0 24px 80px rgba(10,30,27,.28); }
+.settings-modal.wide { width: min(880px, 100%); }
+.settings-modal > header { flex: 0 0 auto; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 20px 20px 16px; border-bottom: 1px solid var(--line); }
+.settings-modal > header span { color: var(--signal); font-size: 11px; font-weight: 900; letter-spacing: .09em; text-transform: uppercase; }
+.settings-modal > header h2 { margin: 2px 0 0; color: var(--ink); font: 700 25px/1.2 Georgia, "Noto Serif KR", serif; }
+.settings-modal-close { border: 0; border-radius: 4px; padding: 2px 6px; color: var(--muted-text); background: transparent; font-size: 23px; font-weight: 800; line-height: 1; }
+.settings-modal-close:hover { color: var(--ink); background: var(--paper-deep); }
+.settings-modal-form { min-height: 0; display: flex; flex: 1 1 auto; flex-direction: column; overflow: hidden; }
+.settings-modal-body { min-height: 0; flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; padding: 18px 20px; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+.settings-modal-body > label > textarea { min-height: 100px; }
+.settings-modal-form > footer { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px 20px; border-top: 1px solid var(--line); background: var(--paper-deep); }
+.settings-modal-form > footer small { color: var(--muted-text); font-size: 10px; line-height: 1.45; }
+.settings-modal-form > footer > div { display: flex; gap: 7px; }
+.modal-field-note { margin: 0; padding: 11px 12px; border-left: 3px solid var(--signal); color: var(--muted-text); background: var(--paper-deep); font-size: 11px; line-height: 1.55; }
 
 /* Playbook: an explicit route from material to draft */
 .playbook-page { padding-bottom: 100px; }
@@ -542,6 +557,7 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
 .wizard-run-panel .primary { background: var(--signal); }
 .wizard-actions { display: flex; justify-content: space-between; gap: 10px; padding: 18px clamp(18px, 3vw, 30px); border-top: 1px solid var(--line); background: var(--paper-deep); }
 .wizard-actions .primary { min-width: 190px; }
+.playbook-page > .playbook-navigation { flex: 0 0 auto; z-index: 12; box-shadow: 0 -8px 24px rgba(16,43,54,.08); }
 
 /* Document editor: the manuscript stays primary at every viewport size. */
 .mobile-document-picker { display: none; }
@@ -704,6 +720,15 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
   .route-rail > span { padding: 12px; }
   .concept-card-grid { grid-template-columns: 1fr; }
   .assign-actions { grid-template-columns: 1fr 1fr; }
+  .local-surface-header { align-items: stretch; flex-direction: column; }
+  .local-surface-actions { justify-content: space-between; }
+  .settings-modal-backdrop { align-items: end; padding: 0; }
+  .settings-modal, .settings-modal.wide { width: 100%; max-height: 92dvh; border-radius: 12px 12px 0 0; }
+  .settings-modal > header { padding: 17px 18px 14px; }
+  .settings-modal-body { padding: 16px 18px; }
+  .settings-modal-form > footer { align-items: stretch; flex-direction: column; padding: 12px 18px calc(12px + env(safe-area-inset-bottom)); }
+  .settings-modal-form > footer > div { width: 100%; }
+  .settings-modal-form > footer button { flex: 1; }
   .review-summary > span { white-space: normal; }
   .run-actions { grid-template-columns: 1fr; }
   .wizard-card-grid { max-height: min(54vh, 460px); overscroll-behavior: contain; }
@@ -779,13 +804,12 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
   .direction-workspace-scroll { overflow-y: auto; padding-right: 3px; overscroll-behavior: contain; }
   .direction-list { overflow: visible; }
   .suggestion-review { position: static; bottom: auto; }
-  .category-manager, .recipe-manager { height: 100%; grid-template-rows: auto auto minmax(0, 1fr); overflow: hidden; align-items: stretch; }
+  .category-manager, .recipe-manager { height: 100%; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; align-items: stretch; }
   .category-settings-list, .recipe-settings-list { min-height: 0; overflow-y: auto; padding-right: 3px; overscroll-behavior: contain; }
 
   .playbook-page { padding-bottom: 0; }
   .playbook-workspace { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
   .playbook-workspace > .wizard-shell { min-height: 100%; }
-  .playbook-workspace .wizard-actions { position: sticky; z-index: 11; bottom: 0; }
   .playbook-workspace > .completion-banner { margin-bottom: 4px; }
 
   .documents-page > .document-workflow { flex: 1 1 auto; min-height: 0; }
@@ -851,4 +875,6 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
   .editor-commandbar .section-tabs button { min-width: 0; flex: 1; padding-inline: 5px; font-size: 11px; white-space: nowrap; }
   .editor-commandbar .section-tabs button span { display: none; }
   .playbook-workspace { overflow: visible; }
+  .playbook-page { padding-bottom: 100px; }
+  .playbook-page > .playbook-navigation { position: fixed; z-index: 29; right: 0; bottom: calc(65px + env(safe-area-inset-bottom)); left: 0; }
 }

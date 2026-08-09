@@ -350,12 +350,6 @@
       </section>
     {/if}
 
-    {#if activeStep.key !== 'review'}
-      <footer class="wizard-actions">
-        <button class="ghost" disabled={wizardStep === 0} on:click={() => setWizardStep(wizardStep - 1)}>← 이전</button>
-        <button class="primary" disabled={wizardStep === 0 && !subject || activeStep.key === 'guidance' && cardConflicts.length || activeStep.key === 'recipe' && !recipeId} on:click={nextStep}>{nextButtonLabel} →</button>
-      </footer>
-    {/if}
   </section>
 
   {#if wizardStep === wizardSteps.length - 1 && preview}
@@ -390,4 +384,11 @@
 
   {#if wizardStep === wizardSteps.length - 1 && generatedDocument}<div class="completion-banner"><div><strong>{generatedDocument.title}</strong><span>{generatedDocument.body_markdown.length.toLocaleString()}자 초안을 저장했습니다.</span></div><a class="primary" href={`/documents?document=${generatedDocument.id}`}>이 초안 작업하기 →</a></div>{/if}
   </div>
+
+  {#if activeStep.key !== 'review'}
+    <footer class="wizard-actions playbook-navigation">
+      <button class="ghost" disabled={wizardStep === 0} on:click={() => setWizardStep(wizardStep - 1)}>← 이전</button>
+      <button class="primary" disabled={wizardStep === 0 && !subject || activeStep.key === 'guidance' && cardConflicts.length || activeStep.key === 'recipe' && !recipeId} on:click={nextStep}>{nextButtonLabel} →</button>
+    </footer>
+  {/if}
 </div>

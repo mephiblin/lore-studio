@@ -15,6 +15,19 @@ async function expectStepHelp(page, label, text) {
   expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
 }
 
+async function expectWorkspaceDialog(page, name) {
+  const dialog = page.getByRole('dialog', { name });
+  await expect(dialog).toBeVisible();
+  const box = await dialog.boundingBox();
+  const viewport = page.viewportSize();
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.y).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+  expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
+  await expect(dialog.locator('footer')).toBeVisible();
+  return dialog;
+}
+
 async function removeProjectFixture(request, apiOrigin, projectId) {
   const pagesResponse = await request.get(`${apiOrigin}/api/v1/concept-pages?project_id=${projectId}`);
   if (pagesResponse.ok()) {
@@ -27,7 +40,7 @@ async function removeProjectFixture(request, apiOrigin, projectId) {
 }
 
 for (const route of routes) {
-  test(`${route} renders without browser or API errors`, async ({ page }) => {
+  test(`${route} renders without browser or API errors`, async ({ page }, testInfo) => {
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
     page.on('response', (response) => {
@@ -49,6 +62,20 @@ for (const route of routes) {
       await expect(page.locator('.page-tools > nav[aria-label="글 만들기 선택 단계"]')).toBeVisible();
       await expect(page.locator('.wizard-shell > nav[aria-label="글 만들기 선택 단계"]')).toHaveCount(0);
       await expect(page.locator('.wizard-layout')).toHaveCSS('padding', '0px');
+      const navigation = page.locator('.playbook-page > .playbook-navigation');
+      await expect(navigation).toBeVisible();
+      await expect(page.locator('.playbook-workspace .wizard-actions')).toHaveCount(0);
+      const navigationBox = await navigation.boundingBox();
+      expect(navigationBox.y + navigationBox.height).toBeLessThanOrEqual(page.viewportSize().height);
+      if (testInfo.project.name === 'mobile') {
+        const appNavBox = await page.locator('.app-nav').boundingBox();
+        expect(navigationBox.y + navigationBox.height).toBeLessThanOrEqual(appNavBox.y + 1);
+        await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+      } else {
+        await page.locator('.playbook-workspace').evaluate((element) => element.scrollTop = element.scrollHeight);
+      }
+      const navigationAfterScroll = await navigation.boundingBox();
+      expect(Math.abs(navigationAfterScroll.y - navigationBox.y)).toBeLessThanOrEqual(1);
     }
     if (route === '/documents') {
       await expect(page.locator('.page-tools > nav[aria-label="원고 완성 단계"]')).toBeVisible();
@@ -366,11 +393,18 @@ test('a project can be added after projects already exist', async ({ page }, tes
     await expect(page.getByText('글 만들기 추천')).toHaveCount(0);
     await expect(page.locator('.category-recommendations')).toHaveCount(0);
     await expectStepHelp(page, '자료 종류 설명', '이 프로젝트의 세계관 자료를 묶는 이름');
-    await page.getByText('새 자료 종류 만들기', { exact: true }).click();
+    await page.getByRole('button', { name: '+ 새 자료 종류', exact: true }).click();
+    const categoryCreateDialog = await expectWorkspaceDialog(page, '새 자료 종류');
     await expect(page.getByLabel('새 자료 종류 이름')).toBeVisible();
     await page.getByLabel('새 자료 종류 이름').fill('세력');
     await page.getByRole('button', { name: '자료 종류 만들기' }).click();
     await expect(page.getByText("'세력' 자료 종류를 만들었습니다.")).toBeVisible();
+    await expect(categoryCreateDialog).toBeHidden();
+    const createdCategoryCard = page.locator('.category-settings-card').filter({ hasText: '세력' });
+    await createdCategoryCard.getByRole('button', { name: '수정', exact: true }).click();
+    const categoryEditDialog = await expectWorkspaceDialog(page, '자료 종류 수정');
+    await expect(categoryEditDialog.getByLabel('세력 자료 종류 이름')).toHaveValue('세력');
+    await categoryEditDialog.getByRole('button', { name: '취소' }).click();
     await page.getByRole('button', { name: /세계관 자료/ }).click();
     await page.getByRole('button', { name: '+ 새 자료' }).click();
     await expect(page.getByLabel('자료 종류')).toContainText('세력');
@@ -398,7 +432,8 @@ test('a project can be added after projects already exist', async ({ page }, tes
 
     await page.getByRole('navigation', { name: '세계관 자료 관리' }).getByRole('button', { name: /^집필 지침/ }).click();
     await expectStepHelp(page, '집필 지침 설명', '이 프로젝트의 글에서 반복해 지킬');
-    await page.getByText('새 집필 지침 만들기', { exact: true }).click();
+    await page.getByRole('button', { name: '+ 새 집필 지침', exact: true }).click();
+    const directionCreateDialog = await expectWorkspaceDialog(page, '새 집필 지침');
     const directionScroll = page.locator('.direction-workspace-scroll');
     if (testInfo.project.name === 'desktop') {
       await expect(directionScroll).toHaveCSS('overflow-y', 'auto');
@@ -406,7 +441,7 @@ test('a project can be added after projects already exist', async ({ page }, tes
     }
     await page.getByLabel('지침 이름').fill('유용한 기술의 대가');
     await page.getByLabel('이 프로젝트의 글에서 무엇을 지킬까요?').fill('효능은 유지하고 대가가 누적되는 과정을 보여 준다.');
-    await expect(page.locator('.direction-create .direction-rule-editor')).toHaveJSProperty('open', true);
+    await expect(directionCreateDialog.locator('.direction-rule-editor')).toBeVisible();
     await page.getByLabel('새 집필 지침 목표').fill('기술의 실제 효능을 보여 준다');
     await page.getByLabel('새 집필 지침 전개 순서').fill('도입\n성공\n의존\n대가');
     await page.getByLabel('새 집필 지침 반드시 포함').fill('대체재가 없는 이유');
@@ -425,14 +460,16 @@ test('a project can be added after projects already exist', async ({ page }, tes
     await expect(directionCard).toContainText('도입 → 성공 → 의존 → 대가');
     await expect(directionCard).toContainText('해결보다 선택의 비용을 남긴다');
     await directionCard.getByRole('button', { name: '내용 수정' }).click();
-    const directionEditForm = page.locator('.direction-card').filter({ has: page.getByLabel('유용한 기술의 대가 지침 목표') });
-    await expect(directionEditForm.locator('.direction-rule-editor')).toHaveJSProperty('open', true);
-    await directionEditForm.getByRole('button', { name: '취소' }).click();
+    const directionEditDialog = await expectWorkspaceDialog(page, '집필 지침 수정');
+    await expect(directionEditDialog.locator('.direction-rule-editor')).toBeVisible();
+    await expect(directionEditDialog.getByLabel('유용한 기술의 대가 지침 목표')).toBeVisible();
+    await directionEditDialog.getByRole('button', { name: '취소' }).click();
 
     await page.getByRole('navigation', { name: '세계관 자료 관리' }).getByRole('button', { name: /^전개 방식/ }).click();
     await expectStepHelp(page, '전개 방식 설명', '공용 기본 방식은 프로젝트와 관계없이');
     await expect(page.locator('.recipe-settings-card').filter({ hasText: '모든 프로젝트에서 사용' }).first()).toBeVisible();
-    await page.getByText('새 전개 방식 만들기', { exact: true }).click();
+    await page.getByRole('button', { name: '+ 새 전개 방식', exact: true }).click();
+    await expectWorkspaceDialog(page, '새 전개 방식');
     await expect(page.getByText('카드 표시', { exact: true })).toHaveCount(0);
     await expect(page.locator('.recipe-create .recipe-step-row input')).toHaveCount(0);
     await expect(page.locator('.recipe-create .recipe-derived-purpose')).toHaveCount(3);
@@ -448,8 +485,9 @@ test('a project can be added after projects already exist', async ({ page }, tes
       expect((await recipeCard.boundingBox()).width).toBeLessThanOrEqual(305);
     }
     await recipeCard.getByRole('button', { name: '수정', exact: true }).click();
-    await page.locator('.recipe-edit-form').getByLabel('이름').fill('징후에서 결론으로 개정');
-    await page.locator('.recipe-edit-form').getByRole('button', { name: '저장', exact: true }).click();
+    const recipeEditDialog = await expectWorkspaceDialog(page, '전개 방식 수정');
+    await recipeEditDialog.getByLabel('이름').fill('징후에서 결론으로 개정');
+    await recipeEditDialog.getByRole('button', { name: '변경 저장', exact: true }).click();
     await expect(page.locator('.recipe-settings-card').filter({ hasText: '징후에서 결론으로 개정' })).toBeVisible();
 
     await page.goto('/playbook');
