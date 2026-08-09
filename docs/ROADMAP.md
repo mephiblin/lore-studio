@@ -37,6 +37,7 @@
 
 ## v1.0 이후
 
+- [ ] [`문체·필력(Voice Profile)` 실제 원고 연결](VOICE_PROFILE_IMPLEMENTATION_PLAN.md): 프로필 CRUD·버전, 예시 분석·격리, 글 만들기 선택, Writer/Finalizer, 필력 점검
 - [ ] 실제 TTS endpoint adapter와 음성 실측 시간
 - [ ] ComfyUI 작업 제출·진행 상태·결과 회수
 - [ ] PDF·웹·영상 전사 수집 파이프라인
