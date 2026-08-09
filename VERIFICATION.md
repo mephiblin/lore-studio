@@ -18,6 +18,7 @@
 - 집필 지침 세부 규칙 직접 작성: 목표·전개 순서·반드시 포함·피할 전개·선호 결말의 API 저장·카드 표시 desktop/mobile `2 passed`
 - 원고 작성 경계 AI 제안: 실제 Utility가 유지 사실 4·공개 유보 2·금지 변경 2개와 근거 구절을 반환, `persisted=false`; 선택 항목만 병합하고 사용자 저장 전 DB 미변경 PASS
 - 세계관 자료 AI 본문 편집: 선택 범위 수정·전체/현재 위치/이어쓰기·연결 자료 기본 선택·실행별 참고 자료·CANDIDATE 비교/반영을 desktop/mobile `2 passed`; API는 DB 미변경·GenerationRun·교차 프로젝트 차단·참고 사실 격리 PASS
+- AI 수정·AI 작성 제안 본문: 진녹색 `#14322e` 배경과 아이덴티티 금색 `#f0bc65` 텍스트의 계산된 스타일을 desktop/mobile `2 passed`
 - 모바일 전개 방식 화면 390×844: 문서/탭 가로 넘침 없음, 네 탭 `nowrap`, browser pageerror 없음 PASS
 - 글 만들기·원고 작업 단계 메뉴의 `page-tools` 결합, 글 만들기 본문 외곽 여백 0, 자료 종류 추천 설정 제거를 1600×900/390×844/360×844에서 확인; 가로 넘침·pageerror 없음 PASS
 - 73개 Diablo 자료에서 글 만들기 카드 18개 제한, 모바일 선택 영역 456px, 데스크톱 자료 목록 848px/내부 스크롤, `종족·생물` 필터, 단계 이동 pageerror 없음 PASS

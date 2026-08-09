@@ -501,7 +501,12 @@
   .proposal-original, .proposal-copy { display:grid; grid-template-columns:42px minmax(0, 1fr); gap:8px; margin-top:10px; }
   .proposal-original p, .proposal-copy pre { max-height:150px; overflow:auto; margin:0; white-space:pre-wrap; }
   .proposal-original p { color:var(--muted-text); font-size:12px; }
-  .proposal-copy pre { color:var(--ink); font:13px/1.65 Georgia, "Noto Serif KR", serif; }
+  .proposal-copy pre {
+    border:1px solid #365f57;
+    background:var(--nav-deep, #173f38);
+    color:var(--nav-accent, #f2cf5b);
+    font:13px/1.65 Georgia, "Noto Serif KR", serif;
+  }
   .proposal-warnings { margin:9px 0 0 50px; padding-left:16px; color:#765f25; font-size:11px; }
   .stale-warning { margin:9px 0 0; color:#923c2f; font-size:12px; font-weight:700; }
 

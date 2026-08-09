@@ -175,6 +175,8 @@ test('world material AI edits stay reviewable and use temporary references', asy
 
   const proposal = page.getByRole('region', { name: 'AI 본문 제안' });
   await expect(proposal).toContainText('기억세는 손실 가능성을 시민에게 나누어 지우는 제도다.');
+  await expect(proposal.locator('.proposal-copy pre')).toHaveCSS('background-color', 'rgb(20, 50, 46)');
+  await expect(proposal.locator('.proposal-copy pre')).toHaveCSS('color', 'rgb(240, 188, 101)');
   await expect(page.locator('.editor-content')).not.toContainText('시민에게 나누어 지우는 제도다');
   await proposal.getByRole('button', { name: '본문에 반영' }).click();
   await expect(page.locator('.editor-content')).toContainText('시민에게 나누어 지우는 제도다');
