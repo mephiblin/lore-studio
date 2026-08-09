@@ -189,6 +189,10 @@
     if (!selected.length) return '선택 안 함';
     return selected.length === 1 ? selected[0].title : `${selected[0].title} 외 ${selected.length - 1}개`;
   }
+  function selectionNames(ids) {
+    const selected = selectedPages(ids);
+    return selected.length ? selected.map((page) => page.title).join(' · ') : '선택 안 함';
+  }
 
   function toggleConcept(pageId) {
     if (!activeSlot) return;
@@ -425,19 +429,34 @@
       </div>
     {:else if activeStep.key === 'settings'}
       <div class="output-studio">
-        <aside class="output-specimen" aria-label="선택한 결과물 견본">
+        <aside class="output-specimen playbook-output-specimen" aria-label="선택한 결과물 견본">
           <span class="specimen-mark">{selectedOutputProfile.mark}</span>
-          <div>
+          <div class="specimen-title-block">
             <p>{subject?.title || '새 원고'}</p>
             <h2>{selectedOutputProfile.title}</h2>
             <blockquote>{selectedOutputProfile.copy}</blockquote>
           </div>
-          <dl class="specimen-selection-summary" aria-label="현재 결과물 설정">
-            <div><dt>형식</dt><dd>{selectedOutputProfile.title}</dd></div>
-            <div><dt>시점</dt><dd>{selectedViewpoint.title}</dd></div>
-            <div><dt>시제</dt><dd>{selectedTense.title}</dd></div>
-            <div><dt>분량</dt><dd>{selectedLength.title} · {selectedLengthCopy}</dd></div>
-          </dl>
+          <section class="specimen-ledger specimen-input-ledger" aria-labelledby="specimen-input-title">
+            <header><h3 id="specimen-input-title">원고 설계</h3><small>앞 단계에서 고른 내용</small></header>
+            <dl aria-label="현재 원고 설계">
+              <div><dt>주제</dt><dd>{subject?.title || '선택 필요'}</dd></div>
+              <div><dt>배경</dt><dd>{selectionNames(backgroundIds)}</dd></div>
+              <div><dt>주요 요소</dt><dd>{selectionNames(elementIds)}</dd></div>
+              <div><dt>갈등·변수</dt><dd>{selectionNames(conflictIds)}</dd></div>
+              <div><dt>집필 지침</dt><dd>{selectedCards.length ? selectedCards.map((card) => card.title).join(' · ') : '선택 안 함'}</dd></div>
+              <div><dt>전개 방식</dt><dd>{selectedRecipe?.name || '선택 필요'}</dd></div>
+              <div><dt>문체·필력</dt><dd>{selectedVoiceProfile?.name || '모델 기본 문체'}</dd></div>
+            </dl>
+          </section>
+          <section class="specimen-ledger specimen-output-ledger" aria-labelledby="specimen-output-title">
+            <header><h3 id="specimen-output-title">출력 설정</h3><small>이 화면에서 정하는 내용</small></header>
+            <dl class="specimen-selection-summary" aria-label="현재 결과물 설정">
+              <div><dt>형식</dt><dd>{selectedOutputProfile.title}</dd></div>
+              <div><dt>시점</dt><dd>{selectedViewpoint.title}</dd></div>
+              <div><dt>시제</dt><dd>{selectedTense.title}</dd></div>
+              <div><dt>분량</dt><dd>{selectedLength.title} · {selectedLengthCopy}</dd></div>
+            </dl>
+          </section>
           <footer><span>예상 {estimatedTokens.toLocaleString()} tokens</span><span>선택을 바꾸면 즉시 반영</span></footer>
         </aside>
 

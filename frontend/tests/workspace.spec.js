@@ -786,7 +786,16 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
   await page.getByRole('button', { name: /결과물 형태로 계속/ }).click();
 
   await expectStepHelp(page, '결과물 형태 단계 설명', '어떤 결과물로 만들까요');
-  await expect(page.locator('.output-specimen')).toContainText('세계관 설명 글');
+  const outputSpecimen = page.getByLabel('선택한 결과물 견본');
+  await expect(outputSpecimen).toContainText('세계관 설명 글');
+  const inputLedger = outputSpecimen.getByLabel('현재 원고 설계');
+  await expect(inputLedger).toContainText('주제검은 등대');
+  await expect(inputLedger).toContainText('배경회수실');
+  await expect(inputLedger).toContainText('주요 요소레아 벨');
+  await expect(inputLedger).toContainText('갈등·변수선택 안 함');
+  await expect(inputLedger).toContainText('집필 지침선택 안 함');
+  await expect(inputLedger).toContainText('전개 방식원인에서 파급으로');
+  await expect(inputLedger).toContainText('문체·필력모델 기본 문체');
   await expect(page.getByRole('group', { name: '결과물 종류' }).getByRole('button', { name: /수필·에세이/ })).toBeVisible();
   await expect(page.getByRole('group', { name: '결과물 종류' }).getByRole('button', { name: /분석 보고서/ })).toBeVisible();
   const viewpointGroup = page.getByRole('group', { name: '시점' });
@@ -796,8 +805,8 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
   await viewpointGroup.getByRole('button', { name: /3인칭 제한/ }).click();
   await tenseGroup.getByRole('button', { name: /과거형 중심/ }).click();
   await page.getByRole('group', { name: '분량' }).getByRole('button', { name: /^길게/ }).click();
-  await expect(page.locator('.output-specimen')).toContainText('3인칭 제한');
-  await expect(page.locator('.output-specimen')).toContainText('과거형 중심');
+  await expect(outputSpecimen).toContainText('3인칭 제한');
+  await expect(outputSpecimen).toContainText('과거형 중심');
   await expect(page.locator('.specimen-selection-summary')).toContainText('형식');
   await expect(page.locator('.specimen-selection-summary')).toContainText('분량');
   await expect(page.locator('.specimen-selection-summary')).toContainText('길게 · 약 6,500자');

@@ -587,16 +587,28 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
 .voice-option.model-default .voice-option-cover { background:linear-gradient(145deg, #6e756f, #899089); }
 .output-studio { display: grid; grid-template-columns: minmax(230px, .34fr) minmax(0, 1fr); align-items: start; gap: 16px; padding: clamp(18px, 3vw, 30px); }
 .output-specimen { position: sticky; top: 0; min-height: 540px; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; padding: 24px; border-radius: 8px; color: #e8f0ed; background: var(--nav-deep); box-shadow: 0 18px 38px rgba(16,43,54,.14); }
+.playbook-output-specimen { min-height: 620px; display: grid; align-content: start; gap: 16px; padding: 22px; }
 .output-specimen::before { content: ""; position: absolute; inset: 0; opacity: .12; background: repeating-linear-gradient(0deg, transparent 0 35px, #b8cdc5 35px 36px); pointer-events: none; }
 .output-specimen > * { position: relative; z-index: 1; }
 .specimen-mark { align-self: flex-start; padding: 6px 9px; border: 1px solid #806d42; color: var(--nav-accent); font-size: 10px; font-weight: 850; letter-spacing: .08em; }
-.output-specimen p { margin: 0 0 10px; color: #a9c0b9; font-size: 11px; font-weight: 760; }
+.output-specimen > div > p { margin: 0 0 10px; color: #a9c0b9; font-size: 11px; font-weight: 760; }
+.playbook-output-specimen .specimen-title-block > p { margin-bottom: 8px; }
 .output-specimen h2 { margin: 0; color: var(--nav-accent); font: 600 clamp(28px, 3vw, 42px)/1.08 Georgia, "Noto Serif KR", serif; letter-spacing: -.035em; }
 .output-specimen blockquote { margin: 22px 0 0; padding-left: 14px; border-left: 2px solid #806d42; color: #d5e2de; font: 14px/1.75 Georgia, "Noto Serif KR", serif; }
-.specimen-selection-summary { display: grid; gap: 0; margin: auto 0 18px; border-top: 1px solid rgba(218,232,227,.18); }
-.specimen-selection-summary > div { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 10px; padding: 10px 0; border-bottom: 1px solid rgba(218,232,227,.13); }
-.specimen-selection-summary dt { color: #8fa9a2; font-size: 9px; font-weight: 800; letter-spacing: .08em; }
-.specimen-selection-summary dd { margin: 0; color: var(--nav-accent); font: 600 12px/1.35 Georgia, "Noto Serif KR", serif; }
+.playbook-output-specimen blockquote { margin-top: 16px; padding-left: 12px; font-size: 13px; line-height: 1.65; }
+.specimen-ledger { min-width: 0; }
+.specimen-ledger > header { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding-bottom: 6px; border-bottom: 1px solid rgba(240,188,101,.48); }
+.specimen-ledger h3 { margin: 0; color: #fff7e6; font-size: 10px; font-weight: 850; letter-spacing: .1em; }
+.specimen-ledger header small { color: #8fa9a2; font-size: 8px; }
+.specimen-ledger dl { display: grid; gap: 0; margin: 0; }
+.specimen-ledger dl > div { min-width: 0; display: grid; grid-template-columns: 68px minmax(0, 1fr); gap: 10px; padding: 7px 0; border-bottom: 1px solid rgba(218,232,227,.13); }
+.specimen-ledger dt { color: #8fa9a2; font-size: 9px; font-weight: 800; letter-spacing: .04em; }
+.specimen-ledger dd { min-width: 0; margin: 0; overflow-wrap: anywhere; color: var(--nav-accent); font: 600 11px/1.45 Georgia, "Noto Serif KR", serif; }
+.specimen-selection-summary { display: grid; gap: 0; margin: 0; }
+.final-output-specimen .specimen-selection-summary { margin: auto 0 18px; border-top: 1px solid rgba(218,232,227,.18); }
+.final-output-specimen .specimen-selection-summary > div { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 10px; padding: 10px 0; border-bottom: 1px solid rgba(218,232,227,.13); }
+.final-output-specimen .specimen-selection-summary dt { color: #8fa9a2; font-size: 9px; font-weight: 800; letter-spacing: .08em; }
+.final-output-specimen .specimen-selection-summary dd { margin: 0; color: var(--nav-accent); font: 600 12px/1.35 Georgia, "Noto Serif KR", serif; }
 .output-specimen footer { display: flex; flex-wrap: wrap; gap: 6px; }
 .output-specimen footer span { padding: 5px 7px; border: 1px solid rgba(218,232,227,.18); border-radius: 3px; color: #bed0ca; font-size: 9px; }
 .output-control-deck { min-width: 0; display: grid; gap: 12px; }
