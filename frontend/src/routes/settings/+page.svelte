@@ -9,6 +9,21 @@
     embedding: { name: 'Embedding', description: '세계관 자료 검색 벡터 생성' }
   };
 
+  const localModels = {
+    qwen: {
+      name: 'Qwen 3.6 35B',
+      base_url: 'http://host.docker.internal:18091/v1',
+      model: 'qwen36-heretic-mtp',
+      disable_thinking: true
+    },
+    gemma: {
+      name: 'Gemma 4 26B',
+      base_url: 'http://host.docker.internal:18093/v1',
+      model: 'gemma4-26b-heretic-mtp',
+      disable_thinking: false
+    }
+  };
+
   let profiles = [];
   let loading = true;
   let pageError = '';
@@ -46,18 +61,33 @@
     }
   }
 
-  function applyLocalQwen() {
-    profiles = profiles.map((profile) => profile.role === 'embedding' ? profile : {
+  function localModelKey(profile) {
+    return Object.entries(localModels).find(([, preset]) => (
+      profile.base_url === preset.base_url && profile.model === preset.model
+    ))?.[0] || 'custom';
+  }
+
+  function applyLocalModel(role, key) {
+    const preset = localModels[key];
+    if (!preset) return;
+    profiles = profiles.map((profile) => profile.role === role ? {
       ...profile,
-      base_url: 'http://host.docker.internal:18091/v1',
-      model: 'qwen36-heretic-mtp',
+      base_url: preset.base_url,
+      model: preset.model,
       api_key: 'EMPTY',
       clear_api_key: false,
-      disable_thinking: true
+      disable_thinking: preset.disable_thinking
+    } : profile);
+    setState(role, {
+      kind: 'notice',
+      message: `${preset.name} 값을 채웠습니다. 연결 시험 후 저장하세요.`
     });
-    for (const role of ['writer', 'utility', 'vision']) {
-      setState(role, { kind: 'notice', message: '로컬 Qwen 값을 채웠습니다. 연결 시험 후 저장하세요.' });
-    }
+  }
+
+  function applyRecommendedLocalModels() {
+    applyLocalModel('writer', 'gemma');
+    applyLocalModel('utility', 'qwen');
+    applyLocalModel('vision', 'qwen');
   }
 
   async function testConnection(profile) {
@@ -108,9 +138,9 @@
     <div>
       <p class="eyebrow">LOCAL MODEL GATEWAY</p>
       <h1>모델 연결</h1>
-      <p>작업 역할별 OpenAI 호환 API를 연결합니다. 빈 API 키는 기존 값을 유지하며 저장된 키는 브라우저로 다시 보내지 않습니다.</p>
+      <p>작업 역할마다 Qwen·Gemma 로컬 vLLM 또는 직접 입력한 OpenAI 호환 API를 선택합니다. 빈 API 키는 기존 값을 유지하며 저장된 키는 브라우저로 다시 보내지 않습니다.</p>
     </div>
-    <button class="secondary" type="button" on:click={applyLocalQwen} disabled={loading}>이 PC의 Qwen 값 채우기</button>
+    <button class="secondary" type="button" on:click={applyRecommendedLocalModels} disabled={loading}>이 PC 권장 분담 적용</button>
   </header>
 
   {#if loading}
@@ -127,6 +157,21 @@
           </header>
 
           <div class="model-profile-fields">
+            {#if profile.role !== 'embedding'}
+              <label for={`${profile.role}-local-model`}>이 PC의 로컬 vLLM
+                <select
+                  id={`${profile.role}-local-model`}
+                  aria-label={`${roleLabels[profile.role].name} 로컬 모델`}
+                  value={localModelKey(profile)}
+                  on:change={(event) => applyLocalModel(profile.role, event.currentTarget.value)}
+                >
+                  <option value="custom">직접 입력</option>
+                  {#each Object.entries(localModels) as [key, preset]}
+                    <option value={key}>{preset.name} · {preset.model}</option>
+                  {/each}
+                </select>
+              </label>
+            {/if}
             <label for={`${profile.role}-base-url`}>Base URL<input id={`${profile.role}-base-url`} bind:value={profile.base_url} autocomplete="url" spellcheck="false" /></label>
             <label for={`${profile.role}-model`}>모델 alias<input id={`${profile.role}-model`} bind:value={profile.model} placeholder="비워 두면 로드된 모델 자동 선택" spellcheck="false" /></label>
             <label for={`${profile.role}-api-key`}>API 키 <span class="small">{profile.api_key_configured ? '저장됨 · 변경할 때만 입력' : '없음'}</span><input id={`${profile.role}-api-key`} type="password" bind:value={profile.api_key} placeholder={profile.api_key_configured ? '기존 키 유지' : '로컬은 EMPTY 또는 빈 값'} autocomplete="new-password" /></label>
@@ -134,7 +179,7 @@
               <label for={`${profile.role}-timeout`}>타임아웃(초)<input id={`${profile.role}-timeout`} type="number" min="1" max="3600" bind:value={profile.timeout_seconds} /></label>
               <label for={`${profile.role}-budget`}>컨텍스트 예산<input id={`${profile.role}-budget`} type="number" min="1024" max="1000000" step="1024" bind:value={profile.context_budget} /></label>
             </div>
-            <label class="model-thinking-toggle"><input type="checkbox" bind:checked={profile.disable_thinking} />Thinking 끄기 <span class="small">Qwen의 숨은 추론 토큰·지연을 줄이며 MTP 가속은 유지</span></label>
+            <label class="model-thinking-toggle"><input type="checkbox" bind:checked={profile.disable_thinking} />Thinking 끄기 <span class="small">지원 모델의 숨은 추론 토큰·지연을 줄이며 MTP 가속은 유지</span></label>
           </div>
 
           <div class="model-profile-actions">

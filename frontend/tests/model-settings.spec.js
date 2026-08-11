@@ -19,7 +19,7 @@ async function mockModelConnections(page) {
   }));
 }
 
-test('model settings keeps five lifecycle destinations and never echoes a saved key', async ({ page }) => {
+test('model settings assigns both local vLLMs and never echoes a saved key', async ({ page }) => {
   await mockModelConnections(page);
   let testPayload;
   let savePayload;
@@ -58,18 +58,27 @@ test('model settings keeps five lifecycle destinations and never echoes a saved 
   await expect(page.locator('#primary-navigation a')).toHaveCount(5);
   await expect(page.getByRole('link', { name: '모델 연결 설정' })).toHaveAttribute('aria-current', 'page');
 
-  await page.getByRole('button', { name: '이 PC의 Qwen 값 채우기' }).click();
+  await page.getByRole('button', { name: '이 PC 권장 분담 적용' }).click();
+  await expect(page.getByLabel('Writer 로컬 모델')).toHaveValue('gemma');
+  await expect(page.getByLabel('Utility 로컬 모델')).toHaveValue('qwen');
+  await expect(page.getByLabel('Vision 로컬 모델')).toHaveValue('qwen');
+  await expect(page.getByLabel('Base URL').first()).toHaveValue('http://host.docker.internal:18093/v1');
+  await expect(page.getByLabel('모델 alias').first()).toHaveValue('gemma4-26b-heretic-mtp');
+  await page.locator('.model-profile-card').first().getByRole('button', { name: '연결 시험' }).click();
+  await expect(page.getByText(/연결 성공 · gemma4-26b-heretic-mtp/)).toBeVisible();
+  expect(testPayload.api_key).toBe('EMPTY');
+  expect(testPayload.disable_thinking).toBe(false);
+
+  await page.getByLabel('Writer 로컬 모델').selectOption('qwen');
   await expect(page.getByLabel('Base URL').first()).toHaveValue('http://host.docker.internal:18091/v1');
   await expect(page.getByLabel('모델 alias').first()).toHaveValue('qwen36-heretic-mtp');
-  await page.locator('.model-profile-card').first().getByRole('button', { name: '연결 시험' }).click();
-  await expect(page.getByText(/연결 성공 · qwen36-heretic-mtp/)).toBeVisible();
-  expect(testPayload.api_key).toBe('EMPTY');
-  expect(testPayload.disable_thinking).toBe(true);
+  await page.getByLabel('Writer 로컬 모델').selectOption('gemma');
 
   await page.locator('.model-profile-card').first().getByRole('button', { name: '시험하고 저장' }).click();
   await expect(page.getByText('연결을 시험하고 서버에 저장했습니다.')).toBeVisible();
   await expect(page.getByLabel('API 키 저장됨 · 변경할 때만 입력').first()).toHaveValue('');
   expect(savePayload.api_key).toBe('EMPTY');
+  expect(savePayload.model).toBe('gemma4-26b-heretic-mtp');
   expect(JSON.stringify(profiles[0])).not.toContain('EMPTY');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

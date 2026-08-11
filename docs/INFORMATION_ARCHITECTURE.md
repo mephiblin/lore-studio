@@ -16,7 +16,7 @@
 | 원고 작업 | `/documents` | 초안을 어떻게 완성할까? | 초안 편집 → 완성 다듬기 → 완성본 만들기 |
 | 로어북 | `/lorebook` | 완성된 글은 어디에 있나? | 완성본 읽기·수정·내보내기, 출처 초안 확인 |
 
-`/settings`의 모델 연결은 작업 생명주기 목적지가 아니라 운영 유틸리티입니다. 데스크톱에서는 주요 메뉴 하단의 별도 설정 링크, 모바일에서는 우측 상단의 톱니 링크로 접근하며 5개 전역 목적지에 여섯 번째 항목으로 섞지 않습니다. Writer·Utility·Vision·Embedding 역할은 각각 OpenAI 호환 Base URL·모델 alias·timeout·context 예산을 가지며 앱 저장값이 없으면 `.env` 기본값을 사용합니다.
+`/settings`의 모델 연결은 작업 생명주기 목적지가 아니라 운영 유틸리티입니다. 데스크톱에서는 주요 메뉴 하단의 별도 설정 링크, 모바일에서는 우측 상단의 톱니 링크로 접근하며 5개 전역 목적지에 여섯 번째 항목으로 섞지 않습니다. Writer·Utility·Vision·Embedding 역할은 각각 OpenAI 호환 Base URL·모델 alias·timeout·context 예산을 가지며 앱 저장값이 없으면 `.env` 기본값을 사용합니다. 이 DGX의 Writer·Utility·Vision은 역할마다 Qwen·Gemma 로컬 vLLM 또는 직접 입력 연결을 독립 선택하고, 권장 분담은 Writer=Gemma·Utility/Vision=Qwen이며 Embedding을 변경하지 않습니다.
 
 ## 핵심 객체와 경계
 

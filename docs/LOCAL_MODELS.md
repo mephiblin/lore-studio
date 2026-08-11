@@ -9,9 +9,26 @@
 
 ## 앱에서 연결
 
-`/settings`에서 각 역할의 OpenAI 호환 Base URL과 실제 `/v1/models` alias를 입력하고 `연결 시험` 또는 `시험하고 저장`을 사용합니다. 저장값은 `.env`보다 우선하며 `.env로 되돌리기`로 role override만 제거할 수 있습니다. API 키 원문은 브라우저로 다시 반환하지 않습니다.
+`/settings`에서 각 역할의 OpenAI 호환 Base URL과 실제 `/v1/models` alias를 입력하고 `연결 시험` 또는 `시험하고 저장`을 사용합니다. Writer·Utility·Vision은 `이 PC의 로컬 vLLM`에서 Qwen·Gemma·직접 입력을 역할별로 독립 선택할 수 있습니다. 저장값은 `.env`보다 우선하며 `.env로 되돌리기`로 role override만 제거할 수 있습니다. API 키 원문은 브라우저로 다시 반환하지 않습니다.
 
-이 DGX의 로컬 Qwen3.6 vLLM은 컨테이너에서 `http://host.docker.internal:18091/v1`, alias `qwen36-heretic-mtp`, API key `EMPTY`로 접근합니다. `이 PC의 Qwen 값 채우기`는 Writer·Utility·Vision만 채우고 BGE-M3 Embedding은 유지하며 `Thinking 끄기`를 선택해 짧은 구조화 응답의 숨은 추론 토큰을 줄입니다. 이 설정은 `chat_template_kwargs.enable_thinking=false`이고 vLLM의 native MTP speculative decoding은 계속 작동합니다. Qwen-MM의 local Faster-Whisper는 별도 도구 서비스이며 Lore Studio의 네 모델 역할에는 포함하지 않습니다.
+이 DGX의 로컬 모델 연결은 다음과 같습니다.
+
+| 모델 | 컨테이너용 Base URL | alias | Thinking 기본값 |
+|---|---|---|---|
+| Qwen3.6 35B heretic MTP | `http://host.docker.internal:18091/v1` | `qwen36-heretic-mtp` | 끄기 |
+| Gemma4 26B heretic MTP | `http://host.docker.internal:18093/v1` | `gemma4-26b-heretic-mtp` | 모델 기본값 |
+
+`이 PC 권장 분담 적용`은 Writer=Gemma, Utility·Vision=Qwen으로 채우고 BGE-M3 Embedding을 유지합니다. Qwen의 `Thinking 끄기`는 `chat_template_kwargs.enable_thinking=false`이며 vLLM의 native MTP speculative decoding은 계속 작동합니다. Qwen-MM의 local Faster-Whisper는 별도 도구 서비스이며 Lore Studio의 네 모델 역할에는 포함하지 않습니다.
+
+두 vLLM은 보안을 위해 호스트 loopback에만 바인딩합니다. Qwen은 기존 `qwen-vllm-openwebui-proxy.socket`이 Docker bridge `18091`을 제공합니다. Gemma는 이 저장소의 socket proxy를 한 번 연결하고 활성화합니다.
+
+```bash
+systemctl --user link "$PWD/systemd/lore-studio-gemma-vllm-proxy.socket" \
+  "$PWD/systemd/lore-studio-gemma-vllm-proxy.service"
+systemctl --user enable --now lore-studio-gemma-vllm-proxy.socket
+```
+
+이 socket은 `172.17.0.1:18093`만 열고 요청을 `127.0.0.1:18092`로 전달합니다. vLLM 자체를 LAN의 `0.0.0.0`에 공개하지 않습니다.
 
 Writer 라우터 예시:
 

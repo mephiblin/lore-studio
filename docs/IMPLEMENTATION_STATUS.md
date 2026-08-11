@@ -42,11 +42,11 @@
 - 6,000자 이상 초안·완성 보강의 전개 블록별 이어쓰기와 실제 글자 수 95% 저장 gate, 호출·목표·실제 분량 감사 기록, 원래 목표보다 짧은 초안을 복구하는 `필요한 곳 보강`
 - 긴 로어북 본문의 reader 내부 스크롤과 출처 초안·접힌 생성 설정을 합친 단일 출처 카드
 - `$lore-studio-ui-safety` 프로젝트 로컬 skill과 읽기 전용 정적 preflight: UI 계약·변경 체크리스트 기반 반복 점검, 5개 생명주기 route와 `/settings` 유틸리티·migration head·manifest·API 경유 규칙 확인, 기능 계약과 점검 절차의 변경 범위에 따른 문서·테스트·skill 동기화
-- Writer·Utility·Vision·Embedding 역할별 OpenAI 호환 모델 연결 시험·저장·`.env` 복귀 화면. API key 원문은 브라우저·감사 로그에 반환하지 않고 Qwen preset은 Embedding을 보존
+- Writer·Utility·Vision·Embedding 역할별 OpenAI 호환 모델 연결 시험·저장·`.env` 복귀 화면. Writer·Utility·Vision은 Qwen·Gemma를 독립 선택하고 권장 분담(Writer=Gemma, Utility/Vision=Qwen)을 적용할 수 있으며 API key 원문은 브라우저·감사 로그에 반환하지 않고 Embedding을 보존
 
 ## 실제 환경 증거
 
-2026-08-06 현재 Compose는 가상 모델 경로 없이 `/models/status`에서 Gemma Writer/Utility/Vision과 BGE-M3 실제 endpoint가 모두 `available=true`임을 확인합니다. 2026-08-05 대표 인수 실행은 5-block 계획, 1,039자/5 LoreBlock 원고, 실제 Diff, 2 후보, 세 export, Vision caption, Dense 검색을 완료했습니다. SSE progress/complete도 실제 Writer로 통과했습니다. 공유 `원인에서 파급으로` 프리셋의 실제 Utility 재검증은 `ORIENT → ANCHOR → EXEMPLIFY → ESCALATE → INTERPRET` 순서의 5-block 계획을 반환했습니다.
+2026-08-11 현재 Compose는 `/models/status`에서 Gemma Writer, Qwen Utility/Vision, BGE-M3 Embedding이 모두 `available=true`입니다. 두 vLLM은 loopback에 유지하고 Docker backend는 bridge 전용 socket proxy로 접근합니다. 실제 ModelGateway에서 Gemma `LORE_OK`, Qwen `{"status":"ok"}`와 opt-in Writer/Utility·Vision·Embedding 3건을 통과했습니다. 2026-08-05 대표 인수 실행은 5-block 계획, 1,039자/5 LoreBlock 원고, 실제 Diff, 2 후보, 세 export, Vision caption, Dense 검색을 완료했습니다. SSE progress/complete도 실제 Writer로 통과했습니다. 공유 `원인에서 파급으로` 프리셋의 실제 Utility 재검증은 `ORIENT → ANCHOR → EXEMPLIFY → ESCALATE → INTERPRET` 순서의 5-block 계획을 반환했습니다.
 
 Utility 9-case 결과는 Qwen3.5-4B가 namespace 누출로 탈락했고 Gemma4-26B가 88.9%와 격리 gate 통과로 선택됐습니다. source-role 모델 판단은 완전하지 않으므로 애플리케이션의 결정론적 권위 코드가 항상 최종 판정을 합니다.
 

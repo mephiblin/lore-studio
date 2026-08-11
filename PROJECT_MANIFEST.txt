@@ -171,3 +171,5 @@ scripts/seed_diablo_lore.py
 scripts/seed_world.py
 scripts/smoke_test.sh
 scripts/validate_bundle.py
+systemd/lore-studio-gemma-vllm-proxy.service
+systemd/lore-studio-gemma-vllm-proxy.socket

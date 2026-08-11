@@ -147,7 +147,7 @@
 - [ ] SQLAlchemy 모델, Alembic head, DB의 실제 FK·nullable·cascade가 일치한다.
 - [ ] migration을 기존 데이터에서 `upgrade`하고 가능한 경우 임시 DB에서 `upgrade → downgrade → upgrade`했다.
 - [ ] API가 사용하는 HTTP 상태 코드와 프론트 성공·오류 분기가 일치한다.
-- [ ] 모델 설정 migration 뒤 기존 `.env` 프로필이 그대로 작동하며 Writer·Utility·Vision·Embedding override가 서로 격리된다.
+- [ ] 모델 설정 migration 뒤 기존 `.env` 프로필이 그대로 작동하며 Writer·Utility·Vision·Embedding override가 서로 격리되고, Writer·Utility·Vision은 Qwen·Gemma를 역할별로 독립 선택할 수 있다.
 - [ ] README, DEVELOPMENT, DATA_MODEL, IMPLEMENTATION_STATUS, ACCEPTANCE_TESTS, VERIFICATION의 head·용어·테스트 수치가 서로 모순되지 않는다.
 - [ ] 삭제·상태 전이·생성 입력처럼 장기 유지할 규칙이 문서와 코드 양쪽에 있다.
 - [ ] 제거한 기능의 문구, schema, fixture, 테스트, 문서 참조가 남지 않았다.

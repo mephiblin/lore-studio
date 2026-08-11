@@ -22,18 +22,21 @@ class Settings(BaseSettings):
     writer_model_name: str = ""
     writer_model_timeout_seconds: int = Field(default=600, ge=1)
     writer_context_budget: int = Field(default=60_000, ge=1_024)
+    writer_disable_thinking: bool = False
 
     utility_model_base_url: str = "http://localhost:8080/v1"
     utility_model_api_key: str = "local"
     utility_model_name: str = ""
     utility_model_timeout_seconds: int = Field(default=240, ge=1)
     utility_context_budget: int = Field(default=24_000, ge=1_024)
+    utility_disable_thinking: bool = False
 
     vision_model_base_url: str = "http://localhost:8080/v1"
     vision_model_api_key: str = "local"
     vision_model_name: str = ""
     vision_model_timeout_seconds: int = Field(default=300, ge=1)
     vision_context_budget: int = Field(default=24_000, ge=1_024)
+    vision_disable_thinking: bool = False
 
     fallback_model_base_url: str = ""
     fallback_model_api_key: str = "local"
@@ -89,6 +92,7 @@ class Settings(BaseSettings):
         model = str(getattr(self, f"{prefix}_model_name"))
         timeout = int(getattr(self, f"{prefix}_model_timeout_seconds"))
         context_budget = int(getattr(self, f"{prefix}_context_budget", 24_000))
+        disable_thinking = bool(getattr(self, f"{prefix}_disable_thinking", False))
         return {
             "role": role,
             "base_url": base_url,
@@ -96,6 +100,7 @@ class Settings(BaseSettings):
             "model": model,
             "timeout_seconds": timeout,
             "context_budget": context_budget,
+            "disable_thinking": disable_thinking,
         }
 
 

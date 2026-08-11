@@ -1,14 +1,15 @@
 # 검증 기록
 
-최신 갱신: 2026-08-10
+최신 갱신: 2026-08-11
 기준 브랜치: `agent/project-taxonomy-and-ui-polish`
 환경: DGX Spark, 실제 로컬 모델 endpoint
 
 ## 자동 검증
 
-- 역할별 모델 연결: `/settings`와 `model-connections` API로 Writer/Utility/Vision을 `qwen36-heretic-mtp`, Embedding을 기존 `bge-m3`에 연결. key 원문 응답·감사 로그 비노출, `.env` fallback, 저장 전 `/v1/models`/alias 확인, Qwen `enable_thinking=false`와 MTP 독립성 검증 PASS
-- 실제 Lore ModelGateway: Writer `연결 성공`, Utility `{"status":"ok"}`, Vision caption/uncertainty 구조화 응답 PASS. `/models/status` 네 역할 `available=true`, Vision image capability와 Embedding 비-chat capability 표시 PASS
-- 모델 설정 UI: production build와 Chromium 1600×900·390×844·360×844 집중 회귀 `3 passed, 1 viewport skip`; 5개 생명주기 메뉴 유지, Qwen preset의 Embedding 비변경, API key 재표시 없음, 가로 overflow 없음 PASS
+- 역할별 이중 vLLM 연결: `/settings`와 `model-connections` API로 Writer=`gemma4-26b-heretic-mtp`, Utility/Vision=`qwen36-heretic-mtp`, Embedding=`bge-m3`를 동시에 등록. key 원문 응답·감사 로그 비노출, `.env` fallback, 저장 전 `/v1/models`/alias 확인, Qwen `enable_thinking=false`와 MTP 독립성 검증 PASS
+- 실제 Lore ModelGateway: Gemma Writer가 정확히 `LORE_OK`, Qwen Utility가 `{"status":"ok"}` JSON을 반환하고 opt-in Writer/Utility·Vision·Embedding `3 passed`. `/models/status` 네 역할 `available=true`, Vision image capability와 Embedding 비-chat capability 표시 PASS
+- Gemma Docker bridge proxy: `lore-studio-gemma-vllm-proxy.socket` active/enabled, `172.17.0.1:18093 → 127.0.0.1:18092`; 실행 중 backend 컨테이너의 `/v1/models`에서 Gemma alias 확인 PASS
+- 모델 설정 UI: production build와 Chromium 1600×900·390×844·360×844 집중 회귀 `3 passed, 1 viewport skip`; 실제 운영 화면도 세 viewport 모두 Writer=Gemma·Utility/Vision=Qwen, 로컬 선택기 3개, 가로 overflow 0, console/page error 0 PASS
 - 모델 설정 DB: 변경 전 `backups/lore-studio-20260810-200130.dump`, 운영 upgrade와 별도 fresh PostgreSQL `upgrade → downgrade 0007 → upgrade` PASS. fresh migration에서 발견한 기존 `0005` index 검사와 신규 migration 멱등성도 보정
 
 - 프로젝트 로컬 `$lore-studio-ui-safety`: skill package 형식 검증 PASS, 기준 문서·5개 생명주기 route와 `/settings` 유틸리티·Alembic head·manifest·API 경유·충돌/디버그 표식 정적 preflight PASS

@@ -1,0 +1,12 @@
+[Unit]
+Description=Proxy Lore Studio Docker traffic to loopback-only Gemma vLLM
+Requires=lore-studio-gemma-vllm-proxy.socket
+After=lore-studio-gemma-vllm-proxy.socket
+
+[Service]
+ExecStart=/usr/lib/systemd/systemd-socket-proxyd 127.0.0.1:18092
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
