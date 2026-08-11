@@ -17,6 +17,8 @@ make validate
 
 모델 호출은 `ModelGateway`, 컨텍스트 권위 경계는 `context_compiler`, 승격은 `authority`, 검색은 `search`, 생성 단계는 `harness`를 거쳐야 합니다. 모델 endpoint/API key 편집은 `/settings`와 `model-connections` API에만 두고, 키 원문을 응답·감사 로그에 반환하지 마십시오. 컨셉/방향/레시피/출력 설정을 합친 새 만능 객체를 만들지 마십시오.
 
+자료 양산은 `concept_batch` 서비스와 `/concept-batches/seeds → /generate → /accept` 계약을 사용합니다. planning은 단일 explicit model profile, worker는 선택 씨앗마다 병렬 호출하며, API 테스트는 실제 최대 active 호출 수와 accept 전 ConceptPage 불변을 함께 검증해야 합니다.
+
 CI는 Ruff/pytest, bundle schema/YAML, Svelte build, Compose config, 모델 서비스 미연결 상태의 Playwright UI, secret/large-model guard를 실행합니다. 생성·임베딩 실호출은 DGX에서 `make test-models`로 별도 수행합니다.
 
 기능 변경 완료 전에는 [`CHANGE_SAFETY_CHECKLIST.md`](CHANGE_SAFETY_CHECKLIST.md)로 코드 상태, 취소·저장 흐름, 삭제 경계, 고아 UI, 반응형 레이아웃, 문서 일치를 확인합니다.

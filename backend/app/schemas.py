@@ -38,7 +38,10 @@ def canonicalize_voice_profile_json(value: dict[str, Any]) -> dict[str, Any]:
             raise ValueError(f"{field}는 문자열 목록이어야 합니다.")
         result[field] = [item.strip() for item in raw if item.strip()]
     compatibility = value.get("compatibility", {})
-    if not isinstance(compatibility, dict) or set(compatibility) - {"viewpoints", "tenses"}:
+    if not isinstance(compatibility, dict) or set(compatibility) - {
+        "viewpoints",
+        "tenses",
+    }:
         raise ValueError("compatibility에는 viewpoints와 tenses만 사용할 수 있습니다.")
     normalized_compatibility: dict[str, list[str]] = {}
     for field in ("viewpoints", "tenses"):
@@ -65,7 +68,11 @@ class ProjectSettings(BaseModel):
     @classmethod
     def validate_cover_image(cls, value: str) -> str:
         if value and not value.startswith(
-            ("data:image/jpeg;base64,", "data:image/png;base64,", "data:image/webp;base64,")
+            (
+                "data:image/jpeg;base64,",
+                "data:image/png;base64,",
+                "data:image/webp;base64,",
+            )
         ):
             raise ValueError("프로젝트 커버는 JPEG, PNG, WebP 이미지여야 합니다.")
         return value
@@ -194,6 +201,89 @@ class ConceptPageRead(ORMModel):
     attachment_refs: list[dict[str, Any]]
     created_at: datetime
     updated_at: datetime
+
+
+class ConceptSeedRequest(BaseModel):
+    project_id: str
+    source_page_id: str
+    category_key: str
+    model_key: Literal["qwen", "gemma"]
+    seed_count: int = Field(default=12, ge=6, le=30)
+    additional_instruction: str = Field(default="", max_length=4000)
+
+
+class ConceptSeedRead(BaseModel):
+    seed_id: str
+    title: str = Field(min_length=1, max_length=300)
+    summary: str = Field(min_length=1, max_length=1200)
+
+
+class ConceptSeedResponse(BaseModel):
+    run_id: str
+    source_page_id: str
+    category_key: str
+    model_key: Literal["qwen", "gemma"]
+    seeds: list[ConceptSeedRead]
+
+
+class ConceptBatchGenerateRequest(BaseModel):
+    seed_run_id: str
+    selected_seeds: list[ConceptSeedRead] = Field(min_length=1, max_length=10)
+
+    @field_validator("selected_seeds")
+    @classmethod
+    def validate_unique_seed_ids(cls, value: list[ConceptSeedRead]) -> list[ConceptSeedRead]:
+        ids = [item.seed_id for item in value]
+        if len(ids) != len(set(ids)):
+            raise ValueError("같은 씨앗을 두 번 선택할 수 없습니다.")
+        return value
+
+
+class ConceptBatchCandidateRead(BaseModel):
+    run_id: str
+    seed_id: str
+    title: str
+    summary: str
+    content_text: str
+    tags: list[str]
+    warnings: list[str]
+
+
+class ConceptBatchFailureRead(BaseModel):
+    seed_id: str
+    title: str
+    code: str
+    message: str
+
+
+class ConceptBatchGenerateResponse(BaseModel):
+    seed_run_id: str
+    requested_count: int
+    candidates: list[ConceptBatchCandidateRead]
+    failures: list[ConceptBatchFailureRead]
+
+
+class ConceptBatchCandidateAccept(BaseModel):
+    run_id: str
+    title: str = Field(min_length=1, max_length=300)
+    summary: str = Field(default="", max_length=1600)
+    content_text: str = Field(min_length=1, max_length=50_000)
+    tags: list[str] = Field(default_factory=list, max_length=12)
+
+
+class ConceptBatchAcceptRequest(BaseModel):
+    seed_run_id: str
+    candidates: list[ConceptBatchCandidateAccept] = Field(min_length=1, max_length=10)
+
+    @field_validator("candidates")
+    @classmethod
+    def validate_unique_run_ids(
+        cls, value: list[ConceptBatchCandidateAccept]
+    ) -> list[ConceptBatchCandidateAccept]:
+        ids = [item.run_id for item in value]
+        if len(ids) != len(set(ids)):
+            raise ValueError("같은 생성 결과를 두 번 저장할 수 없습니다.")
+        return value
 
 
 class DirectionCardCreate(BaseModel):
@@ -540,12 +630,14 @@ class PlaybookSessionCreate(BaseModel):
     voice_selection_mode: Literal["model_default", "profile_default", "manual", "retrieved"] = "model_default"
     voice_example_ids: list[str] = Field(default_factory=list, max_length=5)
     output_profile: str = "lore_article"
-    settings_json: dict[str, Any] = Field(default_factory=lambda: {
-        "length": "normal",
-        "detail_level": 3,
-        "context_depth": "balanced",
-        "creativity": "conservative",
-    })
+    settings_json: dict[str, Any] = Field(
+        default_factory=lambda: {
+            "length": "normal",
+            "detail_level": 3,
+            "context_depth": "balanced",
+            "creativity": "conservative",
+        }
+    )
     seed: int = 0
 
     @model_validator(mode="after")
@@ -621,9 +713,11 @@ class LoreDocumentRead(ORMModel):
 
 
 class FinalizationRefinement(BaseModel):
-    priorities: list[
-        Literal["coherence", "causality", "imagery", "rhythm", "deduplicate", "ending"]
-    ] = Field(default_factory=lambda: ["coherence", "deduplicate", "rhythm"], min_length=1, max_length=6)
+    priorities: list[Literal["coherence", "causality", "imagery", "rhythm", "deduplicate", "ending"]] = Field(
+        default_factory=lambda: ["coherence", "deduplicate", "rhythm"],
+        min_length=1,
+        max_length=6,
+    )
     intensity: Literal["light", "balanced", "strong"] = "balanced"
     length_policy: Literal["preserve", "tighten", "expand"] = "preserve"
 

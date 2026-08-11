@@ -1,0 +1,135 @@
+import { expect, test } from '@playwright/test';
+
+const project = {
+  id: 'project-1', name: '성역', slug: 'sanctuary', description: '',
+  universe_namespace: 'sanctuary', settings_json: {}, created_at: '', updated_at: ''
+};
+const category = {
+  id: 'category-food', project_id: project.id, key: 'food', name: '음식',
+  description: '성역의 음식과 식문화', template_json: {}, is_builtin: false,
+  created_at: '', updated_at: ''
+};
+const source = {
+  id: 'source-1', project_id: project.id, title: '성역의 이야기', category_key: 'food',
+  custom_category: '', tags: [], usage_role: 'DRAFT_SETTING', authority_state: 'DRAFT_SETTING',
+  status: 'active', namespace: 'sanctuary', era: '', continuity: '',
+  summary: '악마의 침공 이후에도 이어지는 사람들의 삶',
+  body_json: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: '성역의 사람들은 각 지역의 풍습을 지켰다.' }] }] },
+  properties_json: {}, locked_facts: [], open_questions: [], forbidden_changes: [],
+  attachment_refs: [], created_at: '', updated_at: ''
+};
+
+function savedPage(candidate, index) {
+  return {
+    ...source,
+    id: `saved-${index}`,
+    title: candidate.title,
+    summary: candidate.summary,
+    body_json: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: candidate.content_text }] }] },
+    tags: candidate.tags,
+    usage_role: 'CANDIDATE',
+    authority_state: 'CANDIDATE'
+  };
+}
+
+async function mockEditor(page) {
+  const captured = { seeds: null, generate: null, accept: null };
+  await page.route('**/api/v1/**', async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const path = url.pathname.replace('/api/v1', '');
+    let body = [];
+    if (path === '/projects') body = [project];
+    else if (path === '/presets/direction-cards') body = [];
+    else if (path === '/concept-pages' && request.method() === 'GET') body = [source];
+    else if (path === '/direction-cards') body = [];
+    else if (path === '/index/stats') body = { total: 0 };
+    else if (path === '/categories') body = [category];
+    else if (path === '/writing-recipes') body = [];
+    else if (path === '/voice-profiles') body = [];
+    else if (path.endsWith('/relations')) body = [];
+    else if (path === '/concept-batches/seeds') {
+      captured.seeds = request.postDataJSON();
+      body = {
+        run_id: 'seed-run-1', source_page_id: source.id, category_key: category.key,
+        model_key: captured.seeds.model_key,
+        seeds: Array.from({ length: 6 }, (_, index) => ({
+          seed_id: `seed-${index + 1}`,
+          title: `성역의 음식 ${index + 1}`,
+          summary: `지역과 계층을 드러내는 음식 글감 ${index + 1}`
+        }))
+      };
+    } else if (path === '/concept-batches/generate') {
+      captured.generate = request.postDataJSON();
+      body = {
+        seed_run_id: 'seed-run-1', requested_count: captured.generate.selected_seeds.length,
+        candidates: captured.generate.selected_seeds.map((seed, index) => ({
+          run_id: `worker-${index + 1}`, seed_id: seed.seed_id, title: seed.title,
+          summary: seed.summary, content_text: `${seed.title}의 유래다.\n\n성역 사람들은 이 음식을 나눈다.`,
+          tags: ['음식', '성역'], warnings: []
+        })),
+        failures: []
+      };
+    } else if (path === '/concept-batches/accept') {
+      captured.accept = request.postDataJSON();
+      body = captured.accept.candidates.map(savedPage);
+    } else {
+      throw new Error(`Unhandled mock API: ${request.method()} ${path}`);
+    }
+    await route.fulfill({ status: path === '/concept-batches/accept' ? 201 : 200, contentType: 'application/json', body: JSON.stringify(body) });
+  });
+  return captured;
+}
+
+test('world material batch grows selected seeds with matching concurrency and saves only reviewed candidates', async ({ page }) => {
+  const captured = await mockEditor(page);
+  await page.goto('/editor');
+  await page.getByRole('button', { name: '자료 양산' }).click();
+  const dialog = page.getByRole('dialog', { name: '세계관 자료 양산' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText('먼저 글감의 지도를 만듭니다.')).toBeVisible();
+  await dialog.getByLabel('사용할 모델').selectOption('qwen');
+  await dialog.getByLabel('제안받을 씨앗 수').fill('6');
+  await dialog.getByLabel('추가 지시').fill('지역별 재료 차이를 드러내 줘.');
+  await dialog.getByRole('button', { name: '씨앗 제안받기' }).click();
+
+  await expect(dialog.getByRole('heading', { name: '본문으로 키울 씨앗 선택' })).toBeVisible();
+  expect(captured.seeds).toMatchObject({
+    model_key: 'qwen', source_page_id: source.id, category_key: category.key,
+    seed_count: 6, additional_instruction: '지역별 재료 차이를 드러내 줘.'
+  });
+  await dialog.getByRole('button', { name: '성역의 음식 1 선택' }).click();
+  await dialog.getByRole('button', { name: '성역의 음식 2 선택' }).click();
+  await dialog.getByRole('button', { name: '성역의 음식 3 선택' }).click();
+  await dialog.getByLabel('1번 씨앗 간단 내용').fill('사용자가 다듬은 첫 번째 음식 씨앗');
+  await dialog.getByRole('button', { name: '선택한 3개 본문 만들기' }).click();
+
+  await expect(dialog.getByRole('heading', { name: '완성 결과 검토' })).toBeVisible();
+  expect(captured.generate.selected_seeds).toHaveLength(3);
+  expect(captured.generate.selected_seeds[0].summary).toBe('사용자가 다듬은 첫 번째 음식 씨앗');
+  await dialog.getByLabel('1번 생성 결과 제목').fill('핏빛 밀로 구운 순례빵');
+  await dialog.locator('.batch-result-select input').nth(2).uncheck();
+  await dialog.getByRole('button', { name: '선택한 2개 후보 저장' }).click();
+
+  await expect(dialog).toBeHidden();
+  await expect(page.getByText('2개 결과를 검토 후보 자료로 저장했습니다.')).toBeVisible();
+  expect(captured.accept.candidates).toHaveLength(2);
+  expect(captured.accept.candidates[0].title).toBe('핏빛 밀로 구운 순례빵');
+  expect(captured.accept.seed_run_id).toBe('seed-run-1');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('batch dialog obeys the 360px workspace contract', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'one deterministic 360px check');
+  await page.setViewportSize({ width: 360, height: 844 });
+  await mockEditor(page);
+  await page.goto('/editor');
+  await page.getByRole('button', { name: '자료 양산' }).click();
+  const dialog = page.getByRole('dialog', { name: '세계관 자료 양산' });
+  await expect(dialog).toBeVisible();
+  const box = await dialog.boundingBox();
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(360);
+  await expect(dialog.locator('footer')).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});

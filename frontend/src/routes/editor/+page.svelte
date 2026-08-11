@@ -40,6 +40,15 @@
   let categoryDraft = { name: '' };
   let aiSourceOptions = [];
   let linkedSourceIds = [];
+  let batchStep = 'setup';
+  let batchBusy = '';
+  let batchSeedRunId = '';
+  let batchSeeds = [];
+  let batchCandidates = [];
+  let batchFailures = [];
+  let batchForm = {
+    model_key: 'gemma', source_page_id: '', category_key: '', seed_count: 12, additional_instruction: ''
+  };
 
   const starterRecipeSteps = () => [
     { move: 'ORIENT' },
@@ -71,6 +80,7 @@
     return matchesText && (categoryFilter === 'all' || page.category_key === categoryFilter);
   });
   $: allTags = [...new Set(pages.flatMap((page) => page.tags || []))].sort();
+  $: batchSourcePages = pages.filter((page) => page.status !== 'rejected' && page.usage_role !== 'REJECTED');
 
   let pageForm = { title: '', category_key: '' };
   let cardForm = emptyCardForm();
@@ -95,7 +105,8 @@
     'recipe-create': '새 전개 방식',
     'recipe-edit': '전개 방식 수정',
     'voice-create': '새 문체 프로필',
-    'voice-edit': '문체 프로필 수정'
+    'voice-edit': '문체 프로필 수정',
+    'concept-batch': '세계관 자료 양산'
   })[settingsModal] || '';
   $: linkedSourceIds = selectedPage
     ? [...new Set(relations.map((relation) => otherPage(relation)))]
@@ -187,6 +198,93 @@
       await selectPage(page, { reveal: true, edit: true });
       message = '새 자료를 만들었습니다. 본문과 핵심 사실을 채워 보세요.';
     } catch (e) { error = e.message; }
+  }
+
+  function openConceptBatch() {
+    batchStep = 'setup';
+    batchBusy = '';
+    batchSeedRunId = '';
+    batchSeeds = [];
+    batchCandidates = [];
+    batchFailures = [];
+    batchForm = {
+      model_key: 'gemma',
+      source_page_id: batchSourcePages.some((page) => page.id === selectedPage?.id)
+        ? selectedPage.id
+        : batchSourcePages[0]?.id || '',
+      category_key: selectedPage?.category_key || categories[0]?.key || '',
+      seed_count: 12,
+      additional_instruction: ''
+    };
+    settingsModal = 'concept-batch';
+  }
+
+  async function proposeBatchSeeds() {
+    if (!projectId || !batchForm.source_page_id || !batchForm.category_key || batchBusy) return;
+    error = ''; message = ''; batchBusy = '한 명의 기획 에이전트가 글감 씨앗을 만드는 중';
+    try {
+      const result = await api.post('/concept-batches/seeds', {
+        project_id: projectId,
+        source_page_id: batchForm.source_page_id,
+        category_key: batchForm.category_key,
+        model_key: batchForm.model_key,
+        seed_count: Number(batchForm.seed_count),
+        additional_instruction: batchForm.additional_instruction.trim()
+      });
+      batchSeedRunId = result.run_id;
+      batchSeeds = result.seeds.map((seed) => ({ ...seed, selected: false }));
+      batchStep = 'seeds';
+    } catch (e) { error = e.message; }
+    finally { batchBusy = ''; }
+  }
+
+  function toggleBatchSeed(seedId) {
+    const selectedCount = batchSeeds.filter((seed) => seed.selected).length;
+    batchSeeds = batchSeeds.map((seed) => seed.seed_id === seedId
+      ? { ...seed, selected: seed.selected ? false : selectedCount < 10 }
+      : seed);
+  }
+
+  async function generateBatchCandidates() {
+    const selectedSeeds = batchSeeds.filter((seed) => seed.selected);
+    if (!selectedSeeds.length || selectedSeeds.length > 10 || batchBusy) return;
+    error = ''; message = '';
+    batchBusy = `${selectedSeeds.length}명의 집필 에이전트가 동시에 본문을 쓰는 중`;
+    try {
+      const result = await api.post('/concept-batches/generate', {
+        seed_run_id: batchSeedRunId,
+        selected_seeds: selectedSeeds.map(({ seed_id, title, summary }) => ({ seed_id, title, summary }))
+      });
+      batchCandidates = result.candidates.map((candidate) => ({
+        ...candidate, selected: true, tagsText: (candidate.tags || []).join(', ')
+      }));
+      batchFailures = result.failures || [];
+      batchStep = 'results';
+    } catch (e) { error = e.message; }
+    finally { batchBusy = ''; }
+  }
+
+  async function acceptBatchCandidates() {
+    const chosen = batchCandidates.filter((candidate) => candidate.selected);
+    if (!chosen.length || batchBusy) return;
+    error = ''; message = ''; batchBusy = '선택한 결과를 후보 자료로 저장하는 중';
+    try {
+      const saved = await api.post('/concept-batches/accept', {
+        seed_run_id: batchSeedRunId,
+        candidates: chosen.map((candidate) => ({
+          run_id: candidate.run_id,
+          title: candidate.title.trim(),
+          summary: candidate.summary.trim(),
+          content_text: candidate.content_text.trim(),
+          tags: candidate.tagsText.split(',').map((tag) => tag.trim()).filter(Boolean)
+        }))
+      });
+      pages = [...saved, ...pages];
+      closeSettingsModal(true);
+      if (saved[0]) await selectPage(saved[0], { reveal: true });
+      message = `${saved.length}개 결과를 검토 후보 자료로 저장했습니다.`;
+    } catch (e) { error = e.message; }
+    finally { batchBusy = ''; }
   }
 
   async function savePage() {
@@ -796,13 +894,15 @@
     settingsModal = 'recipe-create';
   }
 
-  function closeSettingsModal() {
+  function closeSettingsModal(force = false) {
+    if (settingsModal === 'concept-batch' && batchBusy && force !== true) return;
     settingsModal = '';
     editingCategoryId = '';
     editingCardId = '';
     editingRecipeId = '';
     editingVoiceId = '';
     voiceExamples = [];
+    batchBusy = '';
   }
 
   function handleModalKeydown(event) {
@@ -878,7 +978,7 @@
     {#if activeTab === 'pages'}
       <div class="archive-layout">
         <aside class="card archive-list stack">
-          <div class="row spread"><div><h2>자료</h2><p class="small">원고가 참고할 세계의 사실과 아이디어</p></div><button class="primary compact" on:click={() => newPageOpen = !newPageOpen}>+ 새 자료</button></div>
+          <div class="row spread archive-list-heading"><div><h2>자료</h2><p class="small">원고가 참고할 세계의 사실과 아이디어</p></div><div class="archive-list-actions"><button class="secondary compact" on:click={openConceptBatch}>자료 양산</button><button class="primary compact" on:click={() => newPageOpen = !newPageOpen}>+ 새 자료</button></div></div>
           {#if newPageOpen}
             <div class="inline-create stack">
               <label>자료 이름 <input bind:value={pageForm.title} placeholder="예: 황혼 시장" /></label>
@@ -1165,13 +1265,70 @@
 
 {#if settingsModal}
   <div class="settings-modal-backdrop" role="presentation" on:mousedown={(event) => event.target === event.currentTarget && closeSettingsModal()}>
-    <div class:wide={settingsModal.startsWith('direction') || settingsModal.startsWith('recipe') || settingsModal.startsWith('voice')} class="settings-modal" role="dialog" aria-modal="true" aria-label={settingsModalTitle}>
+    <div class:wide={settingsModal.startsWith('direction') || settingsModal.startsWith('recipe') || settingsModal.startsWith('voice') || settingsModal === 'concept-batch'} class="settings-modal" role="dialog" aria-modal="true" aria-label={settingsModalTitle}>
       <header>
         <div><span>세계관 자료 설정</span><h2>{settingsModalTitle}</h2></div>
-        <button type="button" class="settings-modal-close" aria-label={`${settingsModalTitle} 닫기`} on:click={closeSettingsModal}>×</button>
+        <button type="button" class="settings-modal-close" aria-label={`${settingsModalTitle} 닫기`} disabled={settingsModal === 'concept-batch' && !!batchBusy} on:click={closeSettingsModal}>×</button>
       </header>
 
-      {#if settingsModal === 'category-create'}
+      {#if settingsModal === 'concept-batch'}
+        <div class="settings-modal-form concept-batch-form">
+          <div class="settings-modal-body stack concept-batch-body">
+            {#if batchBusy}<div class="batch-progress" role="status"><span class="batch-progress-mark" aria-hidden="true"></span><div><strong>{batchBusy}</strong><small>창을 닫지 말고 잠시 기다려 주세요.</small></div></div>{/if}
+
+            {#if batchStep === 'setup'}
+              <div class="batch-intro"><strong>먼저 글감의 지도를 만듭니다.</strong><p>기획 에이전트 1명이 참고 자료를 읽고 제목과 간단한 내용만 제안합니다. 아직 본문을 만들거나 자료를 저장하지 않습니다.</p></div>
+              <div class="grid-2 batch-setup-grid">
+                <label>사용할 모델<select bind:value={batchForm.model_key} disabled={!!batchBusy}><option value="gemma">Gemma</option><option value="qwen">Qwen</option></select></label>
+                <label>참고 세계관 자료<select bind:value={batchForm.source_page_id} disabled={!!batchBusy}><option value="">자료 선택</option>{#each batchSourcePages as page}<option value={page.id}>{page.title}</option>{/each}</select></label>
+                <label>만들 자료 종류<select bind:value={batchForm.category_key} disabled={!!batchBusy}><option value="">종류 선택</option>{#each categories as category}<option value={category.key}>{category.name}</option>{/each}</select></label>
+                <label>제안받을 씨앗 수 <input aria-label="제안받을 씨앗 수" type="number" min="6" max="30" bind:value={batchForm.seed_count} disabled={!!batchBusy} /></label>
+              </div>
+              <label>추가 지시 <textarea bind:value={batchForm.additional_instruction} disabled={!!batchBusy} maxlength="4000" placeholder="예: 지역별 재료와 계층 차이를 드러내고, 축제 음식은 제외해 줘."></textarea></label>
+            {:else if batchStep === 'seeds'}
+              <div class="batch-stage-heading"><div><span>2단계 중 1단계 완료</span><h3>본문으로 키울 씨앗 선택</h3><p>제목과 간단한 내용을 고쳐도 됩니다. 최대 10개를 고르면 선택한 수만큼 집필 에이전트가 동시에 시작합니다.</p></div><strong>{batchSeeds.filter((seed) => seed.selected).length}/10 선택</strong></div>
+              <div class="batch-seed-list">
+                {#each batchSeeds as seed, index}
+                  <article class:selected={seed.selected} class="batch-seed-card">
+                    <button type="button" class="batch-check" aria-label={`${seed.title} 선택`} aria-pressed={seed.selected} disabled={!!batchBusy || (!seed.selected && batchSeeds.filter((item) => item.selected).length >= 10)} on:click={() => toggleBatchSeed(seed.seed_id)}>{seed.selected ? '✓' : index + 1}</button>
+                    <div><input aria-label={`${index + 1}번 씨앗 제목`} bind:value={seed.title} disabled={!!batchBusy} /><textarea aria-label={`${index + 1}번 씨앗 간단 내용`} bind:value={seed.summary} disabled={!!batchBusy}></textarea></div>
+                  </article>
+                {/each}
+              </div>
+            {:else}
+              <div class="batch-stage-heading"><div><span>2단계 완료</span><h3>완성 결과 검토</h3><p>선택 저장하기 전에는 세계관 자료에 반영되지 않습니다. 제목·요약·본문을 직접 다듬을 수 있습니다.</p></div><strong>{batchCandidates.filter((candidate) => candidate.selected).length}개 저장 선택</strong></div>
+              {#if batchFailures.length}<div class="batch-failures"><strong>{batchFailures.length}개 작업이 완료되지 않았습니다.</strong>{#each batchFailures as failure}<p>{failure.title}: {failure.message}</p>{/each}</div>{/if}
+              <div class="batch-result-list">
+                {#each batchCandidates as candidate, index}
+                  <article class:selected={candidate.selected} class="batch-result-card">
+                    <label class="batch-result-select"><input type="checkbox" bind:checked={candidate.selected} disabled={!!batchBusy} /> 후보로 저장</label>
+                    <label>제목 <input aria-label={`${index + 1}번 생성 결과 제목`} bind:value={candidate.title} disabled={!!batchBusy} /></label>
+                    <label>한 줄 요약 <textarea class="batch-summary" aria-label={`${index + 1}번 생성 결과 요약`} bind:value={candidate.summary} disabled={!!batchBusy}></textarea></label>
+                    <label>본문 <textarea class="batch-content" aria-label={`${index + 1}번 생성 결과 본문`} bind:value={candidate.content_text} disabled={!!batchBusy}></textarea></label>
+                    <label>태그 <input aria-label={`${index + 1}번 생성 결과 태그`} bind:value={candidate.tagsText} disabled={!!batchBusy} placeholder="쉼표로 구분" /></label>
+                    {#if candidate.warnings?.length}<div class="batch-warnings">{#each candidate.warnings as warning}<p>{warning}</p>{/each}</div>{/if}
+                  </article>
+                {/each}
+                {#if !batchCandidates.length}<div class="empty-state">완료된 결과가 없습니다. 씨앗 단계로 돌아가 다시 시도해 주세요.</div>{/if}
+              </div>
+            {/if}
+          </div>
+          <footer>
+            <small>{batchStep === 'setup' ? '씨앗 제안에는 에이전트 1개만 사용합니다.' : batchStep === 'seeds' ? '선택 개수가 실제 동시성입니다. 최대 10개.' : '저장해도 자동으로 정사가 되지 않고 후보로 남습니다.'}</small>
+            <div>
+              {#if batchStep !== 'setup'}<button type="button" class="ghost" disabled={!!batchBusy} on:click={() => batchStep = batchStep === 'results' ? 'seeds' : 'setup'}>이전 단계</button>{/if}
+              <button type="button" class="ghost" disabled={!!batchBusy} on:click={closeSettingsModal}>취소</button>
+              {#if batchStep === 'setup'}
+                <button type="button" class="primary" disabled={!!batchBusy || !batchForm.source_page_id || !batchForm.category_key || batchForm.seed_count < 6 || batchForm.seed_count > 30} on:click={proposeBatchSeeds}>씨앗 제안받기</button>
+              {:else if batchStep === 'seeds'}
+                <button type="button" class="primary" disabled={!!batchBusy || !batchSeeds.some((seed) => seed.selected)} on:click={generateBatchCandidates}>선택한 {batchSeeds.filter((seed) => seed.selected).length}개 본문 만들기</button>
+              {:else}
+                <button type="button" class="primary" disabled={!!batchBusy || !batchCandidates.some((candidate) => candidate.selected)} on:click={acceptBatchCandidates}>선택한 {batchCandidates.filter((candidate) => candidate.selected).length}개 후보 저장</button>
+              {/if}
+            </div>
+          </footer>
+        </div>
+      {:else if settingsModal === 'category-create'}
         <form class="settings-modal-form category-create" on:submit|preventDefault={createCategory}>
           <div class="settings-modal-body stack">
             <label>이름 <input aria-label="새 자료 종류 이름" bind:value={categoryForm.name} placeholder="예: 세력, 마법 체계, 생물종" /></label>

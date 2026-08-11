@@ -45,5 +45,6 @@
 | 41 | 장문 실제 분량·로어북 스크롤 | PASS | 6,000자 이상 블록별 이어쓰기, 95% 문자 수 gate와 GenerationRun 감사, 짧은 초안의 원래 목표 복구, reader 실제 scrollTop 변화, 출처·provenance 단일 카드 |
 | 42 | 모바일 스크롤·로어북 목차 | PASS | 390px·360px 다섯 route, 세계관 본문 제스처·AI panel min-width/pointer 안전, 압축 command bar, `/lorebook` 목차 → `?entry` 읽기 → 복귀, 네 테마·직접 URL·desktop 2열 회귀 |
 | 43 | 역할별 로컬 모델 연결 | PASS | Writer·Utility·Vision의 Qwen·Gemma 독립 선택과 권장 분담, Embedding 연결 보존, 연결 시험/저장/`.env` 복귀, API key 응답·감사 로그 마스킹, 1600×900·390×844·360×844 UI 회귀 |
+| 44 | 세계관 자료 씨앗·병렬 양산 | PASS | 단일 모델의 6–30개 씨앗 제안, 수정 후 1–10개 선택, 선택 수와 worker 동시성 일치, 미선택 미호출, 부분 실패 보존, 명시 저장 전 DB 불변, 저장 후 CANDIDATE, 중복 저장 차단, desktop/mobile/360px modal 회귀 |
 
 대표 실제 프로젝트 slug는 `black-route-chronicle`이며 로컬 전용 DB에 정식 세계관 자료 9개와 관계·집필 지침을 보관합니다. 기본 전개 방식 프리셋은 공용이고, 사용자가 만든 전개 방식과 참고 분석 승인 결과는 프로젝트에 귀속됩니다. 최신 자동 검증 수치는 루트 `VERIFICATION.md`를 권위 기록으로 사용합니다.

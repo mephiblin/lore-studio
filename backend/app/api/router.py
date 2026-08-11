@@ -48,6 +48,9 @@ from app.schemas import (
     ConceptAiDraftRequest,
     ConceptAiProposalRead,
     ConceptAiRewriteRequest,
+    ConceptBatchAcceptRequest,
+    ConceptBatchGenerateRequest,
+    ConceptBatchGenerateResponse,
     ConceptBoundarySuggestionRead,
     ConceptBoundarySuggestionRequest,
     ConceptPageCreate,
@@ -55,6 +58,8 @@ from app.schemas import (
     ConceptPageUpdate,
     ConceptRelationCreate,
     ConceptRelationRead,
+    ConceptSeedRequest,
+    ConceptSeedResponse,
     DirectionCardCreate,
     DirectionCardRead,
     DirectionCardUpdate,
@@ -98,13 +103,24 @@ from app.schemas import (
     canonicalize_voice_profile_json,
 )
 from app.services.audits import prose_document_hash, run_prose_audits
-from app.services.authority import AUTHORITY_STATES, AuthorityTransitionError, promote_page
+from app.services.authority import (
+    AUTHORITY_STATES,
+    AuthorityTransitionError,
+    promote_page,
+)
 from app.services.concept_ai import (
     ConceptAiError,
     body_hash,
     compile_concept_ai_context,
     draft_concept_body,
     rewrite_concept_selection,
+)
+from app.services.concept_batch import (
+    BatchContext,
+    ConceptBatchError,
+    batch_profile,
+    generate_selected_seeds,
+    propose_seeds,
 )
 from app.services.config_loader import (
     load_direction_card_presets,
@@ -193,9 +209,7 @@ def _json_contains(value: Any, needle: str) -> bool:
 
 
 def _voice_profile_in_use(db: Session, profile: VoiceProfile) -> bool:
-    if db.scalar(
-        select(PlaybookSession.id).where(PlaybookSession.voice_profile_id == profile.id)
-    ):
+    if db.scalar(select(PlaybookSession.id).where(PlaybookSession.voice_profile_id == profile.id)):
         return True
     runs = db.scalars(
         select(GenerationRun).where(GenerationRun.project_id == profile.project_id)
@@ -239,9 +253,7 @@ def _clone_voice_version(
             VoiceProfileExample(
                 voice_profile_id=clone.id,
                 source_concept_page_id=(
-                    example.source_concept_page_id
-                    if target_project_id == profile.project_id
-                    else None
+                    example.source_concept_page_id if target_project_id == profile.project_id else None
                 ),
                 label=example.label,
                 excerpt=example.excerpt,
@@ -266,9 +278,7 @@ def _validate_voice_examples(
     if not unique_ids:
         return []
     examples = list(
-        db.scalars(
-            select(VoiceProfileExample).where(VoiceProfileExample.id.in_(unique_ids))
-        ).all()
+        db.scalars(select(VoiceProfileExample).where(VoiceProfileExample.id.in_(unique_ids))).all()
     )
     by_id = {example.id: example for example in examples}
     if set(by_id) != set(unique_ids):
@@ -343,17 +353,19 @@ def _normalize_reference_recipe(analysis: ReferenceAnalysis) -> dict[str, Any]:
             break
         required.append(fallback)
 
-    return canonicalize_recipe_json({
-        **candidate,
-        "required_moves": required,
-        "optional_moves": [
-            str(move).strip().upper()
-            for move in candidate.get("optional_moves", [])
-            if str(move).strip().upper() in allowed and str(move).strip().upper() not in required
-        ],
-        "planner_rules": [str(rule) for rule in candidate.get("planner_rules", [])],
-        "audit_rules": [str(rule) for rule in candidate.get("audit_rules", [])],
-    })
+    return canonicalize_recipe_json(
+        {
+            **candidate,
+            "required_moves": required,
+            "optional_moves": [
+                str(move).strip().upper()
+                for move in candidate.get("optional_moves", [])
+                if str(move).strip().upper() in allowed and str(move).strip().upper() not in required
+            ],
+            "planner_rules": [str(rule) for rule in candidate.get("planner_rules", [])],
+            "audit_rules": [str(rule) for rule in candidate.get("audit_rules", [])],
+        }
+    )
 
 
 def _draft_document_or_404(db: Session, document_id: str) -> LoreDocument:
@@ -399,7 +411,11 @@ def _sync_draft_document(document: LoreDocument, blocks: list[LoreBlock]) -> Non
 
 def _require_project(entity: Any, project_id: str, label: str) -> None:
     if entity.project_id != project_id:
-        raise _error(404, "PROJECT_SCOPE_MISMATCH", f"이 프로젝트에서 {label}을(를) 찾을 수 없습니다.")
+        raise _error(
+            404,
+            "PROJECT_SCOPE_MISMATCH",
+            f"이 프로젝트에서 {label}을(를) 찾을 수 없습니다.",
+        )
 
 
 def _resolve_category_key(
@@ -528,10 +544,12 @@ def delete_project(project_id: str, db: Session = Depends(get_db)) -> None:
     db.commit()
 
 
-@router.post("/categories", response_model=CategoryDefinitionRead, status_code=status.HTTP_201_CREATED)
-def create_category(
-    payload: CategoryDefinitionCreate, db: Session = Depends(get_db)
-) -> CategoryDefinition:
+@router.post(
+    "/categories",
+    response_model=CategoryDefinitionRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_category(payload: CategoryDefinitionCreate, db: Session = Depends(get_db)) -> CategoryDefinition:
     _get_or_404(db, Project, payload.project_id, "프로젝트")
     data = payload.model_dump()
     data["key"] = data.get("key") or f"custom-{new_id().replace('-', '')[:12]}"
@@ -547,9 +565,7 @@ def create_category(
 
 
 @router.get("/categories", response_model=list[CategoryDefinitionRead])
-def list_categories(
-    project_id: str = Query(...), db: Session = Depends(get_db)
-) -> list[CategoryDefinition]:
+def list_categories(project_id: str = Query(...), db: Session = Depends(get_db)) -> list[CategoryDefinition]:
     _get_or_404(db, Project, project_id, "프로젝트")
     stmt = select(CategoryDefinition).where(CategoryDefinition.project_id == project_id)
     return list(db.scalars(stmt.order_by(CategoryDefinition.name)).all())
@@ -570,12 +586,15 @@ def update_category(
 @router.delete("/categories/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_category(category_id: str, db: Session = Depends(get_db)) -> None:
     category = _get_or_404(db, CategoryDefinition, category_id, "카테고리")
-    page_count = db.scalar(
-        select(func.count(ConceptPage.id)).where(
-            ConceptPage.project_id == category.project_id,
-            ConceptPage.category_key == category.key,
+    page_count = (
+        db.scalar(
+            select(func.count(ConceptPage.id)).where(
+                ConceptPage.project_id == category.project_id,
+                ConceptPage.category_key == category.key,
+            )
         )
-    ) or 0
+        or 0
+    )
     if page_count:
         raise _error(
             409,
@@ -596,7 +615,11 @@ def delete_category(category_id: str, db: Session = Depends(get_db)) -> None:
     db.commit()
 
 
-@router.post("/concept-pages", response_model=ConceptPageRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/concept-pages",
+    response_model=ConceptPageRead,
+    status_code=status.HTTP_201_CREATED,
+)
 def create_concept_page(payload: ConceptPageCreate, db: Session = Depends(get_db)) -> ConceptPage:
     _get_or_404(db, Project, payload.project_id, "프로젝트")
     data = payload.model_dump()
@@ -640,23 +663,410 @@ def list_concept_pages(
     if related_to:
         relation_stmt = select(ConceptRelation).where(
             ConceptRelation.project_id == project_id,
-            (ConceptRelation.source_page_id == related_to)
-            | (ConceptRelation.target_page_id == related_to),
+            (ConceptRelation.source_page_id == related_to) | (ConceptRelation.target_page_id == related_to),
         )
         if relation_type:
             relation_stmt = relation_stmt.where(ConceptRelation.relation_type == relation_type)
         related_ids: set[str] = set()
         for relation in db.scalars(relation_stmt):
             related_ids.add(
-                relation.target_page_id
-                if relation.source_page_id == related_to
-                else relation.source_page_id
+                relation.target_page_id if relation.source_page_id == related_to else relation.source_page_id
             )
         stmt = stmt.where(ConceptPage.id.in_(related_ids or {"__no_related_page__"}))
     stmt = stmt.order_by(ConceptPage.updated_at.desc())
     pages = list(db.scalars(stmt).all())
     if tag:
         pages = [page for page in pages if tag in (page.tags or [])]
+    return pages
+
+
+def _batch_context(
+    db: Session,
+    *,
+    source: ConceptPage,
+    category: CategoryDefinition,
+    additional_instruction: str,
+) -> BatchContext:
+    source_body = tiptap_to_text(source.body_json).strip()
+    if not source_body:
+        raise _error(
+            422,
+            "CONCEPT_BATCH_SOURCE_EMPTY",
+            "참고할 세계관 자료의 본문을 먼저 작성해 주세요.",
+        )
+    if len(source_body) > 50_000:
+        raise _error(
+            422,
+            "CONCEPT_BATCH_SOURCE_TOO_LONG",
+            "자료 양산에 사용할 참고 본문은 5만 자 이하여야 합니다.",
+        )
+    existing_titles = list(
+        db.scalars(
+            select(ConceptPage.title)
+            .where(
+                ConceptPage.project_id == source.project_id,
+                ConceptPage.category_key == category.key,
+                ConceptPage.id != source.id,
+            )
+            .order_by(ConceptPage.updated_at.desc())
+            .limit(80)
+        ).all()
+    )
+    return BatchContext(
+        project_id=source.project_id,
+        source_page_id=source.id,
+        source_title=source.title,
+        source_summary=source.summary,
+        source_body=source_body,
+        source_boundaries={
+            "locked_facts": list(source.locked_facts or []),
+            "open_questions": list(source.open_questions or []),
+            "forbidden_changes": list(source.forbidden_changes or []),
+        },
+        namespace=source.namespace,
+        era=source.era,
+        continuity=source.continuity,
+        category_key=category.key,
+        category_name=category.name,
+        category_description=category.description,
+        category_template=category.template_json or {},
+        existing_titles=existing_titles,
+        additional_instruction=additional_instruction.strip(),
+    )
+
+
+def _plain_text_to_tiptap(text: str) -> dict[str, Any]:
+    paragraphs = [part.strip() for part in text.replace("\r\n", "\n").split("\n\n") if part.strip()]
+    return {
+        "type": "doc",
+        "content": [
+            {
+                "type": "paragraph",
+                "content": [{"type": "text", "text": paragraph}],
+            }
+            for paragraph in paragraphs
+        ],
+    }
+
+
+@router.post("/concept-batches/seeds", response_model=ConceptSeedResponse)
+async def create_concept_batch_seeds(
+    payload: ConceptSeedRequest,
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    _get_or_404(db, Project, payload.project_id, "프로젝트")
+    source = _get_or_404(db, ConceptPage, payload.source_page_id, "참고 세계관 자료")
+    _require_project(source, payload.project_id, "참고 세계관 자료")
+    if source.status == "rejected" or source.usage_role == "REJECTED":
+        raise _error(
+            422,
+            "CONCEPT_BATCH_SOURCE_REJECTED",
+            "폐기된 세계관 자료는 양산의 참고 자료로 사용할 수 없습니다.",
+        )
+    category = db.scalar(
+        select(CategoryDefinition).where(
+            CategoryDefinition.project_id == payload.project_id,
+            CategoryDefinition.key == payload.category_key,
+        )
+    )
+    if category is None:
+        raise _error(
+            404,
+            "CONCEPT_BATCH_CATEGORY_NOT_FOUND",
+            "선택한 자료 종류를 찾을 수 없습니다.",
+        )
+    context = _batch_context(
+        db,
+        source=source,
+        category=category,
+        additional_instruction=payload.additional_instruction,
+    )
+    profile = batch_profile(harness.gateway, payload.model_key)
+    try:
+        seeds, result = await propose_seeds(
+            harness.gateway,
+            profile=profile,
+            context=context,
+            seed_count=payload.seed_count,
+        )
+    except ConceptBatchError as exc:
+        raise _error(exc.status_code, exc.code, str(exc)) from exc
+    except ModelGatewayError as exc:
+        raise _error(502, exc.code, str(exc)) from exc
+
+    run = GenerationRun(
+        project_id=payload.project_id,
+        task="concept_batch_seed_planning",
+        model_role=profile.role,
+        model=result.model,
+        endpoint=result.endpoint,
+        status="completed",
+        prompt_components={"concept_batch": "seed_planning_v1"},
+        selected_concept_ids=[source.id],
+        params_json=result.params,
+        usage_json=result.usage,
+        input_hash=body_hash(source.body_json),
+        input_json={
+            "model_key": payload.model_key,
+            "seed_count": payload.seed_count,
+            "context": context.to_json(),
+        },
+        output_text=result.content,
+    )
+    db.add(run)
+    db.flush()
+    response = {
+        "run_id": run.id,
+        "source_page_id": source.id,
+        "category_key": category.key,
+        "model_key": payload.model_key,
+        "seeds": seeds,
+    }
+    db.commit()
+    return response
+
+
+@router.post("/concept-batches/generate", response_model=ConceptBatchGenerateResponse)
+async def generate_concept_batch(
+    payload: ConceptBatchGenerateRequest,
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    seed_run = _get_or_404(db, GenerationRun, payload.seed_run_id, "씨앗 생성 기록")
+    if seed_run.task != "concept_batch_seed_planning" or seed_run.status != "completed":
+        raise _error(
+            409,
+            "CONCEPT_SEED_RUN_INVALID",
+            "완료된 자료 씨앗 기록만 사용할 수 있습니다.",
+        )
+    seed_count = int(seed_run.input_json.get("seed_count", 0))
+    valid_seed_ids = {f"seed-{index}" for index in range(1, seed_count + 1)}
+    selected_seeds = [item.model_dump() for item in payload.selected_seeds]
+    if any(seed["seed_id"] not in valid_seed_ids for seed in selected_seeds):
+        raise _error(
+            422,
+            "CONCEPT_SEED_NOT_IN_RUN",
+            "이 제안에 속하지 않은 씨앗이 포함되어 있습니다.",
+        )
+    try:
+        context = BatchContext.from_json(seed_run.input_json.get("context", {}))
+    except ConceptBatchError as exc:
+        raise _error(exc.status_code, exc.code, str(exc)) from exc
+    source = _get_or_404(db, ConceptPage, context.source_page_id, "참고 세계관 자료")
+    _require_project(source, seed_run.project_id, "참고 세계관 자료")
+    if source.status == "rejected" or source.usage_role == "REJECTED":
+        raise _error(409, "CONCEPT_BATCH_SOURCE_REJECTED", "참고 세계관 자료가 폐기되었습니다.")
+    category_exists = db.scalar(
+        select(CategoryDefinition.id).where(
+            CategoryDefinition.project_id == seed_run.project_id,
+            CategoryDefinition.key == context.category_key,
+        )
+    )
+    if category_exists is None:
+        raise _error(409, "CONCEPT_BATCH_CATEGORY_REMOVED", "선택했던 자료 종류가 삭제되었습니다.")
+    model_key = seed_run.input_json.get("model_key")
+    if model_key not in {"qwen", "gemma"}:
+        raise _error(
+            409,
+            "CONCEPT_SEED_RUN_INVALID",
+            "씨앗 생성 기록의 모델 정보가 올바르지 않습니다.",
+        )
+    profile = batch_profile(harness.gateway, model_key)
+    results = await generate_selected_seeds(
+        harness.gateway,
+        profile=profile,
+        context=context,
+        seeds=selected_seeds,
+    )
+
+    candidates: list[dict[str, Any]] = []
+    failures: list[dict[str, Any]] = []
+    for seed, (candidate, result, error) in zip(selected_seeds, results, strict=True):
+        if error is not None or candidate is None or result is None:
+            code = getattr(error, "code", "CONCEPT_BATCH_WORKER_FAILED")
+            message = str(error or "본문 생성 결과가 비어 있습니다.")
+            run = GenerationRun(
+                project_id=seed_run.project_id,
+                task="concept_batch_worker",
+                model_role=profile.role,
+                model=profile.model,
+                endpoint=profile.base_url,
+                status="failed",
+                prompt_components={"concept_batch": "candidate_writer_v1"},
+                selected_concept_ids=[context.source_page_id],
+                input_hash=seed_run.input_hash,
+                input_json={
+                    "seed_run_id": seed_run.id,
+                    "source_page_id": context.source_page_id,
+                    "category_key": context.category_key,
+                    "model_key": model_key,
+                    "seed": seed,
+                },
+                error_json={"code": code, "message": message},
+            )
+            db.add(run)
+            db.flush()
+            failures.append(
+                {
+                    "seed_id": seed["seed_id"],
+                    "title": seed["title"],
+                    "code": code,
+                    "message": message,
+                }
+            )
+            continue
+        run = GenerationRun(
+            project_id=seed_run.project_id,
+            task="concept_batch_worker",
+            model_role=profile.role,
+            model=result.model,
+            endpoint=result.endpoint,
+            status="completed",
+            prompt_components={"concept_batch": "candidate_writer_v1"},
+            selected_concept_ids=[context.source_page_id],
+            params_json=result.params,
+            usage_json=result.usage,
+            input_hash=seed_run.input_hash,
+            input_json={
+                "seed_run_id": seed_run.id,
+                "source_page_id": context.source_page_id,
+                "category_key": context.category_key,
+                "model_key": model_key,
+                "seed": seed,
+            },
+            output_text=result.content,
+        )
+        db.add(run)
+        db.flush()
+        candidates.append({"run_id": run.id, **candidate})
+    db.commit()
+    return {
+        "seed_run_id": seed_run.id,
+        "requested_count": len(selected_seeds),
+        "candidates": candidates,
+        "failures": failures,
+    }
+
+
+@router.post(
+    "/concept-batches/accept",
+    response_model=list[ConceptPageRead],
+    status_code=status.HTTP_201_CREATED,
+)
+def accept_concept_batch(
+    payload: ConceptBatchAcceptRequest,
+    db: Session = Depends(get_db),
+) -> list[ConceptPage]:
+    seed_run = _get_or_404(db, GenerationRun, payload.seed_run_id, "씨앗 생성 기록")
+    if seed_run.task != "concept_batch_seed_planning" or seed_run.status != "completed":
+        raise _error(
+            409,
+            "CONCEPT_SEED_RUN_INVALID",
+            "완료된 자료 씨앗 기록만 사용할 수 있습니다.",
+        )
+    try:
+        context = BatchContext.from_json(seed_run.input_json.get("context", {}))
+    except ConceptBatchError as exc:
+        raise _error(exc.status_code, exc.code, str(exc)) from exc
+    source = _get_or_404(db, ConceptPage, context.source_page_id, "참고 세계관 자료")
+    _require_project(source, seed_run.project_id, "참고 세계관 자료")
+    if source.status == "rejected" or source.usage_role == "REJECTED":
+        raise _error(409, "CONCEPT_BATCH_SOURCE_REJECTED", "참고 세계관 자료가 폐기되었습니다.")
+    category = db.scalar(
+        select(CategoryDefinition).where(
+            CategoryDefinition.project_id == seed_run.project_id,
+            CategoryDefinition.key == context.category_key,
+        )
+    )
+    if category is None:
+        raise _error(
+            409,
+            "CONCEPT_BATCH_CATEGORY_REMOVED",
+            "선택했던 자료 종류가 삭제되었습니다.",
+        )
+
+    run_ids = [item.run_id for item in payload.candidates]
+    worker_runs = list(db.scalars(select(GenerationRun).where(GenerationRun.id.in_(run_ids))).all())
+    runs_by_id = {run.id: run for run in worker_runs}
+    invalid = [
+        run_id
+        for run_id in run_ids
+        if run_id not in runs_by_id
+        or runs_by_id[run_id].project_id != seed_run.project_id
+        or runs_by_id[run_id].task != "concept_batch_worker"
+        or runs_by_id[run_id].status != "completed"
+        or runs_by_id[run_id].input_json.get("seed_run_id") != seed_run.id
+    ]
+    if invalid:
+        raise _error(
+            422,
+            "CONCEPT_BATCH_RESULT_INVALID",
+            "저장할 수 없는 생성 결과가 포함되어 있습니다.",
+        )
+
+    existing_pages = list(
+        db.scalars(select(ConceptPage).where(ConceptPage.project_id == seed_run.project_id)).all()
+    )
+    accepted_run_ids = {
+        str((page.properties_json or {}).get("batch_generation", {}).get("run_id", ""))
+        for page in existing_pages
+    }
+    if accepted_run_ids.intersection(run_ids):
+        raise _error(
+            409,
+            "CONCEPT_BATCH_ALREADY_ACCEPTED",
+            "이미 저장한 생성 결과가 포함되어 있습니다.",
+        )
+
+    pages: list[ConceptPage] = []
+    for item in payload.candidates:
+        worker = runs_by_id[item.run_id]
+        page = ConceptPage(
+            project_id=seed_run.project_id,
+            title=item.title.strip(),
+            category_key=context.category_key,
+            tags=list(dict.fromkeys(tag.strip() for tag in item.tags if tag.strip()))[:12],
+            usage_role="CANDIDATE",
+            authority_state="CANDIDATE",
+            status="active",
+            namespace=context.namespace,
+            era=context.era,
+            continuity=context.continuity,
+            summary=item.summary.strip(),
+            body_json=_plain_text_to_tiptap(item.content_text),
+            properties_json={
+                "batch_generation": {
+                    "run_id": worker.id,
+                    "seed_run_id": seed_run.id,
+                    "seed_id": worker.input_json.get("seed", {}).get("seed_id", ""),
+                    "source_page_id": context.source_page_id,
+                    "model_key": seed_run.input_json.get("model_key", ""),
+                }
+            },
+        )
+        db.add(page)
+        db.flush()
+        add_concept_revision(db, page, reason="batch_candidate_accepted", author_type="ai")
+        db.add(IndexJob(project_id=page.project_id, concept_page_id=page.id, action="REINDEX"))
+        pages.append(page)
+    batch_id = new_id()
+    db.add(
+        AuditLog(
+            project_id=seed_run.project_id,
+            action="CONCEPT_BATCH_ACCEPTED",
+            entity_type="ConceptPageBatch",
+            entity_id=batch_id,
+            after_json={
+                "page_ids": [page.id for page in pages],
+                "source_page_id": context.source_page_id,
+                "category_key": context.category_key,
+                "seed_run_id": seed_run.id,
+            },
+            reason="사용자가 검토 후 선택한 AI 생성 후보 저장",
+        )
+    )
+    db.commit()
+    for page in pages:
+        db.refresh(page)
     return pages
 
 
@@ -680,7 +1090,11 @@ async def suggest_concept_writing_boundaries(
     if not body:
         raise _error(422, "CONCEPT_BODY_REQUIRED", "먼저 자료 본문을 작성해 주세요.")
     if len(body) > 50_000:
-        raise _error(422, "CONCEPT_BODY_TOO_LONG", "AI 제안에 사용할 본문은 5만 자 이하여야 합니다.")
+        raise _error(
+            422,
+            "CONCEPT_BODY_TOO_LONG",
+            "AI 제안에 사용할 본문은 5만 자 이하여야 합니다.",
+        )
     existing_boundaries = {
         "locked_facts": list(page.locked_facts or [])
         if payload.locked_facts is None
@@ -756,7 +1170,8 @@ async def rewrite_concept_page_selection(
             raise ConceptAiError("CONCEPT_BODY_REQUIRED", "먼저 수정할 본문을 작성해 주세요.")
         if " ".join(payload.selection_text.split()) not in " ".join(body.split()):
             raise ConceptAiError(
-                "SELECTION_NOT_IN_BODY", "선택한 문장이 현재 본문과 일치하지 않습니다. 다시 선택해 주세요."
+                "SELECTION_NOT_IN_BODY",
+                "선택한 문장이 현재 본문과 일치하지 않습니다. 다시 선택해 주세요.",
             )
         proposed_text, model_warnings, result = await rewrite_concept_selection(
             harness.gateway,
@@ -943,7 +1358,11 @@ def promote_concept_page(
         raise _error(409, "INVALID_AUTHORITY_TRANSITION", str(exc)) from exc
 
 
-@router.post("/concept-relations", response_model=ConceptRelationRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/concept-relations",
+    response_model=ConceptRelationRead,
+    status_code=status.HTTP_201_CREATED,
+)
 def create_relation(payload: ConceptRelationCreate, db: Session = Depends(get_db)) -> ConceptRelation:
     source = _get_or_404(db, ConceptPage, payload.source_page_id, "출발 페이지")
     target = _get_or_404(db, ConceptPage, payload.target_page_id, "대상 페이지")
@@ -962,10 +1381,7 @@ def list_relations(page_id: str, db: Session = Depends(get_db)) -> list[ConceptR
     return list(
         db.scalars(
             select(ConceptRelation)
-            .where(
-                (ConceptRelation.source_page_id == page_id)
-                | (ConceptRelation.target_page_id == page_id)
-            )
+            .where((ConceptRelation.source_page_id == page_id) | (ConceptRelation.target_page_id == page_id))
             .order_by(ConceptRelation.created_at)
         ).all()
     )
@@ -984,11 +1400,13 @@ async def analyze_concept_image(
 ) -> dict[str, Any]:
     page = _get_or_404(db, ConceptPage, page_id, "컨셉 페이지")
     if not payload.image_data_url.startswith("data:image/"):
-        raise _error(422, "IMAGE_DATA_URL_REQUIRED", "브라우저에서 읽은 image data URL이 필요합니다.")
-    try:
-        suggestion, result = await analyze_image(
-            harness.gateway, payload.image_data_url, payload.instruction
+        raise _error(
+            422,
+            "IMAGE_DATA_URL_REQUIRED",
+            "브라우저에서 읽은 image data URL이 필요합니다.",
         )
+    try:
+        suggestion, result = await analyze_image(harness.gateway, payload.image_data_url, payload.instruction)
     except (ModelGatewayError, ValueError) as exc:
         raise _error(502, getattr(exc, "code", "VISION_ANALYSIS_FAILED"), str(exc)) from exc
     db.add(
@@ -1008,7 +1426,11 @@ async def analyze_concept_image(
     return {"concept_page_id": page.id, "suggestion": suggestion, "persisted": False}
 
 
-@router.post("/direction-cards", response_model=DirectionCardRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/direction-cards",
+    response_model=DirectionCardRead,
+    status_code=status.HTTP_201_CREATED,
+)
 def create_direction_card(payload: DirectionCardCreate, db: Session = Depends(get_db)) -> DirectionCard:
     _get_or_404(db, Project, payload.project_id, "프로젝트")
     card = DirectionCard(**payload.model_dump())
@@ -1074,14 +1496,10 @@ async def suggest_direction_structure(card_id: str, db: Session = Depends(get_db
 
 
 @router.get("/writing-recipes", response_model=list[WritingRecipeRead])
-def list_writing_recipes(
-    project_id: str | None = None, db: Session = Depends(get_db)
-) -> list[WritingRecipe]:
+def list_writing_recipes(project_id: str | None = None, db: Session = Depends(get_db)) -> list[WritingRecipe]:
     stmt = select(WritingRecipe).where(WritingRecipe.approved.is_(True))
     if project_id:
-        stmt = stmt.where(
-            (WritingRecipe.project_id == project_id) | (WritingRecipe.project_id.is_(None))
-        )
+        stmt = stmt.where((WritingRecipe.project_id == project_id) | (WritingRecipe.project_id.is_(None)))
     else:
         # The playbook's progression choices are global presets. Project recipes
         # created by reference analysis must never leak into another project.
@@ -1093,10 +1511,12 @@ def list_writing_recipes(
     return sorted(latest.values(), key=lambda recipe: (recipe.name, recipe.version), reverse=False)
 
 
-@router.post("/writing-recipes", response_model=WritingRecipeRead, status_code=status.HTTP_201_CREATED)
-def create_writing_recipe(
-    payload: WritingRecipeCreate, db: Session = Depends(get_db)
-) -> WritingRecipe:
+@router.post(
+    "/writing-recipes",
+    response_model=WritingRecipeRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_writing_recipe(payload: WritingRecipeCreate, db: Session = Depends(get_db)) -> WritingRecipe:
     _get_or_404(db, Project, payload.project_id, "프로젝트")
     data = payload.model_dump()
     data["key"] = data.get("key") or f"custom-{new_id().replace('-', '')[:12]}"
@@ -1126,9 +1546,7 @@ def update_writing_recipe(
     if recipe.is_builtin:
         raise _error(409, "BUILTIN_RECIPE_IMMUTABLE", "기본 레시피는 수정할 수 없습니다.")
     changes = payload.model_dump(exclude_unset=True)
-    in_use = db.scalar(
-        select(PlaybookSession.id).where(PlaybookSession.writing_recipe_id == recipe.id)
-    )
+    in_use = db.scalar(select(PlaybookSession.id).where(PlaybookSession.writing_recipe_id == recipe.id))
     if in_use:
         parts = recipe.version.split(".")
         try:
@@ -1201,9 +1619,7 @@ def list_voice_profiles(
     stmt = select(VoiceProfile)
     if project_id:
         _get_or_404(db, Project, project_id, "프로젝트")
-        stmt = stmt.where(
-            (VoiceProfile.project_id == project_id) | (VoiceProfile.project_id.is_(None))
-        )
+        stmt = stmt.where((VoiceProfile.project_id == project_id) | (VoiceProfile.project_id.is_(None)))
     else:
         stmt = stmt.where(VoiceProfile.project_id.is_(None))
     if profile_status:
@@ -1231,7 +1647,11 @@ def get_voice_profile(
     return profile
 
 
-@router.post("/voice-profiles", response_model=VoiceProfileRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/voice-profiles",
+    response_model=VoiceProfileRead,
+    status_code=status.HTTP_201_CREATED,
+)
 def create_voice_profile(
     payload: VoiceProfileCreate,
     db: Session = Depends(get_db),
@@ -1288,7 +1708,11 @@ def update_voice_profile(
                 entity_type="VoiceProfile",
                 entity_id=profile.id,
                 before_json=before,
-                after_json={"id": profile.id, "version": profile.version, "status": profile.status},
+                after_json={
+                    "id": profile.id,
+                    "version": profile.version,
+                    "status": profile.status,
+                },
                 reason="사용자 문체 프로필 편집",
             )
         )
@@ -1305,7 +1729,11 @@ def create_voice_profile_version(
 ) -> VoiceProfile:
     profile = _get_or_404(db, VoiceProfile, profile_id, "문체 프로필")
     if profile.is_builtin:
-        raise _error(409, "BUILTIN_VOICE_IMMUTABLE", "기본 문체 프로필은 버전을 만들 수 없습니다.")
+        raise _error(
+            409,
+            "BUILTIN_VOICE_IMMUTABLE",
+            "기본 문체 프로필은 버전을 만들 수 없습니다.",
+        )
     clone = _clone_voice_version(db, profile, changes=payload.model_dump(exclude_unset=True))
     if clone.project_id:
         db.add(
@@ -1315,7 +1743,11 @@ def create_voice_profile_version(
                 entity_type="VoiceProfile",
                 entity_id=clone.id,
                 before_json={"id": profile.id, "version": profile.version},
-                after_json={"id": clone.id, "version": clone.version, "status": clone.status},
+                after_json={
+                    "id": clone.id,
+                    "version": clone.version,
+                    "status": clone.status,
+                },
                 reason="사용자 새 문체 버전 생성",
             )
         )
@@ -1354,9 +1786,17 @@ def approve_voice_profile(profile_id: str, db: Session = Depends(get_db)) -> Voi
 def deprecate_voice_profile(profile_id: str, db: Session = Depends(get_db)) -> VoiceProfile:
     profile = _get_or_404(db, VoiceProfile, profile_id, "문체 프로필")
     if profile.is_builtin:
-        raise _error(409, "BUILTIN_VOICE_IMMUTABLE", "기본 문체 프로필은 사용 중지할 수 없습니다.")
+        raise _error(
+            409,
+            "BUILTIN_VOICE_IMMUTABLE",
+            "기본 문체 프로필은 사용 중지할 수 없습니다.",
+        )
     if profile.status != "APPROVED":
-        raise _error(409, "VOICE_NOT_APPROVED", "사용 가능한 문체 프로필만 사용 중지할 수 있습니다.")
+        raise _error(
+            409,
+            "VOICE_NOT_APPROVED",
+            "사용 가능한 문체 프로필만 사용 중지할 수 있습니다.",
+        )
     profile.status = "DEPRECATED"
     db.add(profile)
     if profile.project_id:
@@ -1385,9 +1825,7 @@ def duplicate_voice_profile(
     profile = _get_or_404(db, VoiceProfile, profile_id, "문체 프로필")
     if payload.project_id:
         _get_or_404(db, Project, payload.project_id, "프로젝트")
-    target_project_id = (
-        payload.project_id if "project_id" in payload.model_fields_set else profile.project_id
-    )
+    target_project_id = payload.project_id if "project_id" in payload.model_fields_set else profile.project_id
     clone = _clone_voice_version(
         db,
         profile,
@@ -1463,9 +1901,17 @@ def create_voice_profile_example(
     if payload.source_concept_page_id:
         source = _get_or_404(db, ConceptPage, payload.source_concept_page_id, "참고 페이지")
         if profile.project_id is None or source.project_id != profile.project_id:
-            raise _error(422, "VOICE_EXAMPLE_SCOPE_MISMATCH", "프로필 범위와 참고 페이지 프로젝트가 다릅니다.")
+            raise _error(
+                422,
+                "VOICE_EXAMPLE_SCOPE_MISMATCH",
+                "프로필 범위와 참고 페이지 프로젝트가 다릅니다.",
+            )
         if source.usage_role != "DISCOURSE_REFERENCE":
-            raise _error(422, "REFERENCE_ROLE_REQUIRED", "문체 참고 자료만 예시 출처로 연결할 수 있습니다.")
+            raise _error(
+                422,
+                "REFERENCE_ROLE_REQUIRED",
+                "문체 참고 자료만 예시 출처로 연결할 수 있습니다.",
+            )
     data = payload.model_dump()
     excerpt = data.pop("excerpt").strip()
     example = VoiceProfileExample(
@@ -1506,7 +1952,10 @@ def update_voice_profile_example(
     return example
 
 
-@router.post("/voice-profile-examples/{example_id}/toggle", response_model=VoiceProfileExampleRead)
+@router.post(
+    "/voice-profile-examples/{example_id}/toggle",
+    response_model=VoiceProfileExampleRead,
+)
 def toggle_voice_profile_example(
     example_id: str,
     db: Session = Depends(get_db),
@@ -1516,7 +1965,11 @@ def toggle_voice_profile_example(
     if profile.status != "DRAFT" or profile.is_builtin:
         raise _error(409, "VOICE_VERSION_LOCKED", "새 DRAFT 버전에서 예시를 편집해 주세요.")
     if example.rights_basis == "ANALYSIS_ONLY":
-        raise _error(422, "ANALYSIS_ONLY_EXAMPLE", "분석 전용 예시는 생성 입력에 사용할 수 없습니다.")
+        raise _error(
+            422,
+            "ANALYSIS_ONLY_EXAMPLE",
+            "분석 전용 예시는 생성 입력에 사용할 수 없습니다.",
+        )
     example.use_in_generation = not example.use_in_generation
     db.add(example)
     db.commit()
@@ -1534,7 +1987,11 @@ def delete_voice_profile_example(example_id: str, db: Session = Depends(get_db))
     db.commit()
 
 
-@router.post("/playbook-sessions", response_model=PlaybookSessionRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/playbook-sessions",
+    response_model=PlaybookSessionRead,
+    status_code=status.HTTP_201_CREATED,
+)
 def create_playbook_session(payload: PlaybookSessionCreate, db: Session = Depends(get_db)) -> PlaybookSession:
     _get_or_404(db, Project, payload.project_id, "프로젝트")
     recipe = _get_or_404(db, WritingRecipe, payload.writing_recipe_id, "전개 방식")
@@ -1670,28 +2127,40 @@ async def generate_session(session_id: str, db: Session = Depends(get_db)) -> Ge
 
 
 @router.post("/playbook-sessions/{session_id}/generate/stream")
-async def stream_generate_session(
-    session_id: str, db: Session = Depends(get_db)
-) -> StreamingResponse:
+async def stream_generate_session(session_id: str, db: Session = Depends(get_db)) -> StreamingResponse:
     session = _get_or_404(db, PlaybookSession, session_id, "플레이북 세션")
 
     async def events():  # type: ignore[no-untyped-def]
-        yield "event: progress\ndata: " + json.dumps(
-            {"step": "DRAFT_BLOCKS", "message": "Writer가 LoreBlock 원고를 작성하고 있습니다."},
-            ensure_ascii=False,
-        ) + "\n\n"
+        yield (
+            "event: progress\ndata: "
+            + json.dumps(
+                {
+                    "step": "DRAFT_BLOCKS",
+                    "message": "Writer가 LoreBlock 원고를 작성하고 있습니다.",
+                },
+                ensure_ascii=False,
+            )
+            + "\n\n"
+        )
         try:
             document = await harness.generate(db, session)
             db.refresh(session)
             payload = GenerationResult(session=session, document=document, plan=session.plan_json)
-            yield "event: complete\ndata: " + json.dumps(
-                jsonable_encoder(payload), ensure_ascii=False
-            ) + "\n\n"
+            yield (
+                "event: complete\ndata: " + json.dumps(jsonable_encoder(payload), ensure_ascii=False) + "\n\n"
+            )
         except (ModelGatewayError, ValueError) as exc:
-            yield "event: error\ndata: " + json.dumps(
-                {"code": getattr(exc, "code", "GENERATION_FAILED"), "message": str(exc)},
-                ensure_ascii=False,
-            ) + "\n\n"
+            yield (
+                "event: error\ndata: "
+                + json.dumps(
+                    {
+                        "code": getattr(exc, "code", "GENERATION_FAILED"),
+                        "message": str(exc),
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n\n"
+            )
 
     return StreamingResponse(events(), media_type="text/event-stream")
 
@@ -1741,9 +2210,7 @@ def save_draft(
     document = _draft_document_or_404(db, document_id)
     existing = list(
         db.scalars(
-            select(LoreBlock)
-            .where(LoreBlock.document_id == document_id)
-            .order_by(LoreBlock.position)
+            select(LoreBlock).where(LoreBlock.document_id == document_id).order_by(LoreBlock.position)
         ).all()
     )
     by_id = {block.id: block for block in existing}
@@ -1752,7 +2219,11 @@ def save_draft(
         raise _error(422, "DUPLICATE_BLOCK", "같은 문단이 두 번 포함되어 있습니다.")
     unknown_ids = [block_id for block_id in incoming_ids if block_id not in by_id]
     if unknown_ids:
-        raise _error(422, "BLOCK_SCOPE_MISMATCH", "이 초안에 속하지 않은 문단이 포함되어 있습니다.")
+        raise _error(
+            422,
+            "BLOCK_SCOPE_MISMATCH",
+            "이 초안에 속하지 않은 문단이 포함되어 있습니다.",
+        )
 
     omitted = [block for block in existing if block.id not in incoming_ids]
     if any(block.locked for block in omitted):
@@ -1821,9 +2292,7 @@ def list_document_blocks(document_id: str, db: Session = Depends(get_db)) -> lis
     _draft_document_or_404(db, document_id)
     return list(
         db.scalars(
-            select(LoreBlock)
-            .where(LoreBlock.document_id == document_id)
-            .order_by(LoreBlock.position)
+            select(LoreBlock).where(LoreBlock.document_id == document_id).order_by(LoreBlock.position)
         ).all()
     )
 
@@ -1842,9 +2311,7 @@ def update_block(block_id: str, payload: LoreBlockUpdate, db: Session = Depends(
     document = _draft_document_or_404(db, block.document_id)
     blocks = list(
         db.scalars(
-            select(LoreBlock)
-            .where(LoreBlock.document_id == document.id)
-            .order_by(LoreBlock.position)
+            select(LoreBlock).where(LoreBlock.document_id == document.id).order_by(LoreBlock.position)
         ).all()
     )
     _sync_draft_document(document, blocks)
@@ -1856,9 +2323,7 @@ def update_block(block_id: str, payload: LoreBlockUpdate, db: Session = Depends(
 
 
 @router.get("/documents/{document_id}/finalization", response_model=FinalizationRead)
-def get_document_finalization(
-    document_id: str, db: Session = Depends(get_db)
-) -> dict[str, Any]:
+def get_document_finalization(document_id: str, db: Session = Depends(get_db)) -> dict[str, Any]:
     document = _draft_document_or_404(db, document_id)
     try:
         return harness.finalization_summary(db, document)
@@ -2037,9 +2502,7 @@ async def propose_block_rewrite(
     )
     ordered_blocks = list(
         db.scalars(
-            select(LoreBlock)
-            .where(LoreBlock.document_id == document.id)
-            .order_by(LoreBlock.position)
+            select(LoreBlock).where(LoreBlock.document_id == document.id).order_by(LoreBlock.position)
         ).all()
     )
     block_index = next(index for index, item in enumerate(ordered_blocks) if item.id == block.id)
@@ -2049,9 +2512,7 @@ async def propose_block_rewrite(
         "target": block.content_markdown,
         "before": ordered_blocks[block_index - 1].content_markdown if block_index > 0 else "",
         "after": (
-            ordered_blocks[block_index + 1].content_markdown
-            if block_index + 1 < len(ordered_blocks)
-            else ""
+            ordered_blocks[block_index + 1].content_markdown if block_index + 1 < len(ordered_blocks) else ""
         ),
         "fact_boundaries": {
             "locked_facts": context_pack.get("locked_facts", []),
@@ -2076,7 +2537,10 @@ async def propose_block_rewrite(
                         "설명 없이 대체 문단만 출력한다."
                     ),
                 },
-                {"role": "user", "content": json.dumps(rewrite_payload, ensure_ascii=False)},
+                {
+                    "role": "user",
+                    "content": json.dumps(rewrite_payload, ensure_ascii=False),
+                },
             ],
             role="writer",
             temperature=0.45,
@@ -2157,20 +2621,29 @@ async def prose_audit_document(
     profile: VoiceProfile | None = None
     if profile_id:
         profile = _get_or_404(db, VoiceProfile, profile_id, "문체 프로필")
-        if profile.project_id not in {None, document.project_id} or profile.status not in {
+        if profile.project_id not in {
+            None,
+            document.project_id,
+        } or profile.status not in {
             "APPROVED",
             "DEPRECATED",
         }:
-            raise _error(422, "PROJECT_VOICE_PROFILE_REQUIRED", "이 원고에서 사용할 수 없는 문체 프로필입니다.")
+            raise _error(
+                422,
+                "PROJECT_VOICE_PROFILE_REQUIRED",
+                "이 원고에서 사용할 수 없는 문체 프로필입니다.",
+            )
         if payload.voice_profile_version and payload.voice_profile_version != profile.version:
-            raise _error(409, "VOICE_VERSION_CHANGED", "문체 프로필 버전이 달라졌습니다. 다시 선택해 주세요.")
+            raise _error(
+                409,
+                "VOICE_VERSION_CHANGED",
+                "문체 프로필 버전이 달라졌습니다. 다시 선택해 주세요.",
+            )
 
     deterministic = run_prose_audits(db, document, voice_profile=profile)
     blocks = list(
         db.scalars(
-            select(LoreBlock)
-            .where(LoreBlock.document_id == document.id)
-            .order_by(LoreBlock.position)
+            select(LoreBlock).where(LoreBlock.document_id == document.id).order_by(LoreBlock.position)
         ).all()
     )
     audit_input = {
@@ -2273,7 +2746,11 @@ async def propose_prose_revision(
         raise _error(409, "DOCUMENT_CHANGED", "원고가 바뀌었습니다. 저장 후 다시 제안해 주세요.")
     source = _get_or_404(db, AuditFinding, payload.finding_id, "필력 점검 항목")
     if source.document_id != document.id or source.audit_type != "PROSE" or not source.block_id:
-        raise _error(422, "PROSE_FINDING_NOT_REVISABLE", "문단에 연결된 필력 점검 항목만 수정 제안으로 만들 수 있습니다.")
+        raise _error(
+            422,
+            "PROSE_FINDING_NOT_REVISABLE",
+            "문단에 연결된 필력 점검 항목만 수정 제안으로 만들 수 있습니다.",
+        )
     rewrite_payload = RewriteRequest(
         operation="style_only",
         instruction=f"{source.message} {payload.instruction}".strip(),
@@ -2317,9 +2794,7 @@ def apply_finding(finding_id: str, db: Session = Depends(get_db)) -> AuditFindin
     document = _draft_document_or_404(db, block.document_id)
     blocks = list(
         db.scalars(
-            select(LoreBlock)
-            .where(LoreBlock.document_id == document.id)
-            .order_by(LoreBlock.position)
+            select(LoreBlock).where(LoreBlock.document_id == document.id).order_by(LoreBlock.position)
         ).all()
     )
     _sync_draft_document(document, blocks)
@@ -2350,19 +2825,28 @@ def export_document(
     document = _draft_document_or_404(db, document_id)
     blocks = list(
         db.scalars(
-            select(LoreBlock)
-            .where(LoreBlock.document_id == document.id)
-            .order_by(LoreBlock.position)
+            select(LoreBlock).where(LoreBlock.document_id == document.id).order_by(LoreBlock.position)
         ).all()
     )
     draft_body = "\n\n".join(item.content_markdown for item in blocks) or document.body_markdown
     if format == "markdown":
         value = draft_body
         if include_metadata:
-            value += "\n\n<!-- lore-studio: " + json.dumps(
-                [{"id": item.id, "move": item.rhetorical_move, "evidence": item.evidence_ids} for item in blocks],
-                ensure_ascii=False,
-            ) + " -->"
+            value += (
+                "\n\n<!-- lore-studio: "
+                + json.dumps(
+                    [
+                        {
+                            "id": item.id,
+                            "move": item.rhetorical_move,
+                            "evidence": item.evidence_ids,
+                        }
+                        for item in blocks
+                    ],
+                    ensure_ascii=False,
+                )
+                + " -->"
+            )
         return Response(value, media_type="text/markdown; charset=utf-8")
     if format == "html":
         value = markdown.markdown(draft_body, extensions=["extra"])
@@ -2403,9 +2887,7 @@ def export_video_beats(document_id: str, db: Session = Depends(get_db)) -> dict[
     document = _draft_document_or_404(db, document_id)
     blocks = list(
         db.scalars(
-            select(LoreBlock)
-            .where(LoreBlock.document_id == document.id)
-            .order_by(LoreBlock.position)
+            select(LoreBlock).where(LoreBlock.document_id == document.id).order_by(LoreBlock.position)
         ).all()
     )
     beats = []
@@ -2461,13 +2943,15 @@ async def extract_document_candidates(
     if session:
         pack = compile_context(db, session)
         known_pages = [
-            {"id": item["id"], "title": item["title"], "summary": item.get("summary", "")}
+            {
+                "id": item["id"],
+                "title": item["title"],
+                "summary": item.get("summary", ""),
+            }
             for item in pack.get("selected_concepts", [])
         ]
     else:
-        pages = db.scalars(
-            select(ConceptPage).where(ConceptPage.project_id == document.project_id)
-        ).all()
+        pages = db.scalars(select(ConceptPage).where(ConceptPage.project_id == document.project_id)).all()
         known_pages = [{"id": page.id, "title": page.title, "summary": page.summary} for page in pages]
     categories = [
         {"key": category.key, "name": category.name}
@@ -2519,7 +3003,10 @@ async def extract_document_candidates(
             endpoint=result.endpoint,
             params_json=result.params,
             usage_json=result.usage,
-            input_json={"document_id": document.id, "known_page_ids": [item["id"] for item in known_pages]},
+            input_json={
+                "document_id": document.id,
+                "known_page_ids": [item["id"] for item in known_pages],
+            },
             output_text=result.content,
         )
     )
@@ -2607,15 +3094,15 @@ def approve_reference_analysis(
         db.add(recipe)
 
     if payload.approve_voice_profile:
-        candidate = canonicalize_voice_profile_json({
-            key: value
-            for key, value in dict(analysis.voice_candidate_json or {}).items()
-            if key in VOICE_PROFILE_FIELDS
-        })
+        candidate = canonicalize_voice_profile_json(
+            {
+                key: value
+                for key, value in dict(analysis.voice_candidate_json or {}).items()
+                if key in VOICE_PROFILE_FIELDS
+            }
+        )
         selected_fields = payload.selected_voice_fields or [
-            field
-            for field, value in candidate.items()
-            if value and field != "compatibility"
+            field for field, value in candidate.items() if value and field != "compatibility"
         ]
         selected_profile = {
             field: value
@@ -2641,7 +3128,7 @@ def approve_reference_analysis(
         db.flush()
         body = tiptap_to_text(page.body_json)
         for index, selected_range in enumerate(payload.selected_example_ranges):
-            excerpt = body[selected_range.start:selected_range.end].strip()
+            excerpt = body[selected_range.start : selected_range.end].strip()
             if not excerpt:
                 continue
             example = VoiceProfileExample(
@@ -2700,7 +3187,9 @@ def approve_reference_analysis(
 
 
 @router.get("/candidates", response_model=list[CandidateRead])
-def list_candidates(project_id: str = Query(...), db: Session = Depends(get_db)) -> list[ProposedConceptUpdate]:
+def list_candidates(
+    project_id: str = Query(...), db: Session = Depends(get_db)
+) -> list[ProposedConceptUpdate]:
     return list(
         db.scalars(
             select(ProposedConceptUpdate)
@@ -2723,9 +3212,7 @@ def decide_candidate(
     elif decision == "this_document_only":
         candidate.status = "THIS_DOCUMENT_ONLY"
     elif decision in {"save_draft", "approve_canon"}:
-        category_key = _resolve_category_key(
-            db, candidate.project_id, candidate.category_key
-        )
+        category_key = _resolve_category_key(db, candidate.project_id, candidate.category_key)
         page = ConceptPage(
             project_id=candidate.project_id,
             title=candidate.title,
@@ -2737,7 +3224,10 @@ def decide_candidate(
             body_json={
                 "type": "doc",
                 "content": [
-                    {"type": "paragraph", "content": [{"type": "text", "text": candidate.body}]}
+                    {
+                        "type": "paragraph",
+                        "content": [{"type": "text", "text": candidate.body}],
+                    }
                 ],
             },
         )
@@ -2764,7 +3254,10 @@ def decide_candidate(
             entity_type="ProposedConceptUpdate",
             entity_id=candidate.id,
             before_json={"status": "CANDIDATE"},
-            after_json={"status": candidate.status, "approved_page_id": candidate.approved_page_id},
+            after_json={
+                "status": candidate.status,
+                "approved_page_id": candidate.approved_page_id,
+            },
             reason=payload.reason,
         )
     )
@@ -2791,7 +3284,11 @@ async def execute_index_job(job_id: str, db: Session = Depends(get_db)) -> Index
     job = _get_or_404(db, IndexJob, job_id, "인덱스 작업")
     result = await run_index_job(db, job, harness.gateway)
     if result.status == "FAILED":
-        raise _error(502, result.error_json.get("code", "INDEXING_FAILED"), result.error_json.get("message", "재색인 실패"))
+        raise _error(
+            502,
+            result.error_json.get("code", "INDEXING_FAILED"),
+            result.error_json.get("message", "재색인 실패"),
+        )
     return result
 
 

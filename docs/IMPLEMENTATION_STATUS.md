@@ -1,6 +1,6 @@
 # Lore Studio v1.0 구현 상태
 
-마지막 갱신: 2026-08-10
+마지막 갱신: 2026-08-11
 기준: `agent/project-taxonomy-and-ui-polish` 브랜치의 실제 local-first 구현
 상태: **완료 — 실제 모델 모드로 실행 중**
 
@@ -19,6 +19,7 @@
 - 자료 종류·집필 지침·전개 방식의 생성·수정을 AI 작성과 같은 내부 스크롤·고정 저장 모달로 통일, 집필 지침 세부 규칙 상시 노출, 패널 경계를 벗어나도 잘리지 않는 viewport 고정형 도움말 오버레이
 - 글 만들기 본문 스크롤과 분리되어 `확인·작성`까지 유지되는 하단 `이전 / 계속` 이동 바(데스크톱 작업면 하단·모바일 전역 메뉴 위 고정)
 - 새 세계관 자료 생성은 이름·자료 종류만 입력받고 일반 설정 역할(`DRAFT_SETTING`)을 자동 적용해 내부 권위 선택을 기본 흐름에서 숨김
+- 세계관 자료 양산은 Qwen/Gemma·참고 자료·자료 종류를 고른 뒤 단일 기획 에이전트가 6–30개 씨앗을 제안하고, 사용자가 수정·선택한 1–10개 씨앗만 선택 수와 같은 동시성으로 본문을 생성함. 완성 결과도 명시 선택 전 저장되지 않으며 저장 후 `CANDIDATE` 유지, planner/worker별 GenerationRun과 부분 실패 기록
 - 세계관 자료 Tiptap 툴바의 선택 영역 `AI 수정`과 전체·현재 위치·이어쓰기 `AI 작성`, 전체 본문·선택부 앞뒤를 먼저 분석하는 문맥 기반 수정, 최소·목표 길이와 확대된 출력 예산을 적용하는 `더 자세히 (약 2배)`, 실행별 임시 참고 자료 선택, 본문 변경 감지, 진녹색·금색 고대비 `CANDIDATE` 비교·명시 반영, 저장 전 상태 보존
 - 주제·배경·주요 요소·갈등·집필 지침·공용/프로젝트 전개 방식을 한 질문씩 진행하고 결과물 종류·시점·시제·분량을 원고 견본과 의미 카드로 고르는 글 만들기, 시점·시제 생성 기록 저장
 - 프로젝트별 집필 지침(DirectionCard)과 전개 방식(WritingRecipe)을 별도 단계로 유지하고, 공용 기본 방식과 현재 프로젝트 소유 방식만 선택하도록 API 범위 격리
@@ -53,12 +54,12 @@ Utility 9-case 결과는 Qwen3.5-4B가 namespace 누출로 탈락했고 Gemma4-2
 ## 최종 검증
 
 - Ruff PASS
-- pytest `33 passed, 3 skipped` (실제 endpoint opt-in tests는 기본 run에서 skip)
+- pytest `35 passed, 3 skipped` (자료 양산의 병렬성·명시 저장 포함, 실제 endpoint opt-in tests는 기본 run에서 skip)
 - 실제 모델 opt-in `3 passed` (Writer/Utility, Embedding, Vision)
 - bundle/schema/YAML PASS
 - Svelte production build PASS
 - 실제 데이터 Playwright `37 passed, 9 skipped` (1600×900/390×844/360×844, 모바일 자료 본문 scroll·AI 패널·command bar·로어북 목차→읽기, 확인·작성 원고 설계·흐름/초안 교체, 원고 저장·완성 다듬기·긴 본문/출처 카드 포함)
-- 빈 데이터/기능별 조건 skip UI E2E `19 passed, 27 skipped`
+- 빈 데이터/기능별 조건 skip UI E2E `25 passed, 29 skipped`
 - Compose build/up 및 DB health PASS
 - PostgreSQL Alembic `20260810_0008` 기존 데이터 upgrade, 프로젝트 삭제 감사 묘비 보존, 역할별 모델 연결·thinking 설정 및 임시 fresh DB upgrade/downgrade/upgrade PASS
 - 프로젝트 로컬 skill package 검증과 UI 계약 정적 preflight `7 passed, 0 failures`

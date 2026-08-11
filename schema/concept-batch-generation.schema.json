@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lore-studio.local/schema/concept-batch-generation.schema.json",
+  "title": "Lore Studio concept batch generation contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["seed_request", "generation_request", "accept_request"],
+  "properties": {
+    "seed_request": { "$ref": "#/$defs/seedRequest" },
+    "generation_request": { "$ref": "#/$defs/generationRequest" },
+    "accept_request": { "$ref": "#/$defs/acceptRequest" }
+  },
+  "$defs": {
+    "modelKey": { "type": "string", "enum": ["qwen", "gemma"] },
+    "seed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seed_id", "title", "summary"],
+      "properties": {
+        "seed_id": { "type": "string", "pattern": "^seed-[1-9][0-9]*$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 1200 }
+      }
+    },
+    "seedRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["project_id", "source_page_id", "category_key", "model_key"],
+      "properties": {
+        "project_id": { "type": "string", "minLength": 1 },
+        "source_page_id": { "type": "string", "minLength": 1 },
+        "category_key": { "type": "string", "minLength": 1 },
+        "model_key": { "$ref": "#/$defs/modelKey" },
+        "seed_count": { "type": "integer", "minimum": 6, "maximum": 30, "default": 12 },
+        "additional_instruction": { "type": "string", "maxLength": 4000, "default": "" }
+      }
+    },
+    "generationRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seed_run_id", "selected_seeds"],
+      "properties": {
+        "seed_run_id": { "type": "string", "minLength": 1 },
+        "selected_seeds": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 10,
+          "items": { "$ref": "#/$defs/seed" }
+        }
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run_id", "title", "summary", "content_text", "tags"],
+      "properties": {
+        "run_id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "summary": { "type": "string", "maxLength": 1600 },
+        "content_text": { "type": "string", "minLength": 1, "maxLength": 50000 },
+        "tags": {
+          "type": "array",
+          "maxItems": 12,
+          "items": { "type": "string", "minLength": 1, "maxLength": 80 }
+        }
+      }
+    },
+    "acceptRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seed_run_id", "candidates"],
+      "properties": {
+        "seed_run_id": { "type": "string", "minLength": 1 },
+        "candidates": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 10,
+          "items": { "$ref": "#/$defs/candidate" }
+        }
+      }
+    }
+  }
+}

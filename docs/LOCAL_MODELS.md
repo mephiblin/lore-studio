@@ -20,6 +20,8 @@
 
 `이 PC 권장 분담 적용`은 Writer=Gemma, Utility·Vision=Qwen으로 채우고 BGE-M3 Embedding을 유지합니다. Qwen의 `Thinking 끄기`는 `chat_template_kwargs.enable_thinking=false`이며 vLLM의 native MTP speculative decoding은 계속 작동합니다. Qwen-MM의 local Faster-Whisper는 별도 도구 서비스이며 Lore Studio의 네 모델 역할에는 포함하지 않습니다.
 
+`세계관 자료 → 자료 양산`에서는 역할 재배정과 별개인 `QWEN_BATCH_*`·`GEMMA_BATCH_*` 연결을 모델 이름으로 직접 선택합니다. 선택 모델의 explicit profile로 호출하므로 Qwen 작업 실패 시 Gemma로 자동 fallback하지 않습니다. 씨앗 제안은 호출 1개이고, 본문 단계는 사용자가 고른 씨앗 1–10개 수만큼 동시 호출합니다.
+
 두 vLLM은 보안을 위해 호스트 loopback에만 바인딩합니다. Qwen은 기존 `qwen-vllm-openwebui-proxy.socket`이 Docker bridge `18091`을 제공합니다. Gemma는 이 저장소의 socket proxy를 한 번 연결하고 활성화합니다.
 
 ```bash

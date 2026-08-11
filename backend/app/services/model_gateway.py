@@ -228,15 +228,17 @@ class ModelGateway:
                     role=profile.role,
                     model=str(data.get("model") or payload["model"]),
                     endpoint=profile.base_url,
-                    params={
-                        key: value
-                        for key, value in payload.items()
-                        if key not in {"messages", "model"}
-                    },
+                    params={key: value for key, value in payload.items() if key not in {"messages", "model"}},
                     usage=data.get("usage", {}),
                     timings=data.get("timings", {}),
                 )
-            except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as exc:
+            except (
+                httpx.HTTPError,
+                KeyError,
+                IndexError,
+                TypeError,
+                ValueError,
+            ) as exc:
                 last_error = exc
                 if attempt + 1 < attempts:
                     await asyncio.sleep(0.25 * (2**attempt))
@@ -260,6 +262,50 @@ class ModelGateway:
         extra_params: dict[str, Any] | None = None,
     ) -> ModelCallResult:
         profile = self.profile(role)
+        try:
+            return await self.complete_for_profile(
+                profile,
+                messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                response_mode=response_mode,
+                json_schema=json_schema,
+                schema_name=schema_name,
+                seed=seed,
+                extra_params=extra_params,
+            )
+        except ModelGatewayError:
+            if role != "utility" or not settings.allow_utility_writer_fallback:
+                raise
+            writer = self.profile("writer")
+            result = await self.complete_for_profile(
+                writer,
+                messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                response_mode=response_mode,
+                json_schema=json_schema,
+                schema_name=schema_name,
+                seed=seed,
+                extra_params=extra_params,
+            )
+            result.fallback_from = "utility"
+            return result
+
+    async def complete_for_profile(
+        self,
+        profile: ModelProfile,
+        messages: list[dict[str, Any]],
+        *,
+        temperature: float = 0.7,
+        max_tokens: int | None = None,
+        response_mode: ResponseMode = "text",
+        json_schema: dict[str, Any] | None = None,
+        schema_name: str = "lore_studio_response",
+        seed: int | None = None,
+        extra_params: dict[str, Any] | None = None,
+    ) -> ModelCallResult:
+        """Complete against one explicit profile without role fallback."""
         model, _ = await self.resolve_model(profile)
         payload: dict[str, Any] = {
             "model": model,
@@ -279,21 +325,15 @@ class ModelGateway:
                 raise ValueError("json_schema 응답에는 스키마가 필요합니다.")
             payload["response_format"] = {
                 "type": "json_schema",
-                "json_schema": {"name": schema_name, "schema": json_schema, "strict": True},
+                "json_schema": {
+                    "name": schema_name,
+                    "schema": json_schema,
+                    "strict": True,
+                },
             }
         if extra_params:
             payload.update(extra_params)
-        try:
-            return await self._post_completion(profile, payload)
-        except ModelGatewayError:
-            if role != "utility" or not settings.allow_utility_writer_fallback:
-                raise
-            writer = self.profile("writer")
-            writer_model, _ = await self.resolve_model(writer)
-            fallback_payload = dict(payload, model=writer_model)
-            result = await self._post_completion(writer, fallback_payload)
-            result.fallback_from = "utility"
-            return result
+        return await self._post_completion(profile, payload)
 
     async def stream_complete(
         self,
