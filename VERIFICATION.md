@@ -23,7 +23,8 @@
 - 실제 모델 opt-in: `3 passed` (Writer/Utility structured output, BGE-M3 1024차원, Vision data URL)
 - SvelteKit adapter-node production build: PASS
 - Playwright Chromium desktop 1600×900/mobile 390×844 실제 인수 자료 포함 회귀: `37 passed, 9 skipped`
-- 빈 데이터/기능별 조건 skip UI 회귀: `25 passed, 29 skipped`
+- 세계관 본문 AI 모델 선택: AI 수정에서 Qwen, 이어진 AI 작성에서 Gemma를 선택해 요청 `model_key`와 제안 모델명이 일치하고 desktop/mobile에서 가로 overflow 0 PASS. 실제 요청도 Qwen 수정=`qwen36-heretic-mtp`·`http://host.docker.internal:18091/v1`, Gemma 초안=`gemma4-26b-heretic-mtp`·`http://host.docker.internal:18093/v1`로 GenerationRun에 기록됐으며 둘 다 `CANDIDATE`·`persisted=false`, 원문 불변, 임시 프로젝트 0개로 정리 PASS
+- 빈 데이터/기능별 조건 skip UI 회귀: `27 passed, 29 skipped`
 - 문체·필력: DRAFT 명시 승인·사용 후 새 버전·공용/프로젝트 범위·권리별 짧은 예시 격리 API, 다섯 번째 로컬 탭과 내부 스크롤·고정 footer 모달, 글 만들기 `모델 기본 문체`/승인 프로필 명시 선택, profile/version/example GenerationRun snapshot, 원고 필력 점검과 승인형 수정 제안 PASS
 - 프로젝트 전개 방식 생성·수정·글 만들기 선택·삭제 desktop/mobile 집중 회귀: `2 passed`
 - 세계관 자료의 전개 방식 목록: 검은 항로/신규 프로젝트 모두 세계관·소설·수필·보고서를 포괄하는 공용 기본 8개 노출, 프로젝트 전용 항목과 출처 구분 PASS

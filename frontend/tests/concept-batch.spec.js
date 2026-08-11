@@ -33,7 +33,7 @@ function savedPage(candidate, index) {
 }
 
 async function mockEditor(page) {
-  const captured = { seeds: null, generate: null, accept: null };
+  const captured = { seeds: null, generate: null, accept: null, rewrite: null, draft: null };
   await page.route('**/api/v1/**', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -73,6 +73,25 @@ async function mockEditor(page) {
     } else if (path === '/concept-batches/accept') {
       captured.accept = request.postDataJSON();
       body = captured.accept.candidates.map(savedPage);
+    } else if (path === `/concept-pages/${source.id}/ai/rewrite-selection`) {
+      captured.rewrite = request.postDataJSON();
+      body = {
+        run_id: 'rewrite-1', concept_page_id: source.id, mode: 'rewrite_selection',
+        model_key: captured.rewrite.model_key, status: 'CANDIDATE', persisted: false,
+        base_body_hash: 'a'.repeat(64), original_text: captured.rewrite.selection_text,
+        proposed_text: '안개 항구의 주민들은 공동 화덕에서 붉은 해초를 끓인다.',
+        selection_from: captured.rewrite.selection_from, selection_to: captured.rewrite.selection_to,
+        source_page_ids: [], warnings: []
+      };
+    } else if (path === `/concept-pages/${source.id}/ai/draft`) {
+      captured.draft = request.postDataJSON();
+      body = {
+        run_id: 'draft-1', concept_page_id: source.id, mode: 'draft',
+        model_key: captured.draft.model_key, status: 'CANDIDATE', persisted: false,
+        base_body_hash: 'b'.repeat(64), original_text: '',
+        proposed_text: '## 공동 화덕\n\n겨울이면 주민들은 이곳에 모인다.',
+        source_page_ids: captured.draft.source_page_ids, warnings: []
+      };
     } else {
       throw new Error(`Unhandled mock API: ${request.method()} ${path}`);
     }
@@ -131,5 +150,32 @@ test('batch dialog obeys the 360px workspace contract', async ({ page }, testInf
   expect(box.x).toBeGreaterThanOrEqual(0);
   expect(box.x + box.width).toBeLessThanOrEqual(360);
   await expect(dialog.locator('footer')).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('existing material AI rewrite and draft dialogs select Qwen or Gemma per request', async ({ page }) => {
+  const captured = await mockEditor(page);
+  await page.goto('/editor');
+  await page.getByRole('button', { name: '글 편집' }).click();
+  await page.locator('.ProseMirror').click();
+  await page.keyboard.press('Control+A');
+
+  await page.getByRole('button', { name: 'AI 수정' }).click();
+  const rewritePanel = page.getByRole('form', { name: '선택 영역 AI 수정' });
+  await expect(rewritePanel.getByLabel('사용할 모델')).toHaveValue('gemma');
+  await rewritePanel.getByLabel('사용할 모델').selectOption('qwen');
+  await rewritePanel.getByRole('button', { name: '수정 제안' }).click();
+  const proposal = page.getByRole('region', { name: 'AI 본문 제안' });
+  await expect(proposal).toContainText('Qwen · 선택 영역 수정');
+  expect(captured.rewrite.model_key).toBe('qwen');
+
+  await page.getByRole('button', { name: 'AI 작성' }).click();
+  const dialog = page.getByRole('dialog', { name: 'AI 작성' });
+  await expect(dialog.getByLabel('사용할 모델')).toHaveValue('qwen');
+  await dialog.getByLabel('사용할 모델').selectOption('gemma');
+  await dialog.getByLabel('무엇을 작성할까요?').fill('공동 화덕의 겨울 풍경을 작성해 줘.');
+  await dialog.getByRole('button', { name: '초안 제안' }).click();
+  await expect(proposal).toContainText('Gemma · 본문 초안');
+  expect(captured.draft.model_key).toBe('gemma');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

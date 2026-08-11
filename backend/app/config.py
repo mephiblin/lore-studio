@@ -38,19 +38,19 @@ class Settings(BaseSettings):
     vision_context_budget: int = Field(default=24_000, ge=1_024)
     vision_disable_thinking: bool = False
 
-    qwen_batch_model_base_url: str = "http://host.docker.internal:18091/v1"
-    qwen_batch_model_api_key: str = "EMPTY"
-    qwen_batch_model_name: str = "qwen36-heretic-mtp"
-    qwen_batch_model_timeout_seconds: int = Field(default=600, ge=1)
-    qwen_batch_context_budget: int = Field(default=24_000, ge=1_024)
-    qwen_batch_disable_thinking: bool = True
+    qwen_selectable_model_base_url: str = "http://host.docker.internal:18091/v1"
+    qwen_selectable_model_api_key: str = "EMPTY"
+    qwen_selectable_model_name: str = "qwen36-heretic-mtp"
+    qwen_selectable_model_timeout_seconds: int = Field(default=600, ge=1)
+    qwen_selectable_context_budget: int = Field(default=24_000, ge=1_024)
+    qwen_selectable_disable_thinking: bool = True
 
-    gemma_batch_model_base_url: str = "http://host.docker.internal:18093/v1"
-    gemma_batch_model_api_key: str = "EMPTY"
-    gemma_batch_model_name: str = "gemma4-26b-heretic-mtp"
-    gemma_batch_model_timeout_seconds: int = Field(default=600, ge=1)
-    gemma_batch_context_budget: int = Field(default=24_000, ge=1_024)
-    gemma_batch_disable_thinking: bool = False
+    gemma_selectable_model_base_url: str = "http://host.docker.internal:18093/v1"
+    gemma_selectable_model_api_key: str = "EMPTY"
+    gemma_selectable_model_name: str = "gemma4-26b-heretic-mtp"
+    gemma_selectable_model_timeout_seconds: int = Field(default=600, ge=1)
+    gemma_selectable_context_budget: int = Field(default=24_000, ge=1_024)
+    gemma_selectable_disable_thinking: bool = False
 
     fallback_model_base_url: str = ""
     fallback_model_api_key: str = "local"

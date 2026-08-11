@@ -12,6 +12,7 @@ from app.config import ModelRole, settings
 from app.services.model_connections import effective_model_profile
 
 ResponseMode = Literal["text", "json_object", "json_schema"]
+SelectableTextModel = Literal["qwen", "gemma"]
 
 
 class ModelGatewayError(RuntimeError):
@@ -34,6 +35,20 @@ class ModelProfile:
     @classmethod
     def from_settings(cls, role: ModelRole) -> "ModelProfile":
         return cls(**effective_model_profile(role))  # type: ignore[arg-type]
+
+
+def local_text_profile(model_key: SelectableTextModel) -> ModelProfile:
+    """Return the explicit Qwen/Gemma endpoint shared by selectable writing tools."""
+    prefix = f"{model_key}_selectable"
+    return ModelProfile(
+        role="utility" if model_key == "qwen" else "writer",
+        base_url=str(getattr(settings, f"{prefix}_model_base_url")),
+        api_key=str(getattr(settings, f"{prefix}_model_api_key")),
+        model=str(getattr(settings, f"{prefix}_model_name")),
+        timeout_seconds=int(getattr(settings, f"{prefix}_model_timeout_seconds")),
+        context_budget=int(getattr(settings, f"{prefix}_context_budget")),
+        disable_thinking=bool(getattr(settings, f"{prefix}_disable_thinking")),
+    )
 
 
 @dataclass

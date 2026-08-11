@@ -6,8 +6,11 @@ import re
 from dataclasses import asdict, dataclass
 from typing import Any, Literal
 
-from app.config import settings
-from app.services.model_gateway import ModelCallResult, ModelGateway, ModelProfile
+from app.services.model_gateway import (
+    ModelCallResult,
+    ModelGateway,
+    ModelProfile,
+)
 
 BatchModelKey = Literal["qwen", "gemma"]
 
@@ -68,20 +71,6 @@ class BatchContext:
                 "씨앗 생성 기록의 참고 문맥을 복원할 수 없습니다.",
                 status_code=409,
             ) from exc
-
-
-def batch_profile(gateway: ModelGateway, model_key: BatchModelKey) -> ModelProfile:
-    del gateway
-    prefix = f"{model_key}_batch"
-    return ModelProfile(
-        role="utility" if model_key == "qwen" else "writer",
-        base_url=str(getattr(settings, f"{prefix}_model_base_url")),
-        api_key=str(getattr(settings, f"{prefix}_model_api_key")),
-        model=str(getattr(settings, f"{prefix}_model_name")),
-        timeout_seconds=int(getattr(settings, f"{prefix}_model_timeout_seconds")),
-        context_budget=int(getattr(settings, f"{prefix}_context_budget")),
-        disable_thinking=bool(getattr(settings, f"{prefix}_disable_thinking")),
-    )
 
 
 def _parse_object(content: str, *, code: str) -> dict[str, Any]:

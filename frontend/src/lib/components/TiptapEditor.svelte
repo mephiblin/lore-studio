@@ -32,6 +32,7 @@
   let rewriteOperation = 'polish';
   let rewriteInstruction = '';
   let rewriteUsesLinked = true;
+  let aiModelKey = 'gemma';
   let draftOpen = false;
   let draftPrompt = '';
   let draftPlacement = 'replace';
@@ -51,6 +52,10 @@
   $: selectionReady = !!savedSelection?.text?.trim() && savedSelection.text.length <= 12000;
   $: currentSnapshot = editor ? JSON.stringify(value || editor.getJSON()) : '';
   $: proposalStale = !!proposal && proposalSnapshot !== currentSnapshot;
+
+  function modelLabel(modelKey) {
+    return modelKey === 'qwen' ? 'Qwen' : 'Gemma';
+  }
 
   function rememberSelection({ editor: currentEditor }) {
     const { from, to, empty } = currentEditor.state.selection;
@@ -151,6 +156,7 @@
     try {
       proposal = await api.post(`/concept-pages/${aiPageId}/ai/rewrite-selection`, {
         body_json: body,
+        model_key: aiModelKey,
         selection_from: savedSelection.from,
         selection_to: savedSelection.to,
         selection_text: savedSelection.text,
@@ -178,6 +184,7 @@
     try {
       const response = await api.post(`/concept-pages/${aiPageId}/ai/draft`, {
         body_json: body,
+        model_key: aiModelKey,
         prompt: draftPrompt.trim(),
         source_page_ids: draftSourceIds.slice(0, 12),
         placement: draftPlacement,
@@ -338,6 +345,9 @@
     <form class="ai-inline-panel" aria-label="선택 영역 AI 수정" on:submit|preventDefault={submitRewrite}>
       <div class="selection-preview"><span>선택 영역</span><q>{savedSelection?.text}</q></div>
       <div class="rewrite-controls">
+        <label>사용할 모델
+          <select bind:value={aiModelKey}><option value="gemma">Gemma</option><option value="qwen">Qwen</option></select>
+        </label>
         <label>수정 방식
           <select bind:value={rewriteOperation}>
             {#each operations as [value, label]}<option {value}>{label}</option>{/each}
@@ -362,7 +372,7 @@
   {#if proposal}
     <section class="proposal-panel" aria-label="AI 본문 제안">
       <div class="proposal-heading">
-        <div><span class="candidate-label">검토할 제안</span><strong>{proposal.mode === 'rewrite_selection' ? '선택 영역 수정' : '본문 초안'}</strong></div>
+        <div><span class="candidate-label">검토할 제안</span><strong>{modelLabel(proposal.model_key)} · {proposal.mode === 'rewrite_selection' ? '선택 영역 수정' : '본문 초안'}</strong></div>
         <button type="button" class="icon-close" aria-label="AI 제안 닫기" on:click={() => proposal = null}>×</button>
       </div>
       {#if proposal.mode === 'rewrite_selection'}
@@ -406,6 +416,9 @@
       </fieldset>
 
       <div class="draft-meta">
+        <label>사용할 모델
+          <select bind:value={aiModelKey}><option value="gemma">Gemma</option><option value="qwen">Qwen</option></select>
+        </label>
         <label>분량
           <select bind:value={draftLength}><option value="short">짧게</option><option value="normal">보통</option><option value="long">길게</option></select>
         </label>
@@ -495,7 +508,7 @@
   .selection-preview { display:flex; align-items:baseline; gap:10px; min-width:0; margin-bottom:10px; }
   .selection-preview span, .proposal-copy > span, .proposal-original > span { flex:0 0 auto; color:var(--muted); font-size:11px; font-weight:800; letter-spacing:.06em; }
   .selection-preview q { min-width:0; overflow:hidden; color:var(--ink); font:13px/1.5 Georgia, "Noto Serif KR", serif; text-overflow:ellipsis; white-space:nowrap; }
-  .rewrite-controls { display:grid; grid-template-columns:minmax(150px, .8fr) minmax(180px, 1.2fr); gap:10px; }
+  .rewrite-controls { display:grid; grid-template-columns:minmax(110px, .65fr) minmax(150px, .85fr) minmax(180px, 1.2fr); gap:10px; }
   .rewrite-controls label, .prompt-field { display:grid; gap:5px; color:var(--muted-text); font-size:12px; font-weight:700; }
   .rewrite-controls select, .rewrite-controls input { width:100%; min-height:34px; }
   .reference-toggle { display:flex; align-items:center; gap:7px; margin-top:9px; color:var(--muted-text); font-size:12px; }

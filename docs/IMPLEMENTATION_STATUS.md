@@ -20,7 +20,7 @@
 - 글 만들기 본문 스크롤과 분리되어 `확인·작성`까지 유지되는 하단 `이전 / 계속` 이동 바(데스크톱 작업면 하단·모바일 전역 메뉴 위 고정)
 - 새 세계관 자료 생성은 이름·자료 종류만 입력받고 일반 설정 역할(`DRAFT_SETTING`)을 자동 적용해 내부 권위 선택을 기본 흐름에서 숨김
 - 세계관 자료 양산은 Qwen/Gemma·참고 자료·자료 종류를 고른 뒤 단일 기획 에이전트가 6–30개 씨앗을 제안하고, 사용자가 수정·선택한 1–10개 씨앗만 선택 수와 같은 동시성으로 본문을 생성함. 완성 결과도 명시 선택 전 저장되지 않으며 저장 후 `CANDIDATE` 유지, planner/worker별 GenerationRun과 부분 실패 기록
-- 세계관 자료 Tiptap 툴바의 선택 영역 `AI 수정`과 전체·현재 위치·이어쓰기 `AI 작성`, 전체 본문·선택부 앞뒤를 먼저 분석하는 문맥 기반 수정, 최소·목표 길이와 확대된 출력 예산을 적용하는 `더 자세히 (약 2배)`, 실행별 임시 참고 자료 선택, 본문 변경 감지, 진녹색·금색 고대비 `CANDIDATE` 비교·명시 반영, 저장 전 상태 보존
+- 세계관 자료 Tiptap 툴바의 선택 영역 `AI 수정`과 전체·현재 위치·이어쓰기 `AI 작성`, 두 panel/modal의 요청별 Gemma/Qwen 선택과 실제 모델 표시·무 fallback 고정 호출, 전체 본문·선택부 앞뒤를 먼저 분석하는 문맥 기반 수정, 최소·목표 길이와 확대된 출력 예산을 적용하는 `더 자세히 (약 2배)`, 실행별 임시 참고 자료 선택, 본문 변경 감지, 진녹색·금색 고대비 `CANDIDATE` 비교·명시 반영, 저장 전 상태 보존
 - 주제·배경·주요 요소·갈등·집필 지침·공용/프로젝트 전개 방식을 한 질문씩 진행하고 결과물 종류·시점·시제·분량을 원고 견본과 의미 카드로 고르는 글 만들기, 시점·시제 생성 기록 저장
 - 프로젝트별 집필 지침(DirectionCard)과 전개 방식(WritingRecipe)을 별도 단계로 유지하고, 공용 기본 방식과 현재 프로젝트 소유 방식만 선택하도록 API 범위 격리
 - 문체·필력(VoiceProfile) 검토본·승인·중지·사용 후 새 버전, 공용/프로젝트 범위, 권리 근거가 있는 짧은 예시 관리와 분석 전용 예시의 Writer 격리
@@ -47,7 +47,7 @@
 
 ## 실제 환경 증거
 
-2026-08-11 현재 Compose는 `/models/status`에서 Gemma Writer, Qwen Utility/Vision, BGE-M3 Embedding이 모두 `available=true`입니다. 두 vLLM은 loopback에 유지하고 Docker backend는 bridge 전용 socket proxy로 접근합니다. 실제 ModelGateway에서 Gemma `LORE_OK`, Qwen `{"status":"ok"}`와 opt-in Writer/Utility·Vision·Embedding 3건을 통과했습니다. 2026-08-05 대표 인수 실행은 5-block 계획, 1,039자/5 LoreBlock 원고, 실제 Diff, 2 후보, 세 export, Vision caption, Dense 검색을 완료했습니다. SSE progress/complete도 실제 Writer로 통과했습니다. 공유 `원인에서 파급으로` 프리셋의 실제 Utility 재검증은 `ORIENT → ANCHOR → EXEMPLIFY → ESCALATE → INTERPRET` 순서의 5-block 계획을 반환했습니다.
+2026-08-11 현재 Compose는 `/models/status`에서 Gemma Writer, Qwen Utility/Vision, BGE-M3 Embedding이 모두 `available=true`입니다. 두 vLLM은 loopback에 유지하고 Docker backend는 bridge 전용 socket proxy로 접근합니다. 실제 ModelGateway에서 Gemma `LORE_OK`, Qwen `{"status":"ok"}`와 opt-in Writer/Utility·Vision·Embedding 3건을 통과했습니다. 세계관 본문 AI의 명시 선택 실검증도 Qwen 수정=`qwen36-heretic-mtp@18091`, Gemma 초안=`gemma4-26b-heretic-mtp@18093`로 각각 기록됐고, 저장 전 제안과 원문 불변 계약을 지켰습니다. 2026-08-05 대표 인수 실행은 5-block 계획, 1,039자/5 LoreBlock 원고, 실제 Diff, 2 후보, 세 export, Vision caption, Dense 검색을 완료했습니다. SSE progress/complete도 실제 Writer로 통과했습니다. 공유 `원인에서 파급으로` 프리셋의 실제 Utility 재검증은 `ORIENT → ANCHOR → EXEMPLIFY → ESCALATE → INTERPRET` 순서의 5-block 계획을 반환했습니다.
 
 Utility 9-case 결과는 Qwen3.5-4B가 namespace 누출로 탈락했고 Gemma4-26B가 88.9%와 격리 gate 통과로 선택됐습니다. source-role 모델 판단은 완전하지 않으므로 애플리케이션의 결정론적 권위 코드가 항상 최종 판정을 합니다.
 
@@ -59,7 +59,7 @@ Utility 9-case 결과는 Qwen3.5-4B가 namespace 누출로 탈락했고 Gemma4-2
 - bundle/schema/YAML PASS
 - Svelte production build PASS
 - 실제 데이터 Playwright `37 passed, 9 skipped` (1600×900/390×844/360×844, 모바일 자료 본문 scroll·AI 패널·command bar·로어북 목차→읽기, 확인·작성 원고 설계·흐름/초안 교체, 원고 저장·완성 다듬기·긴 본문/출처 카드 포함)
-- 빈 데이터/기능별 조건 skip UI E2E `25 passed, 29 skipped`
+- 빈 데이터/기능별 조건 skip UI E2E `27 passed, 29 skipped`
 - Compose build/up 및 DB health PASS
 - PostgreSQL Alembic `20260810_0008` 기존 데이터 upgrade, 프로젝트 삭제 감사 묘비 보존, 역할별 모델 연결·thinking 설정 및 임시 fresh DB upgrade/downgrade/upgrade PASS
 - 프로젝트 로컬 skill package 검증과 UI 계약 정적 preflight `7 passed, 0 failures`

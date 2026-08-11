@@ -233,6 +233,7 @@ test('world material AI edits stay reviewable and use temporary references', asy
   let rewriteAttempts = 0;
   await page.route('**/api/v1/concept-pages/*/ai/rewrite-selection', async (route) => {
     const payload = route.request().postDataJSON();
+    expect(payload.model_key).toBe('qwen');
     expect(payload.operation).toBe('longer');
     expect(payload.instruction.length).toBeLessThanOrEqual(2000);
     expect(payload.source_page_ids.length).toBeLessThanOrEqual(12);
@@ -263,6 +264,7 @@ test('world material AI edits stay reviewable and use temporary references', asy
         run_id: 'rewrite-run',
         concept_page_id: 'page',
         mode: 'rewrite_selection',
+        model_key: payload.model_key,
         status: 'CANDIDATE',
         persisted: false,
         base_body_hash: 'test',
@@ -277,6 +279,7 @@ test('world material AI edits stay reviewable and use temporary references', asy
   });
   await page.route('**/api/v1/concept-pages/*/ai/draft', async (route) => {
     const payload = route.request().postDataJSON();
+    expect(payload.model_key).toBe('gemma');
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -284,6 +287,7 @@ test('world material AI edits stay reviewable and use temporary references', asy
         run_id: 'draft-run',
         concept_page_id: 'page',
         mode: 'draft',
+        model_key: payload.model_key,
         status: 'CANDIDATE',
         persisted: false,
         base_body_hash: 'test',
@@ -312,6 +316,7 @@ test('world material AI edits stay reviewable and use temporary references', asy
   await expect(rewritePanel).toBeVisible();
   await expect(rewritePanel).toContainText('연결된 자료');
   await expect(rewritePanel.getByLabel('추가 지시')).toHaveAttribute('maxlength', '2000');
+  await rewritePanel.getByLabel('사용할 모델').selectOption('qwen');
   await rewritePanel.getByLabel('수정 방식').selectOption('longer');
   await expect(rewritePanel.getByLabel('수정 방식')).toContainText('더 자세히 (약 2배)');
   await rewritePanel.getByRole('button', { name: '수정 제안' }).click();
@@ -319,6 +324,7 @@ test('world material AI edits stay reviewable and use temporary references', asy
   await rewritePanel.getByRole('button', { name: '수정 제안' }).click();
 
   const proposal = page.getByRole('region', { name: 'AI 본문 제안' });
+  await expect(proposal).toContainText('Qwen · 선택 영역 수정');
   await expect(proposal).toContainText('기억세는 손실 가능성을 시민에게 나누어 지우는 제도다.');
   await expect(proposal.locator('.proposal-copy pre')).toHaveCSS('background-color', 'rgb(20, 50, 46)');
   await expect(proposal.locator('.proposal-copy pre')).toHaveCSS('color', 'rgb(240, 188, 101)');
@@ -339,9 +345,11 @@ test('world material AI edits stay reviewable and use temporary references', asy
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await expect(dialog).toContainText('이번 작성에만 사용');
   expect(await dialog.locator('.source-list label.selected').count()).toBeGreaterThan(0);
+  await dialog.getByLabel('사용할 모델').selectOption('gemma');
   await dialog.getByLabel('무엇을 작성할까요?').fill('기억세 징수 뒤의 흔적을 설명해 줘.');
   await dialog.getByText('이어쓰기', { exact: true }).click();
   await dialog.getByRole('button', { name: '초안 제안' }).click();
+  await expect(proposal).toContainText('Gemma · 본문 초안');
   await expect(proposal).toContainText('징수 뒤의 흔적');
   await proposal.getByRole('button', { name: '본문에 반영' }).click();
   await expect(page.locator('.editor-content')).toContainText('시민은 잃을 가능성까지 장부에 남긴다.');

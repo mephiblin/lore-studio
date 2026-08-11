@@ -19,6 +19,8 @@ make validate
 
 자료 양산은 `concept_batch` 서비스와 `/concept-batches/seeds → /generate → /accept` 계약을 사용합니다. planning은 단일 explicit model profile, worker는 선택 씨앗마다 병렬 호출하며, API 테스트는 실제 최대 active 호출 수와 accept 전 ConceptPage 불변을 함께 검증해야 합니다.
 
+사용자가 모델을 고르는 자료 양산·세계관 본문 AI는 공용 `local_text_profile()`과 `QWEN_SELECTABLE_* / GEMMA_SELECTABLE_*`를 사용합니다. role 기반 `complete()` 대신 `complete_for_profile()`로 호출해 선택 모델을 고정하고 요청의 `model_key`와 GenerationRun의 실제 모델·endpoint를 함께 검사합니다.
+
 CI는 Ruff/pytest, bundle schema/YAML, Svelte build, Compose config, 모델 서비스 미연결 상태의 Playwright UI, secret/large-model guard를 실행합니다. 생성·임베딩 실호출은 DGX에서 `make test-models`로 별도 수행합니다.
 
 기능 변경 완료 전에는 [`CHANGE_SAFETY_CHECKLIST.md`](CHANGE_SAFETY_CHECKLIST.md)로 코드 상태, 취소·저장 흐름, 삭제 경계, 고아 UI, 반응형 레이아웃, 문서 일치를 확인합니다.

@@ -118,7 +118,6 @@ from app.services.concept_ai import (
 from app.services.concept_batch import (
     BatchContext,
     ConceptBatchError,
-    batch_profile,
     generate_selected_seeds,
     propose_seeds,
 )
@@ -130,7 +129,7 @@ from app.services.config_loader import (
 )
 from app.services.context_compiler import compile_context, tiptap_to_text
 from app.services.harness import LoreHarness
-from app.services.model_gateway import ModelGatewayError
+from app.services.model_gateway import ModelGatewayError, local_text_profile
 from app.services.revisions import add_concept_revision, add_lore_revision
 from app.services.search import hybrid_search, index_stats, run_index_job
 from app.services.utility_tools import (
@@ -781,7 +780,7 @@ async def create_concept_batch_seeds(
         category=category,
         additional_instruction=payload.additional_instruction,
     )
-    profile = batch_profile(harness.gateway, payload.model_key)
+    profile = local_text_profile(payload.model_key)
     try:
         seeds, result = await propose_seeds(
             harness.gateway,
@@ -870,7 +869,7 @@ async def generate_concept_batch(
             "CONCEPT_SEED_RUN_INVALID",
             "씨앗 생성 기록의 모델 정보가 올바르지 않습니다.",
         )
-    profile = batch_profile(harness.gateway, model_key)
+    profile = local_text_profile(model_key)
     results = await generate_selected_seeds(
         harness.gateway,
         profile=profile,
@@ -1153,6 +1152,7 @@ async def rewrite_concept_page_selection(
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     page = _get_or_404(db, ConceptPage, page_id, "컨셉 페이지")
+    profile = local_text_profile(payload.model_key)
     if payload.selection_from >= payload.selection_to:
         raise _error(422, "INVALID_SELECTION", "수정할 본문 범위를 다시 선택해 주세요.")
     try:
@@ -1175,6 +1175,7 @@ async def rewrite_concept_page_selection(
             )
         proposed_text, model_warnings, result = await rewrite_concept_selection(
             harness.gateway,
+            profile=profile,
             context=context,
             selection_text=payload.selection_text,
             selection_from=payload.selection_from,
@@ -1191,7 +1192,7 @@ async def rewrite_concept_page_selection(
     run = GenerationRun(
         project_id=page.project_id,
         task="concept_selection_rewrite",
-        model_role="writer",
+        model_role=profile.role,
         model=result.model,
         endpoint=result.endpoint,
         params_json=result.params,
@@ -1206,10 +1207,11 @@ async def rewrite_concept_page_selection(
                 "text": payload.selection_text,
             },
             "operation": payload.operation,
+            "model_key": payload.model_key,
             "instruction": payload.instruction,
             "context": context,
         },
-        prompt_components={"concept_editor": "selection_contextual_rewrite_v2"},
+        prompt_components={"concept_editor": "selection_contextual_rewrite_v3"},
         selected_concept_ids=[page.id, *source_ids],
         output_text=result.content,
     )
@@ -1219,6 +1221,7 @@ async def rewrite_concept_page_selection(
         "run_id": run.id,
         "concept_page_id": page.id,
         "mode": "rewrite_selection",
+        "model_key": payload.model_key,
         "base_body_hash": current_hash,
         "original_text": payload.selection_text,
         "proposed_text": proposed_text,
@@ -1239,6 +1242,7 @@ async def draft_concept_page_body(
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     page = _get_or_404(db, ConceptPage, page_id, "컨셉 페이지")
+    profile = local_text_profile(payload.model_key)
     try:
         context, source_ids, _body = compile_concept_ai_context(
             db,
@@ -1251,6 +1255,7 @@ async def draft_concept_page_body(
         )
         proposed_text, model_warnings, result = await draft_concept_body(
             harness.gateway,
+            profile=profile,
             context=context,
             prompt=payload.prompt,
             placement=payload.placement,
@@ -1265,7 +1270,7 @@ async def draft_concept_page_body(
     run = GenerationRun(
         project_id=page.project_id,
         task="concept_body_draft",
-        model_role="writer",
+        model_role=profile.role,
         model=result.model,
         endpoint=result.endpoint,
         params_json=result.params,
@@ -1275,11 +1280,12 @@ async def draft_concept_page_body(
             "concept_page_id": page.id,
             "body_json": payload.body_json,
             "prompt": payload.prompt,
+            "model_key": payload.model_key,
             "placement": payload.placement,
             "length": payload.length,
             "context": context,
         },
-        prompt_components={"concept_editor": "body_draft_v1"},
+        prompt_components={"concept_editor": "body_draft_v2"},
         selected_concept_ids=[page.id, *source_ids],
         output_text=result.content,
     )
@@ -1289,6 +1295,7 @@ async def draft_concept_page_body(
         "run_id": run.id,
         "concept_page_id": page.id,
         "mode": "draft",
+        "model_key": payload.model_key,
         "base_body_hash": current_hash,
         "proposed_text": proposed_text,
         "source_page_ids": source_ids,

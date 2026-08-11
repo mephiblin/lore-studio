@@ -375,6 +375,7 @@ class ConceptBoundarySuggestionRead(BaseModel):
 
 class ConceptAiRewriteRequest(BaseModel):
     body_json: dict[str, Any]
+    model_key: Literal["qwen", "gemma"] = "gemma"
     # ProseMirror uses position 0 when an AllSelection starts at the document boundary.
     selection_from: int = Field(ge=0)
     selection_to: int = Field(ge=1)
@@ -414,6 +415,7 @@ class ConceptAiRewriteRequest(BaseModel):
 
 class ConceptAiDraftRequest(BaseModel):
     body_json: dict[str, Any]
+    model_key: Literal["qwen", "gemma"] = "gemma"
     prompt: str = Field(min_length=1, max_length=4000)
     source_page_ids: list[str] = Field(default_factory=list, max_length=12)
     placement: Literal["replace", "cursor", "append"] = "replace"
@@ -439,6 +441,7 @@ class ConceptAiProposalRead(BaseModel):
     run_id: str
     concept_page_id: str
     mode: Literal["rewrite_selection", "draft"]
+    model_key: Literal["qwen", "gemma"]
     status: Literal["CANDIDATE"] = "CANDIDATE"
     persisted: bool = False
     base_body_hash: str

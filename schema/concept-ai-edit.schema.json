@@ -20,6 +20,7 @@
       "required": ["body_json", "selection_from", "selection_to", "selection_text"],
       "properties": {
         "body_json": { "$ref": "#/$defs/bodyJson" },
+        "model_key": { "enum": ["qwen", "gemma"], "default": "gemma" },
         "selection_from": { "type": "integer", "minimum": 0 },
         "selection_to": { "type": "integer", "minimum": 1 },
         "selection_text": { "type": "string", "minLength": 1, "maxLength": 12000 },
@@ -44,6 +45,7 @@
       "required": ["body_json", "prompt"],
       "properties": {
         "body_json": { "$ref": "#/$defs/bodyJson" },
+        "model_key": { "enum": ["qwen", "gemma"], "default": "gemma" },
         "prompt": { "type": "string", "minLength": 1, "maxLength": 4000 },
         "source_page_ids": {
           "type": "array",
@@ -65,6 +67,7 @@
         "run_id",
         "concept_page_id",
         "mode",
+        "model_key",
         "status",
         "persisted",
         "base_body_hash",
@@ -76,6 +79,7 @@
         "run_id": { "type": "string" },
         "concept_page_id": { "type": "string" },
         "mode": { "enum": ["rewrite_selection", "draft"] },
+        "model_key": { "enum": ["qwen", "gemma"] },
         "status": { "const": "CANDIDATE" },
         "persisted": { "const": false },
         "base_body_hash": { "type": "string", "minLength": 64, "maxLength": 64 },

@@ -15,9 +15,9 @@ class ConceptAiGateway:
     def __init__(self) -> None:
         self.calls: list[dict] = []
 
-    async def complete(self, messages, **kwargs):  # type: ignore[no-untyped-def]
+    async def complete_for_profile(self, profile, messages, **kwargs):  # type: ignore[no-untyped-def]
         payload = json.loads(messages[1]["content"])
-        self.calls.append({"payload": payload, "kwargs": kwargs})
+        self.calls.append({"profile": profile, "payload": payload, "kwargs": kwargs})
         is_rewrite = payload["task"] == "rewrite_selection"
         content_text = (
             "성문은 해가 지기 전에 닫히며, 수호자는 침묵으로 통행을 막는다."
@@ -34,9 +34,9 @@ class ConceptAiGateway:
             )
         return ModelCallResult(
             content=json.dumps(response, ensure_ascii=False),
-            role="writer",
-            model="writer-test",
-            endpoint="http://models.test/v1",
+            role=profile.role,
+            model=profile.model,
+            endpoint=profile.base_url,
             params={"response_format": kwargs["response_mode"]},
             usage={"total_tokens": 73},
         )
@@ -103,6 +103,7 @@ def test_concept_ai_returns_reviewable_proposals_without_saving(monkeypatch) -> 
             f"/api/v1/concept-pages/{current['id']}/ai/rewrite-selection",
             json={
                 "body_json": unsaved_body,
+                "model_key": "qwen",
                 "selection_from": 0,
                 "selection_to": 13,
                 "selection_text": "성문은 늦게 닫혔다.",
@@ -117,10 +118,12 @@ def test_concept_ai_returns_reviewable_proposals_without_saving(monkeypatch) -> 
         assert proposal["status"] == "CANDIDATE"
         assert proposal["persisted"] is False
         assert proposal["mode"] == "rewrite_selection"
+        assert proposal["model_key"] == "qwen"
         assert proposal["selection_from"] == 0
         assert proposal["original_text"] == "성문은 늦게 닫혔다."
         assert proposal["proposed_text"].startswith("성문은 해가 지기 전에")
         assert proposal["source_page_ids"] == [fact_source["id"], inspiration["id"]]
+        assert gateway.calls[0]["profile"].model == "qwen36-heretic-mtp"
 
         rewrite_payload = gateway.calls[0]["payload"]
         assert rewrite_payload["target"]["selection_text"] == "성문은 늦게 닫혔다."
@@ -155,6 +158,7 @@ def test_concept_ai_returns_reviewable_proposals_without_saving(monkeypatch) -> 
             f"/api/v1/concept-pages/{current['id']}/ai/draft",
             json={
                 "body_json": unsaved_body,
+                "model_key": "gemma",
                 "prompt": "폐문 절차를 설명하는 초안을 써 줘.",
                 "source_page_ids": [fact_source["id"]],
                 "placement": "append",
@@ -164,8 +168,10 @@ def test_concept_ai_returns_reviewable_proposals_without_saving(monkeypatch) -> 
         assert draft.status_code == 200
         assert draft.json()["status"] == "CANDIDATE"
         assert draft.json()["persisted"] is False
+        assert draft.json()["model_key"] == "gemma"
         assert draft.json()["proposed_text"].startswith("## 해질의 성문")
         assert gateway.calls[1]["payload"]["placement"] == "append"
+        assert gateway.calls[1]["profile"].model == "gemma4-26b-heretic-mtp"
 
         stored = db.get(ConceptPage, current["id"])
         assert stored is not None
@@ -182,8 +188,10 @@ def test_concept_ai_returns_reviewable_proposals_without_saving(monkeypatch) -> 
         assert all(run.selected_concept_ids[0] == current["id"] for run in runs)
         rewrite_run = next(run for run in runs if run.task == "concept_selection_rewrite")
         assert rewrite_run.prompt_components == {
-            "concept_editor": "selection_contextual_rewrite_v2"
+            "concept_editor": "selection_contextual_rewrite_v3"
         }
+        assert rewrite_run.model_role == "utility"
+        assert rewrite_run.input_json["model_key"] == "qwen"
         assert rewrite_run.input_json["context"]["current_page"]["selection_context"][
             "found"
         ] is True
