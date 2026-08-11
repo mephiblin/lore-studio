@@ -18,6 +18,7 @@ from app.models import (
     WritingRecipe,
 )
 from app.services.config_loader import load_output_profiles
+from app.services.sampling import resolve_sampling_profile
 
 ROLE_FACT = {"PROJECT_CANON", "DRAFT_SETTING", "CANON_EVIDENCE", "SECONDARY_INTERPRETATION"}
 ROLE_REFERENCE = {"DISCOURSE_REFERENCE", "INSPIRATION"}
@@ -358,8 +359,11 @@ def compile_context(
         "key": profile_key,
         "name": profile_key,
         "rules": {},
-        "length_presets": {},
     }
+    sampling_profile = resolve_sampling_profile(
+        effective_settings,
+        recommended_key=selected_output_profile.get("recommended_sampling_profile"),
+    )
 
     pack = {
         "project": {
@@ -394,10 +398,14 @@ def compile_context(
         "output_profile": {
             "key": profile_key,
             "name": selected_output_profile.get("name", profile_key),
+            "description": selected_output_profile.get("description", ""),
             "rules": selected_output_profile.get("rules", {}),
-            "length_presets": selected_output_profile.get("length_presets", {}),
+            "recommended_recipe_keys": selected_output_profile.get("recommended_recipe_keys", []),
+            "recommended_voice_profile_key": selected_output_profile.get("recommended_voice_profile_key"),
+            "recommended_sampling_profile": selected_output_profile.get("recommended_sampling_profile"),
         },
         "generation_settings": effective_settings,
+        "sampling_profile": sampling_profile,
         "seed": session.seed,
         "warnings": warnings,
         "policy": {

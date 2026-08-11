@@ -125,12 +125,14 @@ from app.services.config_loader import (
     load_direction_card_presets,
     load_output_profiles,
     load_page_templates,
+    load_sampling_profiles,
     seed_project_categories,
 )
 from app.services.context_compiler import compile_context, tiptap_to_text
 from app.services.harness import LoreHarness
 from app.services.model_gateway import ModelGatewayError, local_text_profile
 from app.services.revisions import add_concept_revision, add_lore_revision
+from app.services.sampling import resolve_sampling_profile
 from app.services.search import hybrid_search, index_stats, run_index_job
 from app.services.utility_tools import (
     analyze_image,
@@ -478,6 +480,27 @@ def page_templates() -> list[dict[str, Any]]:
 @router.get("/presets/output-profiles")
 def output_profiles() -> list[dict[str, Any]]:
     return load_output_profiles()
+
+
+@router.get("/presets/sampling-profiles")
+def sampling_profiles() -> list[dict[str, Any]]:
+    return load_sampling_profiles()
+
+
+def _require_generation_presets(settings_json: dict[str, Any], output_profile: str) -> None:
+    profile = next(
+        (item for item in load_output_profiles() if item.get("key") == output_profile),
+        None,
+    )
+    if profile is None:
+        raise _error(422, "OUTPUT_PROFILE_NOT_FOUND", "선택한 결과물 종류를 찾을 수 없습니다.")
+    try:
+        resolve_sampling_profile(
+            settings_json,
+            recommended_key=profile.get("recommended_sampling_profile"),
+        )
+    except ValueError as exc:
+        raise _error(422, "SAMPLING_PROFILE_NOT_FOUND", str(exc)) from exc
 
 
 @router.get("/presets/direction-cards")
@@ -2010,6 +2033,7 @@ def create_playbook_session(payload: PlaybookSessionCreate, db: Session = Depend
         selection_mode=payload.voice_selection_mode,
         example_ids=payload.voice_example_ids,
     )
+    _require_generation_presets(payload.settings_json, payload.output_profile)
     session = PlaybookSession(**payload.model_dump())
     db.add(session)
     db.commit()
@@ -2044,6 +2068,11 @@ def update_playbook_session(
     if "writing_recipe_id" in changes:
         recipe = _get_or_404(db, WritingRecipe, changes["writing_recipe_id"], "전개 방식")
         _require_recipe_for_project(recipe, session.project_id)
+    if "settings_json" in changes or "output_profile" in changes:
+        _require_generation_presets(
+            changes.get("settings_json", session.settings_json),
+            changes.get("output_profile", session.output_profile),
+        )
     voice_fields = {"voice_profile_id", "voice_selection_mode", "voice_example_ids"}
     if voice_fields & set(changes):
         profile_id = changes.get("voice_profile_id", session.voice_profile_id)

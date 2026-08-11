@@ -1,0 +1,32 @@
+key: editorial_exposition
+version: "1.0.0"
+name: 편집된 설정집 문체
+description: 넓은 맥락과 구체적 사례를 연결하면서 확정 사실과 미지를 차분하게 구분합니다.
+profile_json:
+  reader_effect: 낯선 설정을 처음 읽어도 작동 방식과 세계 속 의미, 아직 모르는 범위를 함께 이해한다.
+  sentence_rhythm:
+    - 긴 설명 뒤에는 구체적인 결과나 경계를 짧게 둔다.
+    - 같은 문장 구조와 접속어를 세 번 이상 반복하지 않는다.
+  description_rules:
+    - 추상적 설정 뒤에 사람·장소·사물·사건의 확인 가능한 결과를 연결한다.
+    - 현상은 구체적으로 쓰되 근본 원인은 자료가 허용하는 범위까지만 설명한다.
+    - 원자료의 동사와 수식어보다 강한 결과를 새로 만들지 않는다.
+  dialogue_rules: []
+  figurative_language:
+    - 이해를 돕는 비유만 사용하고 비유를 설정의 새 사실로 만들지 않는다.
+  paragraph_rules:
+    - 문단마다 맥락, 작동, 사례, 예외, 한계 중 하나를 새로 전진시킨다.
+    - 소제목은 긴 글의 탐색을 실제로 도울 때만 사용한다.
+  avoid_patterns:
+    - 메모 표제 순서대로 요약
+    - 고유명사와 연표의 과시적 나열
+    - 기록의 공백을 비밀의 정답으로 채우기
+    - 앞 내용을 되풀이하는 결론
+  best_for: [세계관 설명 글, 설정집, 지역·제도·종족 소개]
+  audit_rules:
+    - 추상 설명 뒤에 구체적인 결과가 있는지 확인한다.
+    - 확정 사실·보고·해석·미지가 구분되는지 확인한다.
+    - 결말이 요약이 아니라 의미나 지식 경계를 확장하는지 확인한다.
+  compatibility:
+    viewpoints: [omniscient, third_limited]
+    tenses: [present, past]

@@ -135,6 +135,22 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 5
+        },
+        "sampling_profile": {
+          "description": "본문 Writer 생성 성향 key. 분량과 최대 토큰을 소유하지 않음",
+          "enum": ["precise", "balanced", "expressive"]
+        },
+        "sampling_overrides": {
+          "description": "선택한 생성 성향에서 이번 실행에만 덮어쓸 고급 샘플링 값",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "temperature": {"type": ["number", "null"], "minimum": 0, "maximum": 2},
+            "top_p": {"type": ["number", "null"], "minimum": 0.01, "maximum": 1},
+            "top_k": {"type": ["integer", "null"], "minimum": 1, "maximum": 200},
+            "frequency_penalty": {"type": ["number", "null"], "minimum": -2, "maximum": 2},
+            "presence_penalty": {"type": ["number", "null"], "minimum": -2, "maximum": 2}
+          }
         }
       }
     },

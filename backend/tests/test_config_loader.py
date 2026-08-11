@@ -65,6 +65,34 @@ def test_in_universe_oral_profile_uses_existing_generation_length_contract() -> 
     assert "max_tokens" not in profile
 
 
+def test_output_and_sampling_profiles_are_separate_complete_contracts() -> None:
+    config_root = Path(__file__).resolve().parents[2] / "config"
+    outputs = config_loader._load_yaml_files(config_root / "output_profiles")
+    sampling = config_loader._load_yaml_files(config_root / "sampling_profiles")
+    sampling_keys = {item["key"] for item in sampling}
+
+    assert {"source_curation", "lore_article", "novel_prose"}.issubset(
+        {item["key"] for item in outputs}
+    )
+    assert sampling_keys == {"precise", "balanced", "expressive"}
+    for profile in outputs:
+        assert profile["recommended_sampling_profile"] in sampling_keys
+        assert profile["recommended_recipe_keys"]
+        assert profile["recommended_voice_profile_key"]
+        assert "length_presets" not in profile
+        assert "target_units" not in profile["rules"]
+        assert "max_tokens" not in profile
+    for profile in sampling:
+        assert set(profile["parameters"]) == {
+            "temperature",
+            "top_p",
+            "top_k",
+            "frequency_penalty",
+            "presence_penalty",
+        }
+        assert "max_tokens" not in profile["parameters"]
+
+
 def test_builtin_voice_profiles_are_shared_approved_and_idempotent() -> None:
     db = isolated_session()
     config_loader.seed_builtin_voice_profiles(db)

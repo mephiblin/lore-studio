@@ -81,7 +81,9 @@ def test_context_separates_facts_and_discourse_references() -> None:
     assert pack["locked_facts"][0]["fact"] == "북부 항로에 존재한다"
     assert pack["policy"]["reference_facts_are_forbidden"] is True
     assert pack["output_profile"]["key"] == "lore_article"
-    assert pack["output_profile"]["rules"]["target_units"] == "korean_characters"
+    assert "target_units" not in pack["output_profile"]["rules"]
+    assert pack["sampling_profile"]["key"] == "balanced"
+    assert pack["sampling_profile"]["parameters"]["top_k"] == 32
 
 
 def test_context_depth_is_disabled_without_selected_materials() -> None:

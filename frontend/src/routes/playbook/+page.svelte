@@ -7,10 +7,12 @@
   import { coverFallbackLabel, moveDescriptions, moveLabels, roleLabel } from '$lib/labels';
   import { initialProjectId, rememberProject } from '$lib/project';
 
-  let projects = [], pages = [], cards = [], recipes = [], categories = [], voiceProfiles = [];
+  let projects = [], pages = [], cards = [], recipes = [], categories = [], voiceProfiles = [], outputProfiles = [], samplingProfiles = [];
   let projectId = '', recipeId = '', voiceProfileId = '', outputProfile = 'lore_article', userDirection = '';
   let subjectIds = [], backgroundIds = [], elementIds = [], conflictIds = [], directionCardIds = [];
   let length = 'normal', customLength = 4000, detailLevel = 3, contextDepth = 'balanced', creativity = 'conservative', mystery = 4, seed = 42;
+  let samplingProfile = 'balanced';
+  let samplingOverrides = { temperature: null, top_p: null, top_k: null, frequency_penalty: null, presence_penalty: null };
   let viewpoint = 'omniscient', tense = 'present';
   let conceptSearch = '', categoryFilter = 'all', pageLimit = 18;
   let session = null, plan = null, generatedDocument = null;
@@ -32,15 +34,7 @@
     { key: 'settings', short: '결과물 형태', title: '어떤 결과물로 만들까요?', copy: '결과물 종류, 시점·시제와 분량을 정하세요.', next: '확인·작성으로 계속' },
     { key: 'review', short: '확인·작성', title: '선택을 확인하고 초안을 만드세요.', copy: '원고 설계를 확인하고, 글의 흐름을 정한 뒤 초안을 작성합니다.' }
   ];
-  const outputProfiles = [
-    { value: 'lore_article', mark: '설정집', title: '세계관 설명 글', copy: '사실과 맥락을 차분하게 정리합니다.' },
-    { value: 'video_narration', mark: '영상', title: '영상 내레이션', copy: '소리 내어 읽기 좋은 호흡으로 씁니다.' },
-    { value: 'novel_prose', mark: '장면', title: '소설 장면', copy: '인물의 행동과 감각이 보이게 씁니다.' },
-    { value: 'personal_essay', mark: '수필', title: '수필·에세이', copy: '구체적인 경험에서 생각의 변화를 끌어냅니다.' },
-    { value: 'analytical_report', mark: '보고', title: '분석 보고서', copy: '근거와 한계를 분리해 판단 과정을 보여 줍니다.' },
-    { value: 'in_universe_report', mark: '기록', title: '세계 내부 문서', copy: '세계 안의 작성자가 남긴 기록처럼 씁니다.' },
-    { value: 'in_universe_oral', mark: '구술', title: '세계 내부 구술', copy: '한 화자의 제한된 지식과 현장 감각으로 직접 들려줍니다.' }
-  ];
+  const outputProfileMarks = { lore_article: '설정집', video_narration: '영상', novel_prose: '장면', personal_essay: '수필', analytical_report: '보고', in_universe_report: '기록', in_universe_oral: '구술', source_curation: '해설' };
   const viewpointOptions = [
     { value: 'omniscient', title: '전지적 설명자', copy: '세계 전체를 내려다봅니다.' },
     { value: 'first_observer', title: '1인칭 관찰자', copy: '목격자의 언어로 제한합니다.' },
@@ -76,7 +70,11 @@
   $: wizardPages = wizardCandidates.slice(0, pageLimit);
   $: totalSupporting = backgroundIds.length + elementIds.length + conflictIds.length;
   $: selectedConceptCount = subjectIds.length + totalSupporting;
-  $: selectedOutputProfile = outputProfiles.find((item) => item.value === outputProfile) || outputProfiles[0];
+  $: selectedOutputProfile = outputProfiles.find((item) => item.value === outputProfile) || outputProfiles[0] || { value: 'lore_article', mark: '설정집', title: '세계관 설명 글', copy: '사실과 맥락을 차분하게 정리합니다.' };
+  $: selectedSamplingProfile = samplingProfiles.find((item) => item.key === samplingProfile) || samplingProfiles[0];
+  $: resolvedSamplingParameters = Object.fromEntries(
+    Object.entries(selectedSamplingProfile?.parameters || {}).map(([key, value]) => [key, samplingOverrides[key] ?? value])
+  );
   $: selectedViewpoint = viewpointOptions.find((item) => item.value === viewpoint) || viewpointOptions[0];
   $: selectedTense = tenseOptions.find((item) => item.value === tense) || tenseOptions[0];
   $: selectedLength = lengthOptions.find((item) => item.value === length) || lengthOptions[1];
@@ -92,7 +90,7 @@
     selectedCards.length ? selectedCards.length === 1 ? selectedCards[0].title : `${selectedCards[0].title} 외 ${selectedCards.length - 1}개` : '선택 안 함',
     selectedRecipe?.name || '선택 필요',
     selectedVoiceProfile?.name || '모델 기본 문체',
-    selectedOutputProfile.title,
+    selectedOutputProfile?.title || '세계관 설명 글',
     generatedDocument ? '원고 완성' : plan ? '글의 흐름 준비됨' : '작성 전'
   ];
 
@@ -120,13 +118,20 @@
   async function loadProjectData() {
     if (!projectId) return;
     try {
-      [pages, cards, categories, recipes, voiceProfiles] = await Promise.all([
+      const loaded = await Promise.all([
         api.get(`/concept-pages?project_id=${projectId}`),
         api.get(`/direction-cards?project_id=${projectId}`),
         api.get(`/categories?project_id=${projectId}`),
         api.get(`/writing-recipes?project_id=${projectId}`),
-        api.get(`/voice-profiles?project_id=${projectId}&status=APPROVED`)
+        api.get(`/voice-profiles?project_id=${projectId}&status=APPROVED`),
+        api.get('/presets/output-profiles'),
+        api.get('/presets/sampling-profiles')
       ]);
+      [pages, cards, categories, recipes, voiceProfiles] = loaded;
+      outputProfiles = loaded[5].map((item) => ({ ...item, value: item.key, title: item.name, copy: item.description, mark: outputProfileMarks[item.key] || '원고' }));
+      samplingProfiles = loaded[6];
+      if (!outputProfiles.some((item) => item.value === outputProfile)) outputProfile = outputProfiles[0]?.value || 'lore_article';
+      if (!samplingProfiles.some((item) => item.key === samplingProfile)) samplingProfile = 'balanced';
       recipeId = recipes.some((item) => item.id === recipeId)
         ? recipeId
         : recipes.find((item) => item.key === 'progressive_exposition')?.id || recipes[0]?.id || '';
@@ -214,7 +219,7 @@
     reviewEditSnapshot = {
       subjectIds: [...subjectIds], backgroundIds: [...backgroundIds], elementIds: [...elementIds], conflictIds: [...conflictIds],
       directionCardIds: [...directionCardIds], recipeId, voiceProfileId, outputProfile, userDirection,
-      length, customLength, detailLevel, contextDepth, creativity, mystery, seed, viewpoint, tense,
+      length, customLength, detailLevel, contextDepth, creativity, mystery, seed, viewpoint, tense, samplingProfile, samplingOverrides: { ...samplingOverrides },
       session, plan, generatedDocument, planDirty, reviewPane
     };
     setWizardStep(index);
@@ -232,7 +237,7 @@
       ({
         subjectIds, backgroundIds, elementIds, conflictIds, directionCardIds, recipeId, voiceProfileId,
         outputProfile, userDirection, length, customLength, detailLevel, contextDepth, creativity,
-        mystery, seed, viewpoint, tense, session, plan, generatedDocument, planDirty, reviewPane
+        mystery, seed, viewpoint, tense, samplingProfile, samplingOverrides, session, plan, generatedDocument, planDirty, reviewPane
       } = reviewEditSnapshot);
     }
     returnToReview();
@@ -258,7 +263,26 @@
     resetRun();
   }
 
-  function selectOutputProfile(value) { outputProfile = value; resetRun(); }
+  function selectOutputProfile(value) {
+    outputProfile = value;
+    const recommended = outputProfiles.find((item) => item.value === value)?.recommended_sampling_profile;
+    if (recommended) samplingProfile = recommended;
+    samplingOverrides = { temperature: null, top_p: null, top_k: null, frequency_penalty: null, presence_penalty: null };
+    resetRun();
+  }
+  function selectSamplingProfile(value) {
+    samplingProfile = value;
+    samplingOverrides = { temperature: null, top_p: null, top_k: null, frequency_penalty: null, presence_penalty: null };
+    resetRun();
+  }
+  function resetSamplingOverrides() {
+    samplingOverrides = { temperature: null, top_p: null, top_k: null, frequency_penalty: null, presence_penalty: null };
+    resetRun();
+  }
+  function setSamplingOverride(key, value) {
+    samplingOverrides = { ...samplingOverrides, [key]: value === '' ? null : Number(value) };
+    resetRun();
+  }
   function selectViewpoint(value) { viewpoint = value; resetRun(); }
   function selectTense(value) { tense = value; resetRun(); }
   function selectLength(value) { length = value; resetRun(); }
@@ -282,7 +306,8 @@
       settings_json: {
         length, custom_length: length === 'custom' ? Number(customLength) : null,
         detail_level: Number(detailLevel), context_depth: selectedConceptCount ? contextDepth : 'core', creativity,
-        mystery_preservation: Number(mystery), viewpoint, tense
+        mystery_preservation: Number(mystery), viewpoint, tense, sampling_profile: samplingProfile,
+        sampling_overrides: samplingOverrides
       },
       seed: Number(seed) || 0
     });
@@ -485,6 +510,31 @@
               {/each}
             </div>
             {#if length === 'custom'}<label class="custom-length-field">목표 글자 수<input type="number" min="500" bind:value={customLength} on:change={resetRun} /></label>{/if}
+          </section>
+
+          <section class="output-choice-section sampling-choice-section">
+            <header><span>생성 성향</span><strong>문장 선택의 안정성과 다양성을 조절하세요.</strong></header>
+            <div class="length-card-grid sampling-profile-grid" role="group" aria-label="생성 성향">
+              {#each samplingProfiles as profile}
+                <button class:selected={samplingProfile === profile.key} aria-pressed={samplingProfile === profile.key} on:click={() => selectSamplingProfile(profile.key)}>
+                  <strong>{profile.name}</strong><small>{profile.description}</small>
+                </button>
+              {/each}
+            </div>
+            <details class="sampling-advanced">
+              <summary>고급 샘플링 조정</summary>
+              <div class="details-body sampling-fields">
+                <p>비워 두면 선택한 생성 성향의 권장값을 사용합니다. 분량은 위의 글자 수 계약이 담당하며 최대 토큰은 시스템이 안전하게 계산합니다.</p>
+                <div class="output-selectors sampling-number-grid">
+                  <label>온도<input aria-label="온도" type="number" min="0" max="2" step="0.01" value={resolvedSamplingParameters.temperature ?? ''} on:input={(event) => setSamplingOverride('temperature', event.currentTarget.value)} /><small>낮을수록 안정적, 높을수록 다양한 표현</small></label>
+                  <label>Top P<input aria-label="Top P" type="number" min="0.01" max="1" step="0.01" value={resolvedSamplingParameters.top_p ?? ''} on:input={(event) => setSamplingOverride('top_p', event.currentTarget.value)} /><small>누적 확률 후보의 범위</small></label>
+                  <label>Top K<input aria-label="Top K" type="number" min="1" max="200" step="1" value={resolvedSamplingParameters.top_k ?? ''} on:input={(event) => setSamplingOverride('top_k', event.currentTarget.value)} /><small>매 토큰에서 검토할 상위 후보 수</small></label>
+                  <label>반복 억제<input aria-label="반복 억제" type="number" min="-2" max="2" step="0.01" value={resolvedSamplingParameters.frequency_penalty ?? ''} on:input={(event) => setSamplingOverride('frequency_penalty', event.currentTarget.value)} /><small>같은 표현의 누적 반복을 줄입니다.</small></label>
+                  <label>새 화제 허용<input aria-label="새 화제 허용" type="number" min="-2" max="2" step="0.01" value={resolvedSamplingParameters.presence_penalty ?? ''} on:input={(event) => setSamplingOverride('presence_penalty', event.currentTarget.value)} /><small>이미 등장한 내용 밖의 후보에 주는 여유</small></label>
+                </div>
+                <button class="ghost" type="button" on:click={resetSamplingOverrides}>권장값으로 되돌리기</button>
+              </div>
+            </details>
           </section>
 
           <section class="output-tuning-card">

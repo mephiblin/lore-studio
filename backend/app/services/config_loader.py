@@ -60,6 +60,10 @@ def load_output_profiles() -> list[dict[str, Any]]:
     return _load_yaml_files(settings.app_config_root / "output_profiles")
 
 
+def load_sampling_profiles() -> list[dict[str, Any]]:
+    return _load_yaml_files(settings.app_config_root / "sampling_profiles")
+
+
 def load_direction_card_presets() -> list[dict[str, Any]]:
     return _load_yaml_files(settings.app_config_root / "direction_card_presets")
 

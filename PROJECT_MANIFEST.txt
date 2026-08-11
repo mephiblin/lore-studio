@@ -42,6 +42,7 @@ backend/app/services/harness.py
 backend/app/services/model_gateway.py
 backend/app/services/model_connections.py
 backend/app/services/revisions.py
+backend/app/services/sampling.py
 backend/app/services/search.py
 backend/app/services/utility_tools.py
 backend/app/services/writing_moves.py
@@ -60,6 +61,7 @@ backend/tests/test_local_models.py
 backend/tests/test_model_gateway.py
 backend/tests/test_model_connections.py
 backend/tests/test_search.py
+backend/tests/test_sampling_profiles.py
 backend/tests/test_writing_recipes.py
 backend/tests/test_voice_profiles.py
 backend/tests/test_writing_boundaries.py
@@ -74,6 +76,7 @@ config/output_profiles/in_universe_oral.yaml
 config/output_profiles/lore_article.yaml
 config/output_profiles/novel_prose.yaml
 config/output_profiles/personal_essay.yaml
+config/output_profiles/source_curation.yaml
 config/output_profiles/video_narration.yaml
 config/page_templates/artifact.yaml
 config/page_templates/event.yaml
@@ -85,10 +88,17 @@ config/prompts/discourse_auditor.md
 config/prompts/finalizer.md
 config/prompts/planner.md
 config/prompts/writer.md
+config/sampling_profiles/balanced.yaml
+config/sampling_profiles/expressive.yaml
+config/sampling_profiles/precise.yaml
 config/voice_profiles/analytical_report.yaml
+config/voice_profiles/editorial_exposition.yaml
+config/voice_profiles/expert_curator.yaml
 config/voice_profiles/fiction_scene.yaml
 config/voice_profiles/field_witness.yaml
+config/voice_profiles/in_universe_scribe.yaml
 config/voice_profiles/reflective_essay.yaml
+config/voice_profiles/spoken_lore.yaml
 config/writing_recipes/analytical_report.yaml
 config/writing_recipes/cause_consequence.yaml
 config/writing_recipes/contrast_reframe.yaml
@@ -98,6 +108,7 @@ config/writing_recipes/in_universe_document.yaml
 config/writing_recipes/novel_scene.yaml
 config/writing_recipes/progressive_exposition.yaml
 config/writing_recipes/reflective_essay.yaml
+config/writing_recipes/source_curation.yaml
 docker-compose.yml
 docs/ACCEPTANCE_TESTS.md
 docs/ARCHITECTURE.md
@@ -122,6 +133,10 @@ docs/VOICE_PROFILE_IMPLEMENTATION_PLAN.md
 docs/WRITING_SYSTEM.md
 docs/model-evaluations/utility-models.json
 docs/model-evaluations/utility-models.md
+docs/model-evaluations/writing-profile-lab-gemma-results-v2.json
+docs/model-evaluations/writing-profile-lab-gemma-results.json
+docs/model-evaluations/writing-profile-lab.md
+docs/model-evaluations/writing-profile-lab.yaml
 docs/product-audit/recursive-audit.md
 frontend/Dockerfile
 frontend/jsconfig.json
@@ -172,11 +187,13 @@ schema/voice-profile.schema.json
 schema/writing-recipe.schema.json
 scripts/compare_utility_models.py
 scripts/download_fallback_model.py
+scripts/evaluate_openwebui_writing_lab.py
 scripts/evaluate_utility_model.py
 scripts/reindex_all.py
 scripts/seed_diablo_lore.py
 scripts/seed_world.py
 scripts/smoke_test.sh
+scripts/sync_openwebui_writing_lab.py
 scripts/validate_bundle.py
 systemd/lore-studio-gemma-vllm-proxy.service
 systemd/lore-studio-gemma-vllm-proxy.socket

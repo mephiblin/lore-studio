@@ -118,6 +118,10 @@ def test_generation_persists_required_stages_and_lore_blocks(monkeypatch) -> Non
     }.issubset(stages)
     assert db.query(LoreBlock).filter_by(document_id=document.id).count() >= 1
     assert db.query(GenerationRun).filter_by(session_id=session.id).count() == 2
+    draft_run = db.scalar(select(GenerationRun).where(GenerationRun.task == "draft"))
+    assert draft_run is not None
+    assert draft_run.prompt_components["sampling_profile"] == "balanced"
+    assert draft_run.params_json["sampling_profile_snapshot"]["parameters"]["top_k"] == 32
     recipe_warning = db.scalar(
         select(AuditFinding).where(
             AuditFinding.document_id == document.id,

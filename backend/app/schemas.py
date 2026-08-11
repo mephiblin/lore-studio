@@ -21,6 +21,42 @@ VOICE_PROFILE_LIST_FIELDS = {
 VOICE_PROFILE_FIELDS = {"reader_effect", "compatibility"} | VOICE_PROFILE_LIST_FIELDS
 VOICE_SELECTION_MODES = {"model_default", "profile_default", "manual", "retrieved"}
 VOICE_RIGHTS_BASES = {"SELF_AUTHORED", "LICENSED", "PUBLIC_DOMAIN", "ANALYSIS_ONLY"}
+SAMPLING_PARAMETER_RANGES = {
+    "temperature": (0.0, 2.0),
+    "top_p": (0.01, 1.0),
+    "top_k": (1, 200),
+    "frequency_penalty": (-2.0, 2.0),
+    "presence_penalty": (-2.0, 2.0),
+}
+
+
+def validate_generation_settings(value: dict[str, Any] | None) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    result = dict(value)
+    profile = str(result.get("sampling_profile", "balanced")).strip()
+    if not profile or len(profile) > 80:
+        raise ValueError("생성 성향 키가 올바르지 않습니다.")
+    result["sampling_profile"] = profile
+    overrides = result.get("sampling_overrides") or {}
+    if not isinstance(overrides, dict):
+        raise ValueError("샘플링 고급 설정은 객체여야 합니다.")
+    unknown = set(overrides) - set(SAMPLING_PARAMETER_RANGES)
+    if unknown:
+        raise ValueError(f"지원하지 않는 샘플링 설정입니다: {', '.join(sorted(unknown))}")
+    clean: dict[str, int | float | None] = {}
+    for key, (minimum, maximum) in SAMPLING_PARAMETER_RANGES.items():
+        raw = overrides.get(key)
+        if raw is None:
+            clean[key] = None
+            continue
+        if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+            raise ValueError(f"{key} 값은 숫자여야 합니다.")
+        if not minimum <= raw <= maximum:
+            raise ValueError(f"{key} 값은 {minimum}~{maximum} 범위여야 합니다.")
+        clean[key] = int(raw) if key == "top_k" else float(raw)
+    result["sampling_overrides"] = clean
+    return result
 
 
 def canonicalize_voice_profile_json(value: dict[str, Any]) -> dict[str, Any]:
@@ -643,6 +679,11 @@ class PlaybookSessionCreate(BaseModel):
     )
     seed: int = 0
 
+    @field_validator("settings_json")
+    @classmethod
+    def validate_settings(cls, value: dict[str, Any]) -> dict[str, Any]:
+        return validate_generation_settings(value) or {}
+
     @model_validator(mode="after")
     def validate_voice_selection(self) -> "PlaybookSessionCreate":
         self.voice_example_ids = list(dict.fromkeys(self.voice_example_ids))
@@ -688,6 +729,11 @@ class PlaybookSessionUpdate(BaseModel):
     output_profile: str | None = None
     settings_json: dict[str, Any] | None = None
     seed: int | None = None
+
+    @field_validator("settings_json")
+    @classmethod
+    def validate_settings(cls, value: dict[str, Any] | None) -> dict[str, Any] | None:
+        return validate_generation_settings(value)
 
 
 class LoreDocumentUpdate(BaseModel):

@@ -2,16 +2,20 @@ key: lore_article
 version: "1.0.0"
 name: 세계관 설명 글
 description: 사실과 맥락을 차분하게 정리하는 설명형 원고입니다.
+recommended_recipe_keys: [progressive_exposition, cause_consequence, contrast_reframe]
+recommended_voice_profile_key: editorial_exposition
+recommended_sampling_profile: balanced
 rules:
   paragraph_density: high
   sentence_length: medium_to_long
   spoken_clarity: medium
-  visual_beat_interval: null
+  narrator_scope: external_broad_but_incomplete
+  finished_manuscript_only: true
   headings: optional
-  evidence_display: metadata
-  target_units: korean_characters
-length_presets:
-  short: [800, 1500]
-  normal: [2000, 4000]
-  long: [5000, 8000]
-  very_long: [10000, 18000]
+  evidence_display: certainty_in_prose
+  information_selection: relevance_over_exhaustiveness
+  abstract_to_concrete: required
+  certainty_visible: true
+  meta_commentary: false
+  ending_mode: wider_meaning_or_open_limit
+  semantic_strength_preserved: true

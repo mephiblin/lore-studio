@@ -1,0 +1,26 @@
+key: source_curation
+version: "1.0.0"
+name: 자료 큐레이션·해설
+description: 여러 원자료를 선별해 짧게 발췌하고 자세히 의역한 뒤 의미와 변화까지 해설합니다.
+recommended_recipe_keys: [source_curation, contrast_reframe, progressive_exposition]
+recommended_voice_profile_key: expert_curator
+recommended_sampling_profile: precise
+rules:
+  paragraph_density: medium
+  sentence_length: varied
+  narrator_scope: external_source_bound
+  finished_manuscript_only: true
+  headings: per_selected_source
+  evidence_display: quote_paraphrase_commentary_separated
+  direct_quotes: supplied_verbatim_only
+  paraphrase: meaning_and_sequence_preserved
+  selection_basis: user_condition_then_distinctive_value
+  commentary_strength: source_bounded
+  commentary_mode: explain_recorded_meaning_not_invent_hidden_cause
+  institutional_intent: forbidden_without_explicit_evidence
+  speculative_language: does_not_license_new_hypotheses
+  information_selection: curated_not_exhaustive
+  meta_commentary: false
+  ending_mode: cross_source_synthesis
+  follow_up_offer: on_request_only
+  semantic_strength_preserved: true

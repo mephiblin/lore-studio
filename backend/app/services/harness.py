@@ -25,6 +25,7 @@ from app.services.config_loader import load_output_profiles, load_prompt
 from app.services.context_compiler import UNSET, compile_context
 from app.services.model_gateway import ModelCallResult, ModelGateway
 from app.services.revisions import add_lore_revision
+from app.services.sampling import writer_call_settings
 
 LENGTH_BUDGETS = {
     "short": 1200,
@@ -519,6 +520,7 @@ class LoreHarness:
         temperature: float,
         seed: int | None,
         mode: str,
+        extra_params: dict[str, Any] | None = None,
     ) -> tuple[ModelCallResult, list[int]]:
         raw_blocks = [
             dict(block) for block in plan.get("blocks", []) if isinstance(block, dict)
@@ -615,6 +617,7 @@ class LoreHarness:
                     temperature=temperature,
                     max_tokens=3500,
                     seed=(seed + len(results) + 1) if seed is not None else None,
+                    extra_params=extra_params,
                 )
                 results.append(result)
                 segment = _unique_generated_text(
@@ -706,6 +709,7 @@ class LoreHarness:
                     temperature=temperature,
                     max_tokens=3500,
                     seed=(seed + len(results) + 1) if seed is not None else None,
+                    extra_params=extra_params,
                 )
                 results.append(result)
                 segment = _unique_generated_text(
@@ -839,6 +843,7 @@ class LoreHarness:
                 "rules": profile.get("rules", {}),
             },
             "generation_settings": effective_settings,
+            "sampling_profile": pack.get("sampling_profile"),
             "writing_recipe": {
                 "id": writing_recipe.id,
                 "key": writing_recipe.key,
@@ -963,13 +968,17 @@ class LoreHarness:
             "instruction": "분석이나 작업 설명 없이 완성된 한국어 글 본문만 출력하라.",
         }
         system_prompt = load_prompt("finalizer.md")
+        final_temperature, final_extra_params = writer_call_settings(
+            pack.get("sampling_profile") or {}, finalizer=True
+        )
         if target >= LONG_FORM_THRESHOLD:
             call_result, _ = await self._complete_long_form(
                 system_prompt=system_prompt,
                 source_payload=payload,
                 plan=plan,
                 target=target,
-                temperature=0.48,
+                temperature=final_temperature,
+                extra_params=final_extra_params,
                 seed=session.seed,
                 mode=f"finalize_{refinement['length_policy']}",
             )
@@ -984,9 +993,10 @@ class LoreHarness:
                     },
                 ],
                 role="writer",
-                temperature=0.48,
+                temperature=final_temperature,
                 max_tokens=None,
                 seed=session.seed,
+                extra_params=final_extra_params,
             )
             body = _clean_generated_text(call_result.content)
         if not body:
@@ -1038,6 +1048,8 @@ class LoreHarness:
                 "user_direction": inputs["user_direction"],
                 "voice_profile_id": (inputs.get("voice_profile") or {}).get("id"),
                 "voice_profile_version": (inputs.get("voice_profile") or {}).get("version"),
+                "sampling_profile": (inputs.get("sampling_profile") or {}).get("key"),
+                "sampling_profile_version": (inputs.get("sampling_profile") or {}).get("version"),
                 "voice_example_ids": [item.get("id") for item in inputs.get("style_examples", [])],
                 "refinement_priorities": refinement["priorities"],
             },
@@ -1045,6 +1057,7 @@ class LoreHarness:
             direction_card_ids=session.direction_card_ids,
             params_json={
                 **inputs["generation_settings"],
+                "sampling_profile_snapshot": inputs.get("sampling_profile"),
                 "refinement": refinement,
                 "final_pass_instruction": instruction,
                 "target_characters": target,
@@ -1188,6 +1201,9 @@ class LoreHarness:
             "instruction": "완성된 한국어 본문만 출력하라.",
         }
         target = int(plan.get("target_length") or _target_length(pack))
+        draft_temperature, draft_extra_params = writer_call_settings(
+            pack.get("sampling_profile") or {}
+        )
         paragraph_plan_indexes: list[int] = []
         if target >= LONG_FORM_THRESHOLD:
             call_result, paragraph_plan_indexes = await self._complete_long_form(
@@ -1195,7 +1211,8 @@ class LoreHarness:
                 source_payload=payload,
                 plan=plan,
                 target=target,
-                temperature=0.72,
+                temperature=draft_temperature,
+                extra_params=draft_extra_params,
                 seed=session.seed,
                 mode="draft",
             )
@@ -1210,9 +1227,10 @@ class LoreHarness:
                     },
                 ],
                 role="writer",
-                temperature=0.72,
+                temperature=draft_temperature,
                 max_tokens=None,
                 seed=session.seed,
+                extra_params=draft_extra_params,
             )
             body = _clean_generated_text(call_result.content)
 
@@ -1262,6 +1280,7 @@ class LoreHarness:
                     "rules": pack.get("output_profile", {}).get("rules", {}),
                 },
                 "generation_settings": session.settings_json,
+                "sampling_profile": pack.get("sampling_profile"),
                 "voice_profile": pack.get("voice_profile"),
                 "voice_selection_mode": pack.get("voice_selection_mode", "model_default"),
                 "style_examples": [
@@ -1299,6 +1318,8 @@ class LoreHarness:
                     "recipe": pack.get("writing_recipe", {}).get("key"),
                     "recipe_version": pack.get("writing_recipe", {}).get("version"),
                     "output_profile": session.output_profile,
+                    "sampling_profile": (pack.get("sampling_profile") or {}).get("key"),
+                    "sampling_profile_version": (pack.get("sampling_profile") or {}).get("version"),
                     "voice_profile_id": (pack.get("voice_profile") or {}).get("id"),
                     "voice_profile_version": (pack.get("voice_profile") or {}).get("version"),
                     "voice_example_ids": [item.get("id") for item in pack.get("style_examples", [])],
@@ -1307,6 +1328,7 @@ class LoreHarness:
                 direction_card_ids=session.direction_card_ids,
                 params_json={
                     **session.settings_json,
+                    "sampling_profile_snapshot": pack.get("sampling_profile"),
                     "target_characters": target,
                     "actual_characters": len(body),
                     "length_strategy": call_result.params.get("strategy", "single_call"),

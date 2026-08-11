@@ -2,16 +2,22 @@ key: analytical_report
 version: "1.0.0"
 name: 분석 보고서
 description: 조사 질문, 근거, 한계, 결론을 추적 가능한 순서로 정리합니다.
+recommended_recipe_keys: [analytical_report, in_universe_document]
+recommended_voice_profile_key: analytical_report
+recommended_sampling_profile: precise
 rules:
   paragraph_density: high
   sentence_length: medium
   narrator_scope: analytical
+  finished_manuscript_only: true
   headings: structured
   evidence_display: explicit
   certainty_visible: true
-  target_units: korean_characters
-length_presets:
-  short: [1500, 3000]
-  normal: [3500, 7000]
-  long: [8000, 15000]
-  very_long: [15000, 26000]
+  claim_layers: fact_claim_interpretation_recommendation
+  alternatives_required: when_supported
+  missing_information_is_not_concealment: true
+  conclusion_strength: lowest_sufficient
+  information_selection: traceable
+  meta_commentary: false
+  ending_mode: judgment_scope_uncertainty
+  semantic_strength_preserved: true

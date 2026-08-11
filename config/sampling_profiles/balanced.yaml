@@ -1,0 +1,11 @@
+key: balanced
+version: "1.0.0"
+name: 균형
+description: 사실 경계를 지키면서 문장 선택에 적당한 변화를 줍니다.
+best_for: [세계관 설명, 영상 내레이션, 세계 내부 문서]
+parameters:
+  temperature: 0.58
+  top_p: 0.86
+  top_k: 32
+  frequency_penalty: 0.12
+  presence_penalty: 0.05

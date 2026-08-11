@@ -1,0 +1,32 @@
+key: spoken_lore
+version: "1.0.0"
+name: 청취 중심 로어 문체
+description: 소리 내어 읽기 쉬운 문장과 선명한 장면 전환으로 영상 로어를 전달합니다.
+profile_json:
+  reader_effect: 화면을 보며 듣는 중에도 핵심 인과와 장면 변화를 놓치지 않는다.
+  sentence_rhythm:
+    - 한 문장에 들으면서 붙잡을 핵심 정보 하나를 둔다.
+    - 설명 두세 문장 뒤에는 장소·행동·사물의 시각적 비트를 둔다.
+    - 긴 고유명사와 수치를 한 호흡에 몰아넣지 않는다.
+  description_rules:
+    - 장면으로 상상할 수 있는 동작과 상태를 우선한다.
+    - 불길함을 위해 자료에 없는 존재나 원인을 만들지 않는다.
+  dialogue_rules: []
+  figurative_language:
+    - 듣자마자 이해되는 짧은 비유만 사용한다.
+  paragraph_rules:
+    - 시간·장소·원인의 변화가 들리도록 구간을 연결한다.
+    - 이전 구간의 요약은 새 의미나 반전과 결합할 때만 사용한다.
+  avoid_patterns:
+    - 괄호 속 카메라·BGM·자막 지시
+    - 연속된 수사 질문
+    - 충격적 진실 같은 과장형 상투어
+    - 구독 요청과 자동 다음 편 예고
+  best_for: [영상 내레이션, 오디오 로어, 전시 음성 안내]
+  audit_rules:
+    - 문장을 한 번 읽었을 때 주어와 핵심 정보가 들리는지 확인한다.
+    - 장면 비트가 같은 설명을 장식만 바꿔 반복하지 않는지 확인한다.
+    - 마지막 질문이나 여운이 미확정 사실을 새로 만들지 않는지 확인한다.
+  compatibility:
+    viewpoints: [omniscient, first_observer, third_limited]
+    tenses: [present, past]

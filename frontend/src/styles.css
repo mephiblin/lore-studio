@@ -680,6 +680,12 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
 .voice-card-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .tense-card-grid { display: grid; gap: 6px; }
 .length-card-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.sampling-profile-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.sampling-advanced { margin-top: 12px; }
+.sampling-fields { display: grid; gap: 12px; }
+.sampling-fields > p { margin: 0; color: var(--muted-text); font-size: 10px; line-height: 1.55; }
+.sampling-number-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.sampling-number-grid label { min-width: 0; }
 .custom-length-field { max-width: 220px; margin-top: 10px; }
 .output-tuning-card { display: grid; gap: 14px; background: var(--paper-deep); }
 .output-selectors, .output-ranges { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
@@ -1228,6 +1234,7 @@ html[data-lorebook-theme] .app-main.workspace-main { transition: background-colo
   .output-choice-pair { grid-template-columns: 1fr; }
   .voice-card-grid { grid-template-columns: 1fr; }
   .length-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sampling-profile-grid, .sampling-number-grid { grid-template-columns: 1fr; }
   .output-selectors, .output-ranges { grid-template-columns: 1fr; }
   .review-stage-cards { grid-template-columns: 1fr; }
   .refinement-priority-grid { grid-template-columns: 1fr; }
