@@ -34,7 +34,7 @@
     { key: 'settings', short: '결과물 형태', title: '어떤 결과물로 만들까요?', copy: '결과물 종류, 시점·시제와 분량을 정하세요.', next: '확인·작성으로 계속' },
     { key: 'review', short: '확인·작성', title: '선택을 확인하고 초안을 만드세요.', copy: '원고 설계를 확인하고, 글의 흐름을 정한 뒤 초안을 작성합니다.' }
   ];
-  const outputProfileMarks = { lore_article: '설정집', video_narration: '영상', novel_prose: '장면', personal_essay: '수필', analytical_report: '보고', in_universe_report: '기록', in_universe_oral: '구술', source_curation: '해설' };
+  const outputProfileMarks = { lore_article: '설정집', video_narration: '영상', novel_prose: '장면', personal_essay: '수필', analytical_report: '보고', in_universe_report: '기록', in_universe_oral: '구술', source_curation: '해설', symbolic_tale: '우화' };
   const viewpointOptions = [
     { value: 'omniscient', title: '전지적 설명자', copy: '세계 전체를 내려다봅니다.' },
     { value: 'first_observer', title: '1인칭 관찰자', copy: '목격자의 언어로 제한합니다.' },

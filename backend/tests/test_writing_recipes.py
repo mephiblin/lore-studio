@@ -62,3 +62,31 @@ def test_plan_budgets_are_scaled_to_selected_length(settings: dict, expected: in
     assert plan["planned_length"] == expected
     assert sum(block["word_budget"] for block in plan["blocks"]) == expected
     assert plan["blocks"][1]["word_budget"] > plan["blocks"][0]["word_budget"]
+
+
+def test_plan_replaces_hallucinated_evidence_id_with_selected_source() -> None:
+    selected_id = "becd8141-a8f2-458e-a44b-5889f0145406"
+    plan = _normalize_plan(
+        {
+            "title": "근거 경계",
+            "angle": "선택 자료만 사용한다.",
+            "blocks": [
+                {
+                    "move": "ANCHOR",
+                    "purpose": "선택 근거를 고정한다.",
+                    "evidence_ids": ["becd8141-a8f2-4589f0145406"],
+                    "word_budget": 1200,
+                    "must_include": ["확정 사실"],
+                    "avoid": [],
+                }
+            ],
+        },
+        {
+            "generation_settings": {"length": "short"},
+            "selected_concepts": [{"id": selected_id, "title": "확정 자료"}],
+            "writing_recipe": {},
+        },
+    )
+
+    assert plan["blocks"][0]["evidence_ids"] == [selected_id]
+    assert any("근거 ID" in warning for warning in plan["warnings"])

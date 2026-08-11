@@ -21,6 +21,9 @@
 9. `output_profile.rules.narrator_scope`가 `in_universe_bounded`면 화자·청자·말하는 장소·화자의 욕망을 계획에 반영하고, 주요 정보를 직접 목격·출처 있는 전언·화자의 추측 중 하나로 구분한다. 화자가 알 수 없는 정보를 문체 지시로 추가하지 않는다.
 10. `temporal_access` 또는 `source_access`가 제한되어 있으면 장면·문서 시점과 작성자/시점 인물이 접근 가능한 근거만 `evidence_ids`에 둔다. 미래 자료와 다른 사람의 비공개 기록은 제외하고 경계 위반 가능성을 `warnings`에 기록한다.
 11. 자료의 동사와 의미 강도를 보존한다. 떠오름을 죽음으로, 떠남을 실종으로, 누락을 은폐로, 이동을 비밀 회수로, 증상을 변이로 강화하는 전개를 계획하지 않는다.
+12. `recurring_signal_invariant=true`면 반복 신호의 소리·밝기·지속·발원을 한 문장으로 고정해 관련 블록의 `must_include`에 같게 반영한다. 반복마다 변해야 하는 것은 신호가 아니라 인물·집단의 반응이다.
+13. `symbolic_explanation=forbidden`이면 상징의 정답을 설명하는 블록을 만들지 말고, 공간·사물·반응·물리적 결과로 드러내도록 계획한다.
+14. `ending_mode=rapid_physical_closure`이면 마지막 블록의 `must_include`에는 마지막 행동·사물·공간 이미지만 둔다. 미확정 원인, 이후 상황, 의미 정리와 해설은 마지막 블록의 `avoid`에 둔다.
 
 # 출력
 JSON 객체만 출력한다.

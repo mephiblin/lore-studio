@@ -15,8 +15,13 @@ from app.models import (
     Project,
     WritingRecipe,
 )
-from app.services.harness import LoreHarness, _long_form_foci, _near_duplicate_count
-from app.services.model_gateway import ModelGateway
+from app.services.harness import (
+    LoreHarness,
+    _long_form_foci,
+    _near_duplicate_count,
+    _short_form_max_tokens,
+)
+from app.services.model_gateway import ModelCallResult, ModelGateway
 
 
 def test_generation_persists_required_stages_and_lore_blocks(monkeypatch) -> None:
@@ -52,9 +57,15 @@ def test_generation_persists_required_stages_and_lore_blocks(monkeypatch) -> Non
         else:
             user_payload = json.loads(payload["messages"][-1]["content"])
             if "revision_brief" in user_payload:
-                content = ("초안의 사실을 유지하며 문단 사이의 연결과 의미를 보강한다. " * 28).strip()
+                content = (
+                    "초안의 사실을 유지하며 문단 사이의 연결과 의미를 보강한다. " * 70
+                ).strip()
             else:
-                content = "첫 문단은 선택한 설정의 맥락을 설명한다.\n\n둘째 문단은 근거와 결론을 연결한다."
+                content = (
+                    ("첫 문단은 선택한 설정의 맥락과 경계를 구체적으로 설명한다. " * 35)
+                    + "\n\n"
+                    + ("둘째 문단은 확인된 근거와 글의 결론을 자연스럽게 연결한다. " * 35)
+                ).strip()
         return httpx.Response(
             200,
             json={"model": payload["model"], "choices": [{"message": {"content": content}}], "usage": {}},
@@ -241,6 +252,70 @@ def test_long_form_completion_fills_measured_character_target(monkeypatch) -> No
     assert result.params["actual_characters"] == len(result.content)
     assert result.params["call_count"] >= 2
     assert len(paragraph_indexes) == 2
+
+
+def test_short_form_recovery_uses_token_ceiling_and_measured_character_floor(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(settings, "writer_model_base_url", "http://models.test/v1")
+    monkeypatch.setattr(settings, "writer_model_name", "writer-test")
+    monkeypatch.setattr(settings, "model_retry_attempts", 0)
+    calls: list[dict] = []
+
+    async def model_handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/v1/models":
+            return httpx.Response(200, json={"data": [{"id": "writer-test"}]})
+        payload = json.loads(request.content)
+        calls.append(payload)
+        user_payload = json.loads(payload["messages"][-1]["content"])
+        contract = user_payload["short_form_recovery_contract"]
+        requested = contract["requested_new_characters"]
+        marker = chr(0xB098 + len(calls) * 20)
+        sentence = marker * 72 + ". "
+        content = (sentence * (requested // len(sentence) + 1))[:requested].rstrip()
+        if not content.endswith("."):
+            content += "."
+        return httpx.Response(
+            200,
+            json={
+                "model": payload["model"],
+                "choices": [{"message": {"content": content}}],
+                "usage": {"completion_tokens": requested},
+            },
+        )
+
+    initial = ModelCallResult(
+        content=("기존 사실을 따라 짧게 시작한다. " * 18).strip(),
+        role="writer",
+        model="writer-test",
+        endpoint="http://models.test/v1",
+        params={"max_tokens": _short_form_max_tokens(1200)},
+        usage={"completion_tokens": 180},
+        timings={},
+    )
+    harness = LoreHarness(ModelGateway(transport=HandlerTransport(model_handler)))
+    result = asyncio.run(
+        harness._recover_short_form_length(
+            initial_result=initial,
+            system_prompt="테스트 작성자",
+            source_payload={"context_pack": {"locked_facts": ["사실"]}},
+            target=1200,
+            temperature=0.5,
+            seed=7,
+            mode="draft",
+        )
+    )
+
+    assert len(result.content) >= 1140
+    assert result.params["strategy"] == "single_call_with_length_recovery"
+    assert result.params["actual_characters"] == len(result.content)
+    assert result.params["call_count"] >= 2
+    assert calls
+    assert calls[0]["max_tokens"] == _short_form_max_tokens(
+        json.loads(calls[0]["messages"][-1]["content"])[
+            "short_form_recovery_contract"
+        ]["requested_new_characters"]
+    )
 
 
 def test_long_form_duplicate_audit_catches_rephrased_paragraphs() -> None:

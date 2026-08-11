@@ -74,6 +74,12 @@ def test_output_and_sampling_profiles_are_separate_complete_contracts() -> None:
     assert {"source_curation", "lore_article", "novel_prose"}.issubset(
         {item["key"] for item in outputs}
     )
+    symbolic = next(item for item in outputs if item["key"] == "symbolic_tale")
+    assert symbolic["recommended_recipe_keys"] == ["spatial_procession"]
+    assert symbolic["recommended_voice_profile_key"] == "ceremonial_gothic"
+    assert symbolic["rules"]["recurring_signal_invariant"] is True
+    assert symbolic["rules"]["symbolic_explanation"] == "forbidden"
+    assert symbolic["rules"]["ending_explanatory_coda"] is False
     assert sampling_keys == {"precise", "balanced", "expressive"}
     for profile in outputs:
         assert profile["recommended_sampling_profile"] in sampling_keys
@@ -104,6 +110,7 @@ def test_builtin_voice_profiles_are_shared_approved_and_idempotent() -> None:
         "reflective_essay",
         "analytical_report",
         "field_witness",
+        "ceremonial_gothic",
     }
     assert all(profile.project_id is None for profile in profiles)
     assert all(profile.status == "APPROVED" and profile.is_builtin for profile in profiles)

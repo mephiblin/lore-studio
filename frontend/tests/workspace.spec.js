@@ -911,6 +911,7 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
   await expect(page.locator('.recipe-option').filter({ hasText: '경험에서 통찰로' })).toBeVisible();
   await expect(page.locator('.recipe-option').filter({ hasText: '질문에서 결론으로' })).toBeVisible();
   await expect(page.locator('.recipe-option').filter({ hasText: '현장 징후에서 경고로' })).toBeVisible();
+  await expect(page.locator('.recipe-option').filter({ hasText: '공간 순례에서 귀결로' })).toBeVisible();
   await causalPattern.click();
   await expect(causalPattern).toHaveAttribute('aria-pressed', 'true');
   await expect(causalPattern).toContainText('맥락 열기');
@@ -929,6 +930,7 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
   await expect(page.locator('.voice-option').filter({ hasText: '근거 중심 보고서 문체' })).toBeVisible();
   await expect(page.locator('.voice-option').filter({ hasText: '현장 증언 문체' })).toBeVisible();
   await expect(page.locator('.voice-option').filter({ hasText: '친근한 전문 해설 문체' })).toBeVisible();
+  await expect(page.locator('.voice-option').filter({ hasText: '의례적 고딕 이야기꾼' })).toBeVisible();
   await page.getByRole('button', { name: /결과물 형태로 계속/ }).click();
 
   await expectStepHelp(page, '결과물 형태 단계 설명', '어떤 결과물로 만들까요');
@@ -945,12 +947,18 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
   await expect(page.getByRole('group', { name: '결과물 종류' }).getByRole('button', { name: /수필·에세이/ })).toBeVisible();
   await expect(page.getByRole('group', { name: '결과물 종류' }).getByRole('button', { name: /분석 보고서/ })).toBeVisible();
   await expect(page.getByRole('group', { name: '결과물 종류' }).getByRole('button', { name: /자료 큐레이션·해설/ })).toBeVisible();
+  const symbolicOutput = page.getByRole('group', { name: '결과물 종류' }).getByRole('button', { name: /상징적 우화 단편/ });
+  await expect(symbolicOutput).toBeVisible();
+  await symbolicOutput.click();
+  await expect(symbolicOutput).toHaveAttribute('aria-pressed', 'true');
+  await expect(outputSpecimen).toContainText('상징적 우화 단편');
+  const samplingGroup = page.getByRole('group', { name: '생성 성향' });
+  await expect(samplingGroup.getByRole('button', { name: /정밀/ })).toHaveAttribute('aria-pressed', 'true');
   const oralOutput = page.getByRole('group', { name: '결과물 종류' }).getByRole('button', { name: /세계 내부 구술/ });
   await expect(oralOutput).toBeVisible();
   await oralOutput.click();
   await expect(oralOutput).toHaveAttribute('aria-pressed', 'true');
   await expect(outputSpecimen).toContainText('세계 내부 구술');
-  const samplingGroup = page.getByRole('group', { name: '생성 성향' });
   await expect(samplingGroup.getByRole('button', { name: /표현 풍부/ })).toHaveAttribute('aria-pressed', 'true');
   await page.getByText('고급 샘플링 조정').click();
   await expect(page.getByLabel('온도')).toHaveValue('0.72');

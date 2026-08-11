@@ -1,6 +1,6 @@
 # Lore Studio v1.0 구현 상태
 
-마지막 갱신: 2026-08-11
+마지막 갱신: 2026-08-12
 기준: `agent/project-taxonomy-and-ui-polish` 브랜치의 실제 local-first 구현
 상태: **완료 — 실제 모델 모드로 실행 중**
 
@@ -30,7 +30,7 @@
 - 주제·소재·집필 원칙·표현 설계 카드와 `글의 흐름 설계 → 초안 작성`을 합친 최종 원고 설계 화면, 작성 경계 자동 컴파일, 인라인 흐름 편집, 문단 방식 툴팁, 생성 초안 자동 열기
 - 소설·수필·분석 보고서용 공용 집필 지침 프리셋, 전개 방식, 결과물 형태, 예시 원문 없는 읽기 전용 문체·필력 프로필과 선택 분량에 맞춘 문단 예산 합계 정규화
 - `세계 내부 구술` 결과물, `현장 징후에서 경고로` 전개 방식, `현장 증언 문체` 공용 프로필. 화자의 목격·전언·추측과 지식 범위, 완성 원고 출력, 경고·거래·행동 결말을 분리된 자산으로 제공하고 전용 `max_tokens`나 고정 글자 수는 추가하지 않음
-- OpenWebUI의 상세 작가 프롬프트를 Gemma4 26B로 7종 실검한 뒤 분해한 결과물 8종·전개 방식 10종·문체 8종. 새 `자료 큐레이션·해설 / 발췌에서 종합 해설로 / 친근한 전문 해설 문체`와 시간·정보 접근·의미 강도 보존 규칙 포함
+- OpenWebUI의 상세 작가 프롬프트를 Gemma4 26B로 실검한 뒤 분해한 결과물 9종·전개 방식 11종·문체 9종. 새 `상징적 우화 단편 / 공간 순례에서 귀결로 / 의례적 고딕 이야기꾼`의 고정 반복 신호·정사 경계·상징 해설 금지 계약 포함
 - `정밀 / 균형 / 표현 풍부` 생성 성향과 온도·Top P·Top K·반복 억제·새 화제 허용의 고급 override. Writer 적용, 보수적 Finalizer 파생, GenerationRun 실제 파라미터 snapshot, 기존 글자 수 분량 계약과 분리
 - `초안 편집 → 완성 다듬기 → 완성본 만들기`의 단계형 원고 작업: 콤팩트 제목 toolbar와 8px 문단 리듬, 재작성·문장 점검·설정 후보 중 하나만 여는 원고 도구, 원본 설계 읽기 전용 기준표와 보강 목표·강도·분량 방향 카드, 반복 수정 버튼 없는 최종 요약, 최신 편집 초안 전체를 입력으로 쓰는 Finalizer, 모바일 단계 상단 복귀, 제목·상태·문단 원자 저장, 별도 로어북 저장과 초안 변경 감지
 - 프로젝트 전환 API 응답 경합 방지와 최신 선택 프로젝트만 반영하는 화면 상태 보호
@@ -43,7 +43,7 @@
 - 세계관 자료의 저장 후 읽기 모드·명시적 글 편집, 프로젝트·세계관 자료·로어북 삭제, 출처 초안을 보존하는 로어북 삭제 API·감사 기록
 - 글 만들기 대규모 자료 카드의 비겹침 방지·독립 스크롤·전역 하단 바와 겹치지 않는 고정 `자료 더 보기`
 - 로어북 `.page-tools` 왼쪽의 브라우저 로컬 열람 테마 4종: 기존 노말, 밝은 양피지·굵은 적갈색 판타지아, 단순 선형 암부·형광 녹색·배경 글리치 메카니컬, 공포 질감 없는 남색 도시 네온 어반 판타지, 이미지보다 어두운 작업면 여백과 공통 진녹색·금색 `글 편집`, 읽기/편집 고대비·번호·금색 ring·ARIA 선택 표현
-- 6,000자 이상 초안·완성 보강의 전개 블록별 이어쓰기와 실제 글자 수 95% 저장 gate, 호출·목표·실제 분량 감사 기록, 원래 목표보다 짧은 초안을 복구하는 `필요한 곳 보강`
+- 6,000자 미만의 목표 글자 수 기반 `max_tokens` 안전 상한·95% 미달 시 마지막 문단 직전의 새 설정 없는 최대 3회 보강·미달 저장 차단, 6,000자 이상 초안·완성 보강의 전개 블록별 이어쓰기와 실제 글자 수 95% 저장 gate, 호출·목표·실제 분량 감사 기록
 - 긴 로어북 본문의 reader 내부 스크롤과 출처 초안·접힌 생성 설정을 합친 단일 출처 카드
 - `$lore-studio-ui-safety` 프로젝트 로컬 skill과 읽기 전용 정적 preflight: UI 계약·변경 체크리스트 기반 반복 점검, 5개 생명주기 route와 `/settings` 유틸리티·migration head·manifest·API 경유 규칙 확인, 기능 계약과 점검 절차의 변경 범위에 따른 문서·테스트·skill 동기화
 - Writer·Utility·Vision·Embedding 역할별 OpenAI 호환 모델 연결 시험·저장·`.env` 복귀 화면. Writer·Utility·Vision은 Qwen·Gemma를 독립 선택하고 권장 분담(Writer=Gemma, Utility/Vision=Qwen)을 적용할 수 있으며 API key 원문은 브라우저·감사 로그에 반환하지 않고 Embedding을 보존
@@ -52,12 +52,14 @@
 
 2026-08-11 현재 Compose는 `/models/status`에서 Gemma Writer, Qwen Utility/Vision, BGE-M3 Embedding이 모두 `available=true`입니다. 두 vLLM은 loopback에 유지하고 Docker backend는 bridge 전용 socket proxy로 접근합니다. 실제 ModelGateway에서 Gemma `LORE_OK`, Qwen `{"status":"ok"}`와 opt-in Writer/Utility·Vision·Embedding 3건을 통과했습니다. 세계관 본문 AI의 명시 선택 실검증도 Qwen 수정=`qwen36-heretic-mtp@18091`, Gemma 초안=`gemma4-26b-heretic-mtp@18093`로 각각 기록됐고, 저장 전 제안과 원문 불변 계약을 지켰습니다. 실제 현장 구술 검증은 임시 프로젝트에서 `ORIENT → ANCHOR → EXEMPLIFY → WITHHOLD → ESCALATE → STING`의 계획과 Gemma 원고를 생성했고, 은종의 주인을 확정하거나 내부 소제목을 노출하지 않았으며 검증 자료는 삭제했습니다. 2026-08-05 대표 인수 실행은 5-block 계획, 1,039자/5 LoreBlock 원고, 실제 Diff, 2 후보, 세 export, Vision caption, Dense 검색을 완료했습니다. SSE progress/complete도 실제 Writer로 통과했습니다. 공유 `원인에서 파급으로` 프리셋의 실제 Utility 재검증은 `ORIENT → ANCHOR → EXEMPLIFY → ESCALATE → INTERPRET` 순서의 5-block 계획을 반환했습니다.
 
+2026-08-12 상징적 우화 조합의 Gemma 실검에서는 `ORIENT → ANCHOR → ESCALATE → TURN → STING` 계획, 실제 선택 자료로 제한된 근거 ID, 동일한 종소리 세 번, 상징 비해설, 물리적 이미지 종결을 통과했다. 목표 1,200자에 `max_tokens=2400`을 주어도 803자에서 조기 종료했고 `min_tokens` 강제는 종결문 반복을 만들었으므로 채택하지 않았다. 충분한 근거 두 건과 500자 목표에서는 752자 원고를 정상 저장했고, 초과분을 기계 절단하지 않아 필수 귀결을 보존했다. 임시 프로젝트와 생성물은 검증 후 삭제했다.
+
 Utility 9-case 결과는 Qwen3.5-4B가 namespace 누출로 탈락했고 Gemma4-26B가 88.9%와 격리 gate 통과로 선택됐습니다. source-role 모델 판단은 완전하지 않으므로 애플리케이션의 결정론적 권위 코드가 항상 최종 판정을 합니다.
 
 ## 최종 검증
 
 - Ruff PASS
-- pytest `36 passed, 3 skipped` (자료 양산의 병렬성·명시 저장·현장 구술 자산 계약 포함, 실제 endpoint opt-in tests는 기본 run에서 skip)
+- pytest `43 passed, 3 skipped` (짧은 글 분량 복구·근거 ID 정규화·상징적 우화 자산 계약 포함, 실제 endpoint opt-in tests는 기본 run에서 skip)
 - 실제 모델 opt-in `3 passed` (Writer/Utility, Embedding, Vision)
 - bundle/schema/YAML PASS
 - Svelte production build PASS

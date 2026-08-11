@@ -1,0 +1,28 @@
+key: symbolic_tale
+version: "1.0.0"
+name: 상징적 우화 단편
+description: 공간의 질서와 반복 신호, 집단의 변화를 통해 의미를 직접 해설하지 않고 드러냅니다.
+recommended_recipe_keys: [spatial_procession]
+recommended_voice_profile_key: ceremonial_gothic
+recommended_sampling_profile: precise
+rules:
+  paragraph_density: medium
+  sentence_length: cumulative_then_abrupt
+  spoken_clarity: medium
+  narrator_scope: external_panoptic
+  character_focus: collective_or_archetypal
+  finished_manuscript_only: true
+  headings: false
+  evidence_display: spatial_and_sensory
+  information_selection: selected_evidence_only
+  source_access: selected_evidence_only
+  temporal_access: selected_scene_time_only
+  spatial_progression_required: true
+  recurring_signal_invariant: true
+  recurring_signal_response_may_evolve: true
+  symbolic_explanation: forbidden
+  meta_commentary: false
+  ending_mode: rapid_physical_closure
+  ending_explanatory_coda: false
+  source_imitation: structure_only_no_named_devices_or_phrases
+  semantic_strength_preserved: true

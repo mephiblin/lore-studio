@@ -38,6 +38,8 @@ LONG_FORM_THRESHOLD = 6000
 LONG_FORM_MINIMUM_RATIO = 0.95
 LONG_FORM_MAXIMUM_RATIO = 1.1
 LONG_FORM_MAX_CALLS_PER_BLOCK = 14
+SHORT_FORM_MAX_RECOVERY_CALLS = 3
+TOKENS_PER_KOREAN_CHARACTER_CEILING = 2.0
 LONG_FORM_SEGMENT_FOCI = (
     "아직 쓰지 않은 직접 관찰과 자료 근거를 구체화한다.",
     "관찰된 사실과 그로부터 가능한 해석을 명시적으로 구분한다.",
@@ -273,6 +275,7 @@ def _normalize_plan(data: dict[str, Any], pack: dict[str, Any]) -> dict[str, Any
         normalized_sources = contracted
 
     blocks: list[dict[str, Any]] = []
+    evidence_adjusted = False
     for index, item in enumerate(normalized_sources, start=1):
         budget = item.get("word_budget")
         if not isinstance(budget, int):
@@ -284,12 +287,20 @@ def _normalize_plan(data: dict[str, Any], pack: dict[str, Any]) -> dict[str, Any
         evidence_ids = item.get("evidence_ids")
         if not isinstance(evidence_ids, list):
             evidence_ids = selected_ids if item.get("facts_to_use") else []
+        raw_evidence_ids = [str(value) for value in evidence_ids]
+        evidence_ids = list(
+            dict.fromkeys(value for value in raw_evidence_ids if value in selected_ids)
+        )
+        if evidence_ids != list(dict.fromkeys(raw_evidence_ids)):
+            evidence_adjusted = True
+        if raw_evidence_ids and not evidence_ids and selected_ids:
+            evidence_ids = [selected_ids[0]]
         blocks.append(
             {
                 "index": index,
                 "move": str(item.get("move") or item.get("rhetorical_move") or "ANCHOR"),
                 "purpose": str(item.get("purpose") or "선택한 근거를 설명한다."),
-                "evidence_ids": [str(value) for value in evidence_ids],
+                "evidence_ids": evidence_ids,
                 "word_budget": budget,
                 "must_include": list(item.get("must_include") or []),
                 "avoid": list(item.get("avoid") or item.get("must_avoid") or []),
@@ -310,6 +321,11 @@ def _normalize_plan(data: dict[str, Any], pack: dict[str, Any]) -> dict[str, Any
     warnings = list(raw.get("warnings") or pack.get("warnings") or [])
     if recipe_adjusted:
         warnings.append("선택한 전개 방식의 필수 순서에 맞게 글의 흐름을 정렬했습니다.")
+    if evidence_adjusted:
+        warnings.append(
+            "Planner가 만든 근거 ID 중 선택 자료와 일치하지 않는 값을 제거하고 "
+            "해당 블록을 선택 자료 근거로 복구했습니다."
+        )
     return {
         "title": str(title),
         "angle": str(raw.get("angle") or pack.get("user_direction") or "선택 자료의 의미를 단계적으로 드러낸다."),
@@ -475,6 +491,44 @@ def _merged_usage(results: list[ModelCallResult]) -> dict[str, Any]:
     return usage
 
 
+def _short_form_max_tokens(character_target: int) -> int:
+    """Return a safe generation ceiling; the measured character target stays authoritative."""
+    return min(
+        12000,
+        max(1200, math.ceil(character_target * TOKENS_PER_KOREAN_CHARACTER_CEILING)),
+    )
+
+
+def _aggregate_short_form_calls(
+    results: list[ModelCallResult],
+    body: str,
+    *,
+    target: int,
+) -> ModelCallResult:
+    if not results:
+        raise ValueError("단문 생성 호출 결과가 없습니다.")
+    return ModelCallResult(
+        content=body,
+        role=results[-1].role,
+        model=results[-1].model,
+        endpoint=results[-1].endpoint,
+        params={
+            "strategy": "single_call_with_length_recovery",
+            "call_count": len(results),
+            "target_characters": target,
+            "minimum_characters": math.floor(target * LONG_FORM_MINIMUM_RATIO),
+            "actual_characters": len(body),
+            "max_tokens_policy": "computed_safety_ceiling",
+            "calls": [result.audit_metadata() for result in results],
+        },
+        usage=_merged_usage(results),
+        timings={"call_count": len(results)},
+        fallback_from=next(
+            (result.fallback_from for result in results if result.fallback_from), None
+        ),
+    )
+
+
 def _aggregate_calls(
     results: list[ModelCallResult],
     body: str,
@@ -509,6 +563,106 @@ def _aggregate_calls(
 class LoreHarness:
     def __init__(self, gateway: ModelGateway | None = None) -> None:
         self.gateway = gateway or ModelGateway()
+
+    async def _recover_short_form_length(
+        self,
+        *,
+        initial_result: ModelCallResult,
+        system_prompt: str,
+        source_payload: dict[str, Any],
+        target: int,
+        temperature: float,
+        seed: int | None,
+        mode: str,
+        extra_params: dict[str, Any] | None = None,
+    ) -> ModelCallResult:
+        minimum = math.floor(target * LONG_FORM_MINIMUM_RATIO)
+        body = _clean_generated_text(initial_result.content)
+        results = [initial_result]
+        recovery_prompt = (
+            f"{system_prompt}\n\n"
+            "# 단문 분량 복구 모드\n"
+            "- current_draft는 이미 결말까지 쓴 본문이다. 복제하거나 처음부터 다시 쓰지 않는다.\n"
+            "- closing_paragraph는 유지할 마지막 문단이다. 그 뒤에 이어 쓰지 말고, "
+            "insertion_point에 삽입되어 closing_paragraph 직전으로 이어질 새 본문만 출력한다.\n"
+            "- 새 사실·고유명·원인·장면 이후의 정보를 추가하지 않는다. 이미 계획한 장면, 반응, "
+            "인과, 이행 중 부족한 부분만 구체화한다.\n"
+            "- covered_paragraph_openings와 같은 주장을 단어만 바꾸어 반복하지 않는다.\n"
+            "- 내부 블록명, 분량 숫자, 작업 설명, JSON, 제목을 출력하지 않는다.\n"
+            "- requested_new_characters에 가까운 분량을 쓰되 문장을 중간에 끊지 않는다."
+        )
+        for attempt in range(SHORT_FORM_MAX_RECOVERY_CALLS):
+            if len(body) >= minimum:
+                break
+            body_paragraphs = _markdown_blocks(body)
+            closing_paragraph = body_paragraphs[-1] if len(body_paragraphs) > 1 else ""
+            insertion_prefix = "\n\n".join(
+                body_paragraphs[:-1] if closing_paragraph else body_paragraphs
+            ).strip()
+            remaining = max(1, target - len(body))
+            requested = min(2400, max(500, remaining + math.ceil(target * 0.08)))
+            payload = {
+                "short_form_recovery_contract": {
+                    "mode": mode,
+                    "target_characters": target,
+                    "minimum_characters": minimum,
+                    "current_character_count": len(body),
+                    "remaining_characters": remaining,
+                    "requested_new_characters": requested,
+                    "covered_paragraph_openings": [
+                        paragraph[:120] for paragraph in _markdown_blocks(body)[-20:]
+                    ],
+                },
+                "current_draft": body,
+                "insertion_point": (
+                    "current_draft의 마지막 문단 직전. 앞 문단을 되풀이하지 않고 "
+                    "closing_paragraph로 자연스럽게 이행한다."
+                ),
+                "closing_paragraph": closing_paragraph,
+                "source_material": source_payload,
+                "instruction": (
+                    "결말 직전에 삽입할 새 한국어 본문 2~3문단만 출력하라. "
+                    "계획에 이미 있는 공간의 이동, 집단의 반응 변화, 다음 문단으로의 이행을 "
+                    "구체화하되 분량을 위해 새 설정이나 사건을 만들지 마라."
+                ),
+            }
+            result = await self.gateway.complete(
+                [
+                    {"role": "system", "content": recovery_prompt},
+                    {
+                        "role": "user",
+                        "content": json.dumps(payload, ensure_ascii=False, indent=2),
+                    },
+                ],
+                role="writer",
+                temperature=temperature,
+                max_tokens=_short_form_max_tokens(requested),
+                seed=(seed + attempt + 1) if seed is not None else None,
+                extra_params=extra_params,
+            )
+            results.append(result)
+            segment = _unique_generated_text(
+                _remove_continuation_overlap(
+                    body, _clean_generated_text(result.content)
+                ),
+                body,
+            )
+            if len(segment) < 40:
+                continue
+            body = "\n\n".join(
+                part
+                for part in (insertion_prefix, segment, closing_paragraph)
+                if part
+            ).strip()
+
+        body = body.strip()
+        if len(body) < minimum:
+            raise ValueError(
+                f"생성 결과가 목표 분량에 미달했습니다. "
+                f"목표 {target:,}자, 최소 {minimum:,}자, 실제 {len(body):,}자입니다. "
+                f"max_tokens는 상한이므로 {len(results)}회 호출 후에도 미달한 결과를 저장하지 않았습니다."
+            )
+        return _aggregate_short_form_calls(results, body, target=target)
 
     async def _complete_long_form(
         self,
@@ -994,11 +1148,23 @@ class LoreHarness:
                 ],
                 role="writer",
                 temperature=final_temperature,
-                max_tokens=None,
+                max_tokens=_short_form_max_tokens(target),
                 seed=session.seed,
                 extra_params=final_extra_params,
             )
             body = _clean_generated_text(call_result.content)
+            if len(body) < math.floor(target * LONG_FORM_MINIMUM_RATIO):
+                call_result = await self._recover_short_form_length(
+                    initial_result=call_result,
+                    system_prompt=system_prompt,
+                    source_payload=payload,
+                    target=target,
+                    temperature=final_temperature,
+                    seed=session.seed,
+                    mode=f"finalize_{refinement['length_policy']}",
+                    extra_params=final_extra_params,
+                )
+                body = call_result.content
         if not body:
             raise ValueError("Writer가 비어 있는 완성본을 반환했습니다.")
         if refinement["length_policy"] in {"preserve", "expand"} and len(body) < target * 0.7:
@@ -1228,11 +1394,23 @@ class LoreHarness:
                 ],
                 role="writer",
                 temperature=draft_temperature,
-                max_tokens=None,
+                max_tokens=_short_form_max_tokens(target),
                 seed=session.seed,
                 extra_params=draft_extra_params,
             )
             body = _clean_generated_text(call_result.content)
+            if len(body) < math.floor(target * LONG_FORM_MINIMUM_RATIO):
+                call_result = await self._recover_short_form_length(
+                    initial_result=call_result,
+                    system_prompt=system_prompt,
+                    source_payload=payload,
+                    target=target,
+                    temperature=draft_temperature,
+                    seed=session.seed,
+                    mode="draft",
+                    extra_params=draft_extra_params,
+                )
+                body = call_result.content
 
         title = str(plan.get("title") or "새 로어 문서")
         paragraphs = _markdown_blocks(body)
