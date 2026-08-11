@@ -39,12 +39,14 @@ def request_json(
         raise RuntimeError(f"OpenWebUI {path} failed ({exc.code}): {detail}") from exc
 
 
-def model_payloads(spec: dict) -> list[dict]:
+def model_payloads(spec: dict, runtime_keys: tuple[str, ...] | None = None) -> list[dict]:
     common = str(spec["common_system"]).strip()
     payloads: list[dict] = []
     for profile_key, profile in spec["profiles"].items():
         system = f"{common}\n\n{str(profile['system']).strip()}"
         for runtime_key, runtime in spec["base_models"].items():
+            if runtime_keys and runtime_key not in runtime_keys:
+                continue
             params = {"system": system, **profile["sampling"]}
             if runtime_key == "qwen":
                 params["qwen_thinking"] = bool(runtime.get("thinking", False))
@@ -101,11 +103,17 @@ def main() -> int:
     )
     parser.add_argument("--base-url", default="http://127.0.0.1:12000")
     parser.add_argument("--gemma-provider", default="http://host.docker.internal:18093/v1")
+    parser.add_argument(
+        "--runtime",
+        action="append",
+        choices=("qwen", "gemma"),
+        help="Workspace-model runtime to sync; repeat to include both (default: both)",
+    )
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
     spec = yaml.safe_load(args.spec.read_text(encoding="utf-8"))
-    models = model_payloads(spec)
+    models = model_payloads(spec, tuple(args.runtime) if args.runtime else None)
     if args.dry_run:
         print(json.dumps({"model_ids": [model["id"] for model in models]}, ensure_ascii=False, indent=2))
         return 0

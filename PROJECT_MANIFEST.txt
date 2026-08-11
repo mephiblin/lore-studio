@@ -133,6 +133,12 @@ docs/VOICE_PROFILE_IMPLEMENTATION_PLAN.md
 docs/WRITING_SYSTEM.md
 docs/model-evaluations/utility-models.json
 docs/model-evaluations/utility-models.md
+docs/model-evaluations/poe-symbolic-gothic-gemma-results-v2.json
+docs/model-evaluations/poe-symbolic-gothic-gemma-results-v3.json
+docs/model-evaluations/poe-symbolic-gothic-gemma-results-v4.json
+docs/model-evaluations/poe-symbolic-gothic-gemma-results-v5.json
+docs/model-evaluations/poe-symbolic-gothic-gemma-results.json
+docs/model-evaluations/poe-symbolic-gothic-lab.md
 docs/model-evaluations/writing-profile-lab-gemma-results-v2.json
 docs/model-evaluations/writing-profile-lab-gemma-results.json
 docs/model-evaluations/writing-profile-lab.md

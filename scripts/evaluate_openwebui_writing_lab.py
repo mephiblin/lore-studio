@@ -49,6 +49,15 @@ def main() -> int:
         choices=("qwen", "gemma"),
         help="Runtime to evaluate; repeat to run both (default: both)",
     )
+    parser.add_argument(
+        "--comparison",
+        help="Run the named tests.comparisons entry with one shared prompt",
+    )
+    parser.add_argument(
+        "--profile",
+        action="append",
+        help="Profile key to evaluate; repeat to select more than one",
+    )
     args = parser.parse_args()
 
     token = os.environ.get("LORE_OPENWEBUI_TOKEN", "").strip()
@@ -57,16 +66,28 @@ def main() -> int:
 
     spec = yaml.safe_load(args.spec.read_text(encoding="utf-8"))
     request_json(args.base_url, "/api/models", token)
+    comparison = (spec.get("tests", {}).get("comparisons") or {}).get(args.comparison)
+    if args.comparison and not comparison:
+        raise SystemExit(f"Unknown comparison: {args.comparison}")
+    fixture = comparison.get("fixture") if comparison else "회백항 동부 수문"
+    profile_keys = list(comparison.get("profiles") or []) if comparison else list(spec["profiles"])
+    if args.profile:
+        unknown_profiles = sorted(set(args.profile) - set(spec["profiles"]))
+        if unknown_profiles:
+            raise SystemExit(f"Unknown profile(s): {', '.join(unknown_profiles)}")
+        profile_keys = [key for key in profile_keys if key in args.profile]
     results = {
         "evaluated_at": datetime.now(UTC).isoformat(),
-        "fixture": "회백항 동부 수문",
+        "fixture": fixture,
+        "comparison": args.comparison,
         "results": [],
     }
     runtimes = tuple(args.runtime or ("qwen", "gemma"))
     for runtime_key in runtimes:
-        for profile_key in spec["profiles"]:
+        for profile_key in profile_keys:
             model_id = f"lore-lab-{profile_key}-{runtime_key}"
-            prompt = f"{spec['tests']['prompts'][profile_key]}\n\n{spec['tests']['shared_corpus']}"
+            task_prompt = comparison["prompt"] if comparison else spec["tests"]["prompts"][profile_key]
+            prompt = f"{task_prompt}\n\n{spec['tests']['shared_corpus']}"
             started = time.monotonic()
             try:
                 data = request_json(
