@@ -135,6 +135,9 @@ test('world material editor keeps writing primary and metadata compact', async (
   test.skip(testInfo.project.name !== 'desktop', 'desktop editor desk check only');
   await page.goto('/editor');
   await page.getByLabel('현재 프로젝트').selectOption({ label: 'Diablo' });
+  const relatedMaterial = page.locator('.archive-page-list button').filter({ hasText: '두리엘 (Duriel)' }).first();
+  await expect(relatedMaterial).toBeVisible();
+  await relatedMaterial.click();
 
   const commandbar = page.locator('.editor-commandbar');
   await expect(commandbar.getByRole('navigation', { name: '세계관 자료 관리' })).toBeVisible();
@@ -907,6 +910,7 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
   const causalPattern = page.locator('.recipe-option').filter({ hasText: '원인에서 파급으로' });
   await expect(page.locator('.recipe-option').filter({ hasText: '경험에서 통찰로' })).toBeVisible();
   await expect(page.locator('.recipe-option').filter({ hasText: '질문에서 결론으로' })).toBeVisible();
+  await expect(page.locator('.recipe-option').filter({ hasText: '현장 징후에서 경고로' })).toBeVisible();
   await causalPattern.click();
   await expect(causalPattern).toHaveAttribute('aria-pressed', 'true');
   await expect(causalPattern).toContainText('맥락 열기');
@@ -923,6 +927,7 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
   await expect(page.locator('.voice-option').filter({ hasText: '장면 중심 소설 문체' })).toBeVisible();
   await expect(page.locator('.voice-option').filter({ hasText: '구체적 성찰 문체' })).toBeVisible();
   await expect(page.locator('.voice-option').filter({ hasText: '근거 중심 보고서 문체' })).toBeVisible();
+  await expect(page.locator('.voice-option').filter({ hasText: '현장 증언 문체' })).toBeVisible();
   await page.getByRole('button', { name: /결과물 형태로 계속/ }).click();
 
   await expectStepHelp(page, '결과물 형태 단계 설명', '어떤 결과물로 만들까요');
@@ -938,6 +943,11 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
   await expect(inputLedger).toContainText('문체·필력모델 기본 문체');
   await expect(page.getByRole('group', { name: '결과물 종류' }).getByRole('button', { name: /수필·에세이/ })).toBeVisible();
   await expect(page.getByRole('group', { name: '결과물 종류' }).getByRole('button', { name: /분석 보고서/ })).toBeVisible();
+  const oralOutput = page.getByRole('group', { name: '결과물 종류' }).getByRole('button', { name: /세계 내부 구술/ });
+  await expect(oralOutput).toBeVisible();
+  await oralOutput.click();
+  await expect(oralOutput).toHaveAttribute('aria-pressed', 'true');
+  await expect(outputSpecimen).toContainText('세계 내부 구술');
   const viewpointGroup = page.getByRole('group', { name: '시점' });
   const tenseGroup = page.getByRole('group', { name: '시제' });
   await expect(viewpointGroup.getByRole('button', { name: /전지적 설명자/ })).toHaveAttribute('aria-pressed', 'true');
@@ -1017,6 +1027,7 @@ test('project-first workflow exposes understandable controls', async ({ page }, 
   });
   expect(sessionRequest.postDataJSON().writing_recipe_id).toBeTruthy();
   expect(sessionRequest.postDataJSON()).toMatchObject({
+    output_profile: 'in_universe_oral',
     voice_profile_id: null,
     voice_selection_mode: 'model_default',
     voice_example_ids: [],

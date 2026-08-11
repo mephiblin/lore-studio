@@ -70,6 +70,7 @@ config/direction_card_presets/report_evidence_limits.yaml
 config/direction_card_presets/solution_becomes_dependency.yaml
 config/output_profiles/analytical_report.yaml
 config/output_profiles/in_universe_report.yaml
+config/output_profiles/in_universe_oral.yaml
 config/output_profiles/lore_article.yaml
 config/output_profiles/novel_prose.yaml
 config/output_profiles/personal_essay.yaml
@@ -86,11 +87,13 @@ config/prompts/planner.md
 config/prompts/writer.md
 config/voice_profiles/analytical_report.yaml
 config/voice_profiles/fiction_scene.yaml
+config/voice_profiles/field_witness.yaml
 config/voice_profiles/reflective_essay.yaml
 config/writing_recipes/analytical_report.yaml
 config/writing_recipes/cause_consequence.yaml
 config/writing_recipes/contrast_reframe.yaml
 config/writing_recipes/dramatized_lore.yaml
+config/writing_recipes/field_lore_warning.yaml
 config/writing_recipes/in_universe_document.yaml
 config/writing_recipes/novel_scene.yaml
 config/writing_recipes/progressive_exposition.yaml

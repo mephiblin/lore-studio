@@ -29,6 +29,7 @@
 - UI 핵심 용어를 `세계관 자료 / 집필 지침 / 전개 방식 / 결과물 형태 / 초안 / 완성본 / 로어북`으로 통일하고 정보 구조 문서에 사용 규칙 고정
 - 주제·소재·집필 원칙·표현 설계 카드와 `글의 흐름 설계 → 초안 작성`을 합친 최종 원고 설계 화면, 작성 경계 자동 컴파일, 인라인 흐름 편집, 문단 방식 툴팁, 생성 초안 자동 열기
 - 소설·수필·분석 보고서용 공용 집필 지침 프리셋, 전개 방식, 결과물 형태, 예시 원문 없는 읽기 전용 문체·필력 프로필과 선택 분량에 맞춘 문단 예산 합계 정규화
+- `세계 내부 구술` 결과물, `현장 징후에서 경고로` 전개 방식, `현장 증언 문체` 공용 프로필. 화자의 목격·전언·추측과 지식 범위, 완성 원고 출력, 경고·거래·행동 결말을 분리된 자산으로 제공하고 전용 `max_tokens`나 고정 글자 수는 추가하지 않음
 - `초안 편집 → 완성 다듬기 → 완성본 만들기`의 단계형 원고 작업: 콤팩트 제목 toolbar와 8px 문단 리듬, 재작성·문장 점검·설정 후보 중 하나만 여는 원고 도구, 원본 설계 읽기 전용 기준표와 보강 목표·강도·분량 방향 카드, 반복 수정 버튼 없는 최종 요약, 최신 편집 초안 전체를 입력으로 쓰는 Finalizer, 모바일 단계 상단 복귀, 제목·상태·문단 원자 저장, 별도 로어북 저장과 초안 변경 감지
 - 프로젝트 전환 API 응답 경합 방지와 최신 선택 프로젝트만 반영하는 화면 상태 보호
 - 반응형 한국어 UI, 가로 잘림 없는 모바일 하단 메뉴·단계 그리드, 자료 선택 후 본문 이동, 모바일 원고 선택·문단 편집, 자료 종류·집필 지침·전개 방식 카드 갤러리와 생성·수정 모달, 단계별 호버/클릭 설명, desktop/mobile Playwright, 정보 구조 문서, Makefile/CI/운영 문서
@@ -47,18 +48,18 @@
 
 ## 실제 환경 증거
 
-2026-08-11 현재 Compose는 `/models/status`에서 Gemma Writer, Qwen Utility/Vision, BGE-M3 Embedding이 모두 `available=true`입니다. 두 vLLM은 loopback에 유지하고 Docker backend는 bridge 전용 socket proxy로 접근합니다. 실제 ModelGateway에서 Gemma `LORE_OK`, Qwen `{"status":"ok"}`와 opt-in Writer/Utility·Vision·Embedding 3건을 통과했습니다. 세계관 본문 AI의 명시 선택 실검증도 Qwen 수정=`qwen36-heretic-mtp@18091`, Gemma 초안=`gemma4-26b-heretic-mtp@18093`로 각각 기록됐고, 저장 전 제안과 원문 불변 계약을 지켰습니다. 2026-08-05 대표 인수 실행은 5-block 계획, 1,039자/5 LoreBlock 원고, 실제 Diff, 2 후보, 세 export, Vision caption, Dense 검색을 완료했습니다. SSE progress/complete도 실제 Writer로 통과했습니다. 공유 `원인에서 파급으로` 프리셋의 실제 Utility 재검증은 `ORIENT → ANCHOR → EXEMPLIFY → ESCALATE → INTERPRET` 순서의 5-block 계획을 반환했습니다.
+2026-08-11 현재 Compose는 `/models/status`에서 Gemma Writer, Qwen Utility/Vision, BGE-M3 Embedding이 모두 `available=true`입니다. 두 vLLM은 loopback에 유지하고 Docker backend는 bridge 전용 socket proxy로 접근합니다. 실제 ModelGateway에서 Gemma `LORE_OK`, Qwen `{"status":"ok"}`와 opt-in Writer/Utility·Vision·Embedding 3건을 통과했습니다. 세계관 본문 AI의 명시 선택 실검증도 Qwen 수정=`qwen36-heretic-mtp@18091`, Gemma 초안=`gemma4-26b-heretic-mtp@18093`로 각각 기록됐고, 저장 전 제안과 원문 불변 계약을 지켰습니다. 실제 현장 구술 검증은 임시 프로젝트에서 `ORIENT → ANCHOR → EXEMPLIFY → WITHHOLD → ESCALATE → STING`의 계획과 Gemma 원고를 생성했고, 은종의 주인을 확정하거나 내부 소제목을 노출하지 않았으며 검증 자료는 삭제했습니다. 2026-08-05 대표 인수 실행은 5-block 계획, 1,039자/5 LoreBlock 원고, 실제 Diff, 2 후보, 세 export, Vision caption, Dense 검색을 완료했습니다. SSE progress/complete도 실제 Writer로 통과했습니다. 공유 `원인에서 파급으로` 프리셋의 실제 Utility 재검증은 `ORIENT → ANCHOR → EXEMPLIFY → ESCALATE → INTERPRET` 순서의 5-block 계획을 반환했습니다.
 
 Utility 9-case 결과는 Qwen3.5-4B가 namespace 누출로 탈락했고 Gemma4-26B가 88.9%와 격리 gate 통과로 선택됐습니다. source-role 모델 판단은 완전하지 않으므로 애플리케이션의 결정론적 권위 코드가 항상 최종 판정을 합니다.
 
 ## 최종 검증
 
 - Ruff PASS
-- pytest `35 passed, 3 skipped` (자료 양산의 병렬성·명시 저장 포함, 실제 endpoint opt-in tests는 기본 run에서 skip)
+- pytest `36 passed, 3 skipped` (자료 양산의 병렬성·명시 저장·현장 구술 자산 계약 포함, 실제 endpoint opt-in tests는 기본 run에서 skip)
 - 실제 모델 opt-in `3 passed` (Writer/Utility, Embedding, Vision)
 - bundle/schema/YAML PASS
 - Svelte production build PASS
-- 실제 데이터 Playwright `37 passed, 9 skipped` (1600×900/390×844/360×844, 모바일 자료 본문 scroll·AI 패널·command bar·로어북 목차→읽기, 확인·작성 원고 설계·흐름/초안 교체, 원고 저장·완성 다듬기·긴 본문/출처 카드 포함)
+- 실제 데이터 Playwright `45 passed, 11 skipped` (1600×900/390×844/360×844, 현장 구술 전개·문체·결과물 선택, 모바일 자료 본문 scroll·AI 패널·command bar·로어북 목차→읽기, 확인·작성 원고 설계·흐름/초안 교체, 원고 저장·완성 다듬기·긴 본문/출처 카드 포함)
 - 빈 데이터/기능별 조건 skip UI E2E `27 passed, 29 skipped`
 - Compose build/up 및 DB health PASS
 - PostgreSQL Alembic `20260810_0008` 기존 데이터 upgrade, 프로젝트 삭제 감사 묘비 보존, 역할별 모델 연결·thinking 설정 및 임시 fresh DB upgrade/downgrade/upgrade PASS

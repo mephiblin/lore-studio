@@ -1097,7 +1097,7 @@ html[data-lorebook-theme] .app-main.workspace-main { transition: background-colo
   .page-tools .project-tools > label { display: grid; gap: 6px; white-space: normal; }
   .page-tools .project-tools > label select { min-width: 0; }
   .lorebook-commandbar { align-items: stretch; flex-direction: column; gap: 10px; }
-  .lorebook-commandbar .lorebook-theme-toolbar { justify-content: space-between; }
+  .lorebook-commandbar .lorebook-theme-toolbar { justify-content: space-between; padding-right: 44px; }
   .archive-layout { grid-template-columns: 1fr; }
   .archive-list { position: static; height: auto; max-height: none; overflow: visible; }
   .archive-page-list { max-height: 330px; }

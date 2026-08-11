@@ -17,6 +17,8 @@ make validate
 
 모델 호출은 `ModelGateway`, 컨텍스트 권위 경계는 `context_compiler`, 승격은 `authority`, 검색은 `search`, 생성 단계는 `harness`를 거쳐야 합니다. 모델 endpoint/API key 편집은 `/settings`와 `model-connections` API에만 두고, 키 원문을 응답·감사 로그에 반환하지 마십시오. 컨셉/방향/레시피/출력 설정을 합친 새 만능 객체를 만들지 마십시오.
 
+작성 성향을 추가할 때는 결과 매체는 `config/output_profiles`, 정보 공개 순서는 `config/writing_recipes`, 표현 원칙은 `config/voice_profiles`로 나눕니다. 특정 성향을 위한 전용 `max_tokens`나 고정 글자 수를 자산에 넣지 말고 글 만들기의 기존 분량 설정과 생성 계약을 사용합니다.
+
 자료 양산은 `concept_batch` 서비스와 `/concept-batches/seeds → /generate → /accept` 계약을 사용합니다. planning은 단일 explicit model profile, worker는 선택 씨앗마다 병렬 호출하며, API 테스트는 실제 최대 active 호출 수와 accept 전 ConceptPage 불변을 함께 검증해야 합니다.
 
 사용자가 모델을 고르는 자료 양산·세계관 본문 AI는 공용 `local_text_profile()`과 `QWEN_SELECTABLE_* / GEMMA_SELECTABLE_*`를 사용합니다. role 기반 `complete()` 대신 `complete_for_profile()`로 호출해 선택 모델을 고정하고 요청의 `model_key`와 GenerationRun의 실제 모델·endpoint를 함께 검사합니다.

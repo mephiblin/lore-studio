@@ -36,9 +36,33 @@ def test_builtin_recipes_are_shared_progression_patterns() -> None:
             "required_moves"
         ]
 
-    assert {"reflective_essay", "analytical_report"}.issubset(
+    assert {"reflective_essay", "analytical_report", "field_lore_warning"}.issubset(
         {recipe["key"] for recipe in recipes}
     )
+
+    field_recipe = next(recipe for recipe in recipes if recipe["key"] == "field_lore_warning")
+    assert field_recipe["required_moves"] == [
+        "ORIENT",
+        "ANCHOR",
+        "EXEMPLIFY",
+        "WITHHOLD",
+        "ESCALATE",
+        "STING",
+    ]
+    assert "max_tokens" not in field_recipe
+    assert "length_presets" not in field_recipe
+
+
+def test_in_universe_oral_profile_uses_existing_generation_length_contract() -> None:
+    config_root = Path(__file__).resolve().parents[2] / "config"
+    profiles = config_loader._load_yaml_files(config_root / "output_profiles")
+    profile = next(item for item in profiles if item["key"] == "in_universe_oral")
+
+    assert profile["rules"]["narrator_scope"] == "in_universe_bounded"
+    assert profile["rules"]["finished_manuscript_only"] is True
+    assert "target_units" not in profile["rules"]
+    assert "length_presets" not in profile
+    assert "max_tokens" not in profile
 
 
 def test_builtin_voice_profiles_are_shared_approved_and_idempotent() -> None:
@@ -51,6 +75,7 @@ def test_builtin_voice_profiles_are_shared_approved_and_idempotent() -> None:
         "fiction_scene",
         "reflective_essay",
         "analytical_report",
+        "field_witness",
     }
     assert all(profile.project_id is None for profile in profiles)
     assert all(profile.status == "APPROVED" and profile.is_builtin for profile in profiles)

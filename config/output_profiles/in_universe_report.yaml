@@ -6,9 +6,13 @@ rules:
   paragraph_density: medium
   sentence_length: medium
   spoken_clarity: low
-  narrator_scope: in_universe
+  narrator_scope: in_universe_bounded
+  author_knowledge: bounded
+  finished_manuscript_only: true
   headings: contextual
-  evidence_display: in_world
+  evidence_display: in_world_source
+  meta_commentary: false
+  information_selection: selective
   target_units: korean_characters
 length_presets:
   short: [800, 1500]

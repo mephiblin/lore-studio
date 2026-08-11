@@ -38,7 +38,8 @@
     { value: 'novel_prose', mark: '장면', title: '소설 장면', copy: '인물의 행동과 감각이 보이게 씁니다.' },
     { value: 'personal_essay', mark: '수필', title: '수필·에세이', copy: '구체적인 경험에서 생각의 변화를 끌어냅니다.' },
     { value: 'analytical_report', mark: '보고', title: '분석 보고서', copy: '근거와 한계를 분리해 판단 과정을 보여 줍니다.' },
-    { value: 'in_universe_report', mark: '기록', title: '세계 내부 문서', copy: '세계 안의 작성자가 남긴 기록처럼 씁니다.' }
+    { value: 'in_universe_report', mark: '기록', title: '세계 내부 문서', copy: '세계 안의 작성자가 남긴 기록처럼 씁니다.' },
+    { value: 'in_universe_oral', mark: '구술', title: '세계 내부 구술', copy: '한 화자의 제한된 지식과 현장 감각으로 직접 들려줍니다.' }
   ];
   const viewpointOptions = [
     { value: 'omniscient', title: '전지적 설명자', copy: '세계 전체를 내려다봅니다.' },

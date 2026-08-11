@@ -1,0 +1,16 @@
+key: in_universe_oral
+version: "1.0.0"
+name: 세계 내부 구술
+description: 세계 안의 한 화자가 목격·전언·추측을 구분해 청자에게 직접 들려줍니다.
+rules:
+  paragraph_density: medium
+  sentence_length: varied
+  spoken_clarity: high
+  narrator_scope: in_universe_bounded
+  delivery_mode: uninterrupted_speech
+  finished_manuscript_only: true
+  headings: false
+  evidence_display: witnessed_heard_or_inferred
+  meta_commentary: false
+  information_selection: selective
+  ending_mode: warning_trade_or_action

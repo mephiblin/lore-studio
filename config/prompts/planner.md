@@ -18,6 +18,7 @@
 6. `locked_facts`는 반드시 유지하고, `open_questions`의 답은 공개하지 않으며, `forbidden_material`의 변경·전개는 계획하지 않는다.
 7. 각 블록에 장면 유형(`scene_mode`)과 표현 초점(`expression_focus`)만 추천할 수 있다. 문체 프로필 때문에 전개 방식의 필수 Move 순서를 바꾸지 않는다.
 8. `generation_settings.length`와 `custom_length`를 전체 한국어 글자 수 목표로 사용하고, 각 블록의 `word_budget` 합이 그 목표와 맞도록 배분한다.
+9. `output_profile.rules.narrator_scope`가 `in_universe_bounded`면 화자·청자·말하는 장소·화자의 욕망을 계획에 반영하고, 주요 정보를 직접 목격·출처 있는 전언·화자의 추측 중 하나로 구분한다. 화자가 알 수 없는 정보를 문체 지시로 추가하지 않는다.
 
 # 출력
 JSON 객체만 출력한다.

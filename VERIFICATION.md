@@ -12,6 +12,8 @@
 - 모델 설정 UI: production build와 Chromium 1600×900·390×844·360×844 집중 회귀 `3 passed, 1 viewport skip`; 실제 운영 화면도 세 viewport 모두 Writer=Gemma·Utility/Vision=Qwen, 로컬 선택기 3개, 가로 overflow 0, console/page error 0 PASS
 - 모델 설정 DB: 변경 전 `backups/lore-studio-20260810-200130.dump`, 운영 upgrade와 별도 fresh PostgreSQL `upgrade → downgrade 0007 → upgrade` PASS. fresh migration에서 발견한 기존 `0005` index 검사와 신규 migration 멱등성도 보정
 - 세계관 자료 양산: 기획 1호출로 씨앗 6개, 사용자 선택·수정 3개만 최대 active worker 3으로 병렬 생성, 부분 실패 시 성공 1·실패 1을 분리 보존, accept 전 ConceptPage 불변, 2개 명시 저장 후 모두 `CANDIDATE`, 같은 run 중복 저장 409 PASS. 실제 Gemma로 씨앗 6 → 선택 worker 1 → 후보 `수호자들의 정기, 붉은 해초 스프` 저장, 실제 Qwen으로 씨앗 6개와 첫 제안 `첫 번째 달의 침묵` 생성을 완료하고 두 임시 프로젝트 모두 0개로 정리. 모의 모델 UI는 1600×900·390×844·360×844에서 단계 전환·고정 footer·overflow 0 PASS
+- 현장 구술 작성: `세계 내부 구술` Output Profile, `현장 징후에서 경고로` Writing Recipe, `현장 증언 문체` Voice Profile을 분리해 추가. 전용 `max_tokens`·고정 글자 수 없이 기존 분량 계약을 공유하며, 실제 Gemma는 `ORIENT → ANCHOR → EXEMPLIFY → WITHHOLD → ESCALATE → STING` 계획과 1인칭 현장 구술을 생성. 은종의 주인 확정·내부 소제목 노출 없음, 임시 프로젝트 삭제 PASS
+- 전체 UI 회귀 중 발견한 기존 경계: Diablo 관계 카드 검사가 최근 수정 자료 순서에 의존하던 것을 관계 있는 `두리엘`의 명시 선택으로 고정. 모바일 로어북의 네 번째 테마 버튼을 우측 고정 모델 설정 링크가 가리던 재현을 확인하고 44px 영역 예약 후 집중 `3 passed, 1 skipped`, 전체 `45 passed, 11 skipped` PASS
 
 - 프로젝트 로컬 `$lore-studio-ui-safety`: skill package 형식 검증 PASS, 기준 문서·5개 생명주기 route와 `/settings` 유틸리티·Alembic head·manifest·API 경유·충돌/디버그 표식 정적 preflight PASS
 - `kill-ai-slop` 프론트 점검: 초기 10개 그룹·64개 scanner 후보를 문맥 분류해 정적 `로컬 우선` 광륜 상태 점, 카드·커버·테마 버튼의 위치/크기 hover, 범용 카드의 대형 그림자, 커버 버튼 glass blur, fallback 커버의 다중 그라데이션·동심원, 홈·로어북 중복 eyebrow를 제거. 재스캔 56개는 로어북 열람 테마·서사 본문 serif·실제 순서·상태 표시·modal 레이어로 확인해 의도적 유지. 카드 hover 전후 geometry 불변, fallback `background-image:none`, `.status-dot` 0개 PASS
@@ -19,24 +21,24 @@
 - 프로젝·글 만들기 fallback 커버: 제목을 Unicode 문자 기준 최대 16자로 확장하고 8자를 넘으면 `8자\n나머지`로 표시. 공용 `coverFallbackLabel`·`white-space:pre-line`을 사용하며 긴 임시 프로젝을 생성·검증·삭제하는 desktop/mobile Playwright PASS. 좌측 `로컬 우선` 설명은 DOM에서 제거했고 1600×900·390×844·360×844에서 문구 0개·가로 overflow 0px·커버 비율 1.778·console/page error 0개, 임시 `UX 검증` 프로젝 0개 PASS
 - 세계관 자료 AI 수정 422 회귀: Tiptap 전체 선택의 실제 `selection_from=0`과 백엔드·JSON Schema의 최솟값 1 불일치를 재현하고 0을 정상 문서 경계로 수정. 실제 Diablo/두리엘 본문을 Chromium 1600×900에서 전체 선택해 요청한 결과 HTTP 200·`CANDIDATE`·`persisted:false`·저장 본문 불변·가로 overflow 0·console error 0 PASS. 422 표준 검증 상세를 필드별로 표시하고 추가 지시 2,000자·연결 자료 12개·문자열 ID/경계 목록 제한을 프론트에서 선검증. 집중 Playwright desktop/mobile 2 passed
 - Ruff: `All checks passed`
-- pytest: `35 passed, 3 skipped` (자료 양산 병렬성·명시 저장 포함; Writer/Utility, Embedding, Vision 실제 endpoint tests는 기본 suite에서 의도적으로 skip)
+- pytest: `36 passed, 3 skipped` (자료 양산 병렬성·명시 저장·현장 구술 자산 계약 포함; Writer/Utility, Embedding, Vision 실제 endpoint tests는 기본 suite에서 의도적으로 skip)
 - 실제 모델 opt-in: `3 passed` (Writer/Utility structured output, BGE-M3 1024차원, Vision data URL)
 - SvelteKit adapter-node production build: PASS
-- Playwright Chromium desktop 1600×900/mobile 390×844 실제 인수 자료 포함 회귀: `37 passed, 9 skipped`
+- Playwright Chromium desktop 1600×900/mobile 390×844 실제 인수 자료 포함 회귀: `45 passed, 11 skipped`
 - 세계관 본문 AI 모델 선택: AI 수정에서 Qwen, 이어진 AI 작성에서 Gemma를 선택해 요청 `model_key`와 제안 모델명이 일치하고 desktop/mobile에서 가로 overflow 0 PASS. 실제 요청도 Qwen 수정=`qwen36-heretic-mtp`·`http://host.docker.internal:18091/v1`, Gemma 초안=`gemma4-26b-heretic-mtp`·`http://host.docker.internal:18093/v1`로 GenerationRun에 기록됐으며 둘 다 `CANDIDATE`·`persisted=false`, 원문 불변, 임시 프로젝트 0개로 정리 PASS
 - 빈 데이터/기능별 조건 skip UI 회귀: `27 passed, 29 skipped`
 - 문체·필력: DRAFT 명시 승인·사용 후 새 버전·공용/프로젝트 범위·권리별 짧은 예시 격리 API, 다섯 번째 로컬 탭과 내부 스크롤·고정 footer 모달, 글 만들기 `모델 기본 문체`/승인 프로필 명시 선택, profile/version/example GenerationRun snapshot, 원고 필력 점검과 승인형 수정 제안 PASS
 - 프로젝트 전개 방식 생성·수정·글 만들기 선택·삭제 desktop/mobile 집중 회귀: `2 passed`
-- 세계관 자료의 전개 방식 목록: 검은 항로/신규 프로젝트 모두 세계관·소설·수필·보고서를 포괄하는 공용 기본 8개 노출, 프로젝트 전용 항목과 출처 구분 PASS
+- 세계관 자료의 전개 방식 목록: 검은 항로/신규 프로젝트 모두 세계관·소설·수필·보고서·현장 구술을 포괄하는 공용 기본 9개 노출, 프로젝트 전용 항목과 출처 구분 PASS
 - 전개 방식·자료 종류 카드 갤러리: desktop 카드 폭 305px 이하, mobile 1열, 실제 `required_moves` 순서 표시, 별도 카드 표시·분류 기준 입력 제거, 단계 목적 자동 파생, 생성·수정 모달 접근과 저장 후 자동 닫힘 desktop/mobile PASS
 - 새 세계관 자료 생성: 이름·자료 종류만 노출하고 `용도` 선택은 제거, API 기본값 `DRAFT_SETTING` 적용 desktop/mobile PASS
 - 집필 지침 세부 규칙 직접 작성: 목표·전개 순서·반드시 포함·피할 전개·선호 결말의 API 저장·카드 표시 desktop/mobile `2 passed`
 - 자료 종류·집필 지침·전개 방식 편집: 생성·수정 6개 흐름이 viewport 안의 모달로 열리고 내부 폼만 스크롤되며 고정 footer가 보이는지 desktop/mobile `2 passed`; 집필 지침 세부 규칙은 접기 요소 없이 상시 노출, 도움말은 `position:fixed` 최상위 오버레이로 viewport 안에 표시됨을 확인
 - 글 만들기 하단 이동 바: `.playbook-workspace` 밖의 형제 영역이며 desktop viewport 안에 유지되고 mobile에서는 전역 하단 메뉴 위에 고정됨을 확인; 본문·브라우저를 끝까지 스크롤하기 전후 y 좌표가 동일한 desktop/mobile route 회귀 `2 passed`
-- 글 만들기 결과물 형태·최종 확인 개편: 세계관·영상·소설·수필·보고서·세계 내부 문서 카드와 실시간 원고 견본, 확인·작성 왼쪽의 동일한 전체 원고 설계 장부, 오른쪽 `글의 흐름 설계 → 초안 작성` 카드와 한 결과 영역을 desktop/mobile 실제 데이터에서 확인. 카드 실행 뒤 같은 영역이 편집 흐름에서 초안으로 교체되고 원고 작업 링크를 제공하며, 자료 경계는 흐름 요청 안에서 자동 컴파일하고 별도 중복 패널을 두지 않음 PASS
+- 글 만들기 결과물 형태·최종 확인 개편: 세계관·영상·소설·수필·보고서·세계 내부 문서·세계 내부 구술 카드와 실시간 원고 견본, 확인·작성 왼쪽의 동일한 전체 원고 설계 장부, 오른쪽 `글의 흐름 설계 → 초안 작성` 카드와 한 결과 영역을 desktop/mobile 실제 데이터에서 확인. 카드 실행 뒤 같은 영역이 편집 흐름에서 초안으로 교체되고 원고 작업 링크를 제공하며, 자료 경계는 흐름 요청 안에서 자동 컴파일하고 별도 중복 패널을 두지 않음 PASS
 - 선택 자료 본문 반영·분량 계약: 직접 고른 자료가 없으면 UI를 비활성화하고 세션·Context compiler 모두 `core`로 강제함을 확인. Planner의 짧게 1,200자·길게 6,500자·직접 지정 5,555자 문단 예산 합계가 목표와 정확히 일치하고, 브라우저 확인 화면에 `총 6,500자 / 목표 6,500자`가 표시됨을 확인
 - 결과물 견본 전체 설계 요약: `원고 설계` 장부에 주제·배경·주요 요소·갈등·변수·집필 지침·전개 방식·문체·필력을 실제 선택값 또는 `선택 안 함`으로 표시하고, `출력 설정` 장부의 형식·시점·시제·분량 즉시 갱신과 함께 desktop/mobile 집중 회귀 `2 passed`
-- 범용 집필 자산: 소설·수필·보고서 집필 지침 시작 프리셋 3개, 공용 전개 방식 2개 추가, 예시 원문 없는 승인·읽기 전용 문체·필력 3개, 수필·분석 보고서 결과물 형태가 프로젝트와 무관하게 보이고 공용 문체 편집은 복제로만 시작됨을 확인
+- 범용 집필 자산: 소설·수필·보고서 집필 지침 시작 프리셋 3개, 공용 전개 방식 9개, 예시 원문 없는 승인·읽기 전용 문체·필력 4개, 수필·분석 보고서·세계 내부 구술 결과물 형태가 프로젝트와 무관하게 보이고 공용 문체 편집은 복제로만 시작됨을 확인
 - 결과물 견본의 `형식 / 시점 / 시제 / 분량` 즉시 요약과 1600×900 viewport 내 전체 노출, 확인 카드의 `수정 → 확인·작성으로 돌아가기`, `수정 취소` 시 기존 선택 복원, 실행 전 완료 녹색 0개·실행 후 순차 완료 상태 PASS
 - 저장된 세계관 자료의 기본 읽기 모드·명시적 `글 편집`·저장/취소 복귀, 프로젝트·세계관 자료·로어북 삭제 동작, 로어북 삭제 시 출처 초안 보존·AuditLog PASS
 - 73개 자료의 카드 행 비겹침 없음, 독립 스크롤, `자료 더 보기`가 전역 하단 이동 바와 겹치지 않음을 desktop/mobile 숫자·스크린샷으로 확인
