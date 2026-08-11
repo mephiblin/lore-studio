@@ -9,6 +9,7 @@ from typing import Any, Literal
 import httpx
 
 from app.config import ModelRole, settings
+from app.services.model_connections import effective_model_profile
 
 ResponseMode = Literal["text", "json_object", "json_schema"]
 
@@ -28,10 +29,11 @@ class ModelProfile:
     model: str
     timeout_seconds: int
     context_budget: int
+    disable_thinking: bool = False
 
     @classmethod
     def from_settings(cls, role: ModelRole) -> "ModelProfile":
-        return cls(**settings.model_profile(role))  # type: ignore[arg-type]
+        return cls(**effective_model_profile(role))  # type: ignore[arg-type]
 
 
 @dataclass
@@ -74,13 +76,22 @@ class ModelGateway:
     def _headers(profile: ModelProfile) -> dict[str, str]:
         return {"Authorization": f"Bearer {profile.api_key}"} if profile.api_key else {}
 
+    @staticmethod
+    def _chat_template_params(profile: ModelProfile) -> dict[str, Any]:
+        if not profile.disable_thinking:
+            return {}
+        return {"chat_template_kwargs": {"enable_thinking": False}}
+
     async def list_models(self, role: ModelRole) -> list[dict[str, Any]]:
         profile = self.profile(role)
+        return await self.list_models_for_profile(profile)
+
+    async def list_models_for_profile(self, profile: ModelProfile) -> list[dict[str, Any]]:
         if not profile.base_url:
             raise ModelGatewayError(
-                f"{role} 모델 엔드포인트가 설정되지 않았습니다.",
+                f"{profile.role} 모델 엔드포인트가 설정되지 않았습니다.",
                 code="MODEL_PROFILE_NOT_CONFIGURED",
-                role=role,
+                role=profile.role,
             )
         try:
             async with self._client(profile) as client:
@@ -92,15 +103,21 @@ class ModelGateway:
                 data = response.json()
         except (httpx.HTTPError, ValueError) as exc:
             raise ModelGatewayError(
-                f"{role} 모델 서버의 /v1/models 확인에 실패했습니다: {exc}",
+                f"{profile.role} 모델 서버의 /v1/models 확인에 실패했습니다: {exc}",
                 code="MODEL_HEALTH_FAILED",
-                role=role,
+                role=profile.role,
             ) from exc
         models = data.get("data", []) if isinstance(data, dict) else []
         return [item for item in models if isinstance(item, dict)]
 
     async def resolve_model(self, profile: ModelProfile) -> tuple[str, dict[str, Any]]:
-        models = await self.list_models(profile.role)
+        models = await self.list_models_for_profile(profile)
+        return self._resolve_model_from_list(profile, models)
+
+    @staticmethod
+    def _resolve_model_from_list(
+        profile: ModelProfile, models: list[dict[str, Any]]
+    ) -> tuple[str, dict[str, Any]]:
         if profile.model:
             match = next((item for item in models if item.get("id") == profile.model), None)
             if match is None and profile.role == "embedding":
@@ -139,14 +156,15 @@ class ModelGateway:
         return str(loaded["id"]), loaded
 
     @staticmethod
-    def _capabilities(model_info: dict[str, Any]) -> dict[str, Any]:
+    def _capabilities(profile: ModelProfile, model_info: dict[str, Any]) -> dict[str, Any]:
         architecture = model_info.get("architecture", {})
-        input_modalities = architecture.get("input_modalities", ["text"])
+        default_modalities = ["text", "image"] if profile.role == "vision" else ["text"]
+        input_modalities = architecture.get("input_modalities", default_modalities)
         return {
-            "chat": True,
-            "streaming": True,
-            "json_object": True,
-            "json_schema": True,
+            "chat": profile.role != "embedding",
+            "streaming": profile.role != "embedding",
+            "json_object": profile.role != "embedding",
+            "json_schema": profile.role != "embedding",
             "vision": "image" in input_modalities,
             "input_modalities": input_modalities,
             "context_size": model_info.get("meta", {}).get("n_ctx"),
@@ -154,20 +172,26 @@ class ModelGateway:
 
     async def health(self, role: ModelRole) -> dict[str, Any]:
         profile = self.profile(role)
+        return await self.health_profile(profile)
+
+    async def health_profile(self, profile: ModelProfile) -> dict[str, Any]:
         try:
-            model, info = await self.resolve_model(profile)
+            models = await self.list_models_for_profile(profile)
+            model, info = self._resolve_model_from_list(profile, models)
             return {
-                "role": role,
+                "role": profile.role,
                 "available": True,
                 "model": model,
-                "capabilities": self._capabilities(info),
+                "models": [str(item.get("id", "")) for item in models if item.get("id")],
+                "capabilities": self._capabilities(profile, info),
                 "error": None,
             }
         except ModelGatewayError as exc:
             return {
-                "role": role,
+                "role": profile.role,
                 "available": False,
                 "model": profile.model,
+                "models": [],
                 "capabilities": {},
                 "error": {"code": exc.code, "message": str(exc)},
             }
@@ -242,6 +266,7 @@ class ModelGateway:
             "messages": messages,
             "temperature": temperature,
             "stream": False,
+            **self._chat_template_params(profile),
         }
         if max_tokens is not None:
             payload["max_tokens"] = max_tokens
@@ -286,6 +311,7 @@ class ModelGateway:
             "messages": messages,
             "temperature": temperature,
             "stream": True,
+            **self._chat_template_params(profile),
         }
         if max_tokens is not None:
             payload["max_tokens"] = max_tokens

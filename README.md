@@ -31,7 +31,7 @@ docker compose up --build
 
 UI/API는 현재 신뢰하는 LAN 접속을 위해 `0.0.0.0`에 바인딩되며, DB는 로컬호스트에만 유지됩니다. 인증이 없으므로 라우터 포트 포워딩으로 인터넷에 공개하지 마십시오.
 
-현재 DGX 실측 설정은 Gemma 4 26B Writer/Utility/Vision과 BGE-M3 실제 endpoint만 사용합니다. 앱 내 가상 모델 경로는 제거했습니다. Qwen3.5-4B는 namespace 격리 평가 실패로 기본 Utility에서 제외했습니다. 결과는 [`docs/model-evaluations/utility-models.md`](docs/model-evaluations/utility-models.md)에 있습니다.
+모델 연결은 `/settings`에서 Writer·Utility·Vision·Embedding 역할별 OpenAI 호환 endpoint를 시험하고 저장할 수 있으며, 저장값이 없으면 `.env`를 사용합니다. 현재 DGX에서는 Qwen3.6 vLLM을 Writer/Utility/Vision에, BGE-M3를 Embedding에 연결할 수 있습니다. 과거 Qwen3.5-4B Utility 평가는 별도 결과이며 [`docs/model-evaluations/utility-models.md`](docs/model-evaluations/utility-models.md)에 보존합니다.
 
 ## 검증
 

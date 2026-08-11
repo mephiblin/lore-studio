@@ -56,6 +56,18 @@ class TimestampMixin:
     )
 
 
+class ModelConnectionSetting(Base, TimestampMixin):
+    __tablename__ = "model_connection_settings"
+
+    role: Mapped[str] = mapped_column(String(32), primary_key=True)
+    base_url: Mapped[str] = mapped_column(Text, nullable=False)
+    api_key: Mapped[str | None] = mapped_column(Text, nullable=True)
+    model: Mapped[str] = mapped_column(String(300), default="", nullable=False)
+    timeout_seconds: Mapped[int] = mapped_column(Integer, nullable=False)
+    context_budget: Mapped[int] = mapped_column(Integer, nullable=False)
+    disable_thinking: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+
 class Project(Base, TimestampMixin):
     __tablename__ = "projects"
 

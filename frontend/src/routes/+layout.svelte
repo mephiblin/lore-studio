@@ -25,7 +25,7 @@
 
 <svelte:head>
   <title>Lore Studio</title>
-  <meta name="description" content="DGX Spark를 위한 로컬 우선 세계관 집필 작업실" />
+  <meta name="description" content="DGX Spark를 위한 세계관 집필 작업실" />
 </svelte:head>
 
 <div class="app-shell" class:nav-collapsed={navCollapsed}>
@@ -48,16 +48,23 @@
 
     <nav class="nav-list" id="primary-navigation">
       {#each navigation as item}
-        <a href={item.href} class:active={$page.url.pathname === item.href} title={navCollapsed ? item.label : undefined}>
+        <a href={item.href} class:active={$page.url.pathname === item.href} aria-current={$page.url.pathname === item.href ? 'page' : undefined} title={navCollapsed ? item.label : undefined}>
           <span class="nav-mark" aria-hidden="true">{item.mark}</span><span class="nav-label">{item.label}</span>
         </a>
       {/each}
     </nav>
 
-    <div class="local-note">
-      <span class="status-dot"></span>
-      <div class="local-note-copy"><strong>로컬 우선</strong><small>자료와 모델 키는 브라우저에 노출되지 않습니다.</small></div>
-    </div>
+    <a
+      class="model-settings-link"
+      class:active={$page.url.pathname === '/settings'}
+      aria-current={$page.url.pathname === '/settings' ? 'page' : undefined}
+      href="/settings"
+      aria-label="모델 연결 설정"
+      title="모델 연결"
+    >
+      <span aria-hidden="true">⚙</span><span class="nav-label">모델 연결</span>
+    </a>
+
   </aside>
   <main class="app-main" class:workspace-main={$page.url.pathname !== '/'}><slot /></main>
 </div>

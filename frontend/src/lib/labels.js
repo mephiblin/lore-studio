@@ -92,6 +92,11 @@ export const documentStatusLabels = {
 
 export const roleLabel = (value) => roleLabels[value] || value;
 export const categoryLabel = (value) => categoryLabels[value] || value;
+export function coverFallbackLabel(value, fallback = 'LS') {
+  const characters = Array.from(String(value || '').trim().toUpperCase()).slice(0, 16);
+  if (!characters.length) return fallback;
+  return [characters.slice(0, 8).join(''), characters.slice(8).join('')].filter(Boolean).join('\n');
+}
 export function pageCategoryKey(page) {
   if (page?.properties_json?.entity_type === 'creature_lineage') return 'creature';
   if (page?.custom_category === '일반 몬스터 종족') return 'creature';

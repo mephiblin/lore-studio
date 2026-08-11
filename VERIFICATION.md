@@ -6,9 +6,18 @@
 
 ## 자동 검증
 
-- 프로젝트 로컬 `$lore-studio-ui-safety`: skill package 형식 검증 PASS, 기준 문서·5개 route·Alembic head·manifest·API 경유·충돌/디버그 표식 정적 preflight `7 passed, 0 failures`
+- 역할별 모델 연결: `/settings`와 `model-connections` API로 Writer/Utility/Vision을 `qwen36-heretic-mtp`, Embedding을 기존 `bge-m3`에 연결. key 원문 응답·감사 로그 비노출, `.env` fallback, 저장 전 `/v1/models`/alias 확인, Qwen `enable_thinking=false`와 MTP 독립성 검증 PASS
+- 실제 Lore ModelGateway: Writer `연결 성공`, Utility `{"status":"ok"}`, Vision caption/uncertainty 구조화 응답 PASS. `/models/status` 네 역할 `available=true`, Vision image capability와 Embedding 비-chat capability 표시 PASS
+- 모델 설정 UI: production build와 Chromium 1600×900·390×844·360×844 집중 회귀 `3 passed, 1 viewport skip`; 5개 생명주기 메뉴 유지, Qwen preset의 Embedding 비변경, API key 재표시 없음, 가로 overflow 없음 PASS
+- 모델 설정 DB: 변경 전 `backups/lore-studio-20260810-200130.dump`, 운영 upgrade와 별도 fresh PostgreSQL `upgrade → downgrade 0007 → upgrade` PASS. fresh migration에서 발견한 기존 `0005` index 검사와 신규 migration 멱등성도 보정
+
+- 프로젝트 로컬 `$lore-studio-ui-safety`: skill package 형식 검증 PASS, 기준 문서·5개 생명주기 route와 `/settings` 유틸리티·Alembic head·manifest·API 경유·충돌/디버그 표식 정적 preflight PASS
+- `kill-ai-slop` 프론트 점검: 초기 10개 그룹·64개 scanner 후보를 문맥 분류해 정적 `로컬 우선` 광륜 상태 점, 카드·커버·테마 버튼의 위치/크기 hover, 범용 카드의 대형 그림자, 커버 버튼 glass blur, fallback 커버의 다중 그라데이션·동심원, 홈·로어북 중복 eyebrow를 제거. 재스캔 56개는 로어북 열람 테마·서사 본문 serif·실제 순서·상태 표시·modal 레이어로 확인해 의도적 유지. 카드 hover 전후 geometry 불변, fallback `background-image:none`, `.status-dot` 0개 PASS
+- de-slop 시각·반응형 회귀: `/`, `/editor`, `/playbook`, `/documents`, `/lorebook`를 1600×900·390×844·360×844에서 실제 데이터로 점검해 가로 overflow 0개·console/page error 0개. 글 만들기 하단 이동 바는 desktop `bottom=888/900`, mobile/narrow `779/844`로 전역 메뉴 위에 유지. 로어북 4개 테마는 실제 click 후 `aria-pressed=true`, 30×30 geometry 불변, `normal/fantasia/mechanical/urban` 로컬 저장·새로고침 유지 PASS
+- 프로젝·글 만들기 fallback 커버: 제목을 Unicode 문자 기준 최대 16자로 확장하고 8자를 넘으면 `8자\n나머지`로 표시. 공용 `coverFallbackLabel`·`white-space:pre-line`을 사용하며 긴 임시 프로젝을 생성·검증·삭제하는 desktop/mobile Playwright PASS. 좌측 `로컬 우선` 설명은 DOM에서 제거했고 1600×900·390×844·360×844에서 문구 0개·가로 overflow 0px·커버 비율 1.778·console/page error 0개, 임시 `UX 검증` 프로젝 0개 PASS
+- 세계관 자료 AI 수정 422 회귀: Tiptap 전체 선택의 실제 `selection_from=0`과 백엔드·JSON Schema의 최솟값 1 불일치를 재현하고 0을 정상 문서 경계로 수정. 실제 Diablo/두리엘 본문을 Chromium 1600×900에서 전체 선택해 요청한 결과 HTTP 200·`CANDIDATE`·`persisted:false`·저장 본문 불변·가로 overflow 0·console error 0 PASS. 422 표준 검증 상세를 필드별로 표시하고 추가 지시 2,000자·연결 자료 12개·문자열 ID/경계 목록 제한을 프론트에서 선검증. 집중 Playwright desktop/mobile 2 passed
 - Ruff: `All checks passed`
-- pytest: `30 passed, 3 skipped` (Writer/Utility, Embedding, Vision 실제 endpoint tests는 기본 suite에서 의도적으로 skip)
+- pytest: `33 passed, 3 skipped` (Writer/Utility, Embedding, Vision 실제 endpoint tests는 기본 suite에서 의도적으로 skip)
 - 실제 모델 opt-in: `3 passed` (Writer/Utility structured output, BGE-M3 1024차원, Vision data URL)
 - SvelteKit adapter-node production build: PASS
 - Playwright Chromium desktop 1600×900/mobile 390×844 실제 인수 자료 포함 회귀: `37 passed, 9 skipped`
@@ -47,7 +56,7 @@
 - 원고 저장 회귀: 제목·문단 수정과 새 문단 추가 → 다음 단계 자동 저장 → 새로고침 복원 → 테스트 데이터 원상복구 PASS
 - JSON Schema/YAML/Python bundle validation: PASS
 - Docker Compose build/up: DB healthy, backend 18000, frontend 5173
-- Alembic PostgreSQL head `20260809_0006`: 기존 데이터 backup 후 upgrade PASS; 프로젝트 삭제 후 `project_id=NULL` 감사 묘비 보존 PASS; 별도 fresh DB에서 전체 upgrade → `20260808_0004` downgrade → head 재-upgrade PASS
+- Alembic PostgreSQL head `20260810_0008`: 기존 데이터 backup 후 upgrade PASS; 프로젝트 삭제 후 `project_id=NULL` 감사 묘비 보존 PASS; 별도 fresh DB에서 전체 upgrade → `20260810_0007` downgrade → head 재-upgrade PASS
 
 ## 2026-08-06 실행 상태
 

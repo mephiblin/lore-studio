@@ -20,8 +20,8 @@
       "required": ["body_json", "selection_from", "selection_to", "selection_text"],
       "properties": {
         "body_json": { "$ref": "#/$defs/bodyJson" },
-        "selection_from": { "type": "integer", "minimum": 1 },
-        "selection_to": { "type": "integer", "minimum": 2 },
+        "selection_from": { "type": "integer", "minimum": 0 },
+        "selection_to": { "type": "integer", "minimum": 1 },
         "selection_text": { "type": "string", "minLength": 1, "maxLength": 12000 },
         "operation": {
           "enum": ["polish", "shorter", "longer", "clarify", "consistency", "custom"]

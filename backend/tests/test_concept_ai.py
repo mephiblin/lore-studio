@@ -103,7 +103,7 @@ def test_concept_ai_returns_reviewable_proposals_without_saving(monkeypatch) -> 
             f"/api/v1/concept-pages/{current['id']}/ai/rewrite-selection",
             json={
                 "body_json": unsaved_body,
-                "selection_from": 1,
+                "selection_from": 0,
                 "selection_to": 13,
                 "selection_text": "성문은 늦게 닫혔다.",
                 "operation": "longer",
@@ -117,6 +117,7 @@ def test_concept_ai_returns_reviewable_proposals_without_saving(monkeypatch) -> 
         assert proposal["status"] == "CANDIDATE"
         assert proposal["persisted"] is False
         assert proposal["mode"] == "rewrite_selection"
+        assert proposal["selection_from"] == 0
         assert proposal["original_text"] == "성문은 늦게 닫혔다."
         assert proposal["proposed_text"].startswith("성문은 해가 지기 전에")
         assert proposal["source_page_ids"] == [fact_source["id"], inspiration["id"]]

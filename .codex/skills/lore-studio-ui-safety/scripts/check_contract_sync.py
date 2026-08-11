@@ -73,6 +73,7 @@ route_files = {
     "/playbook": "frontend/src/routes/playbook/+page.svelte",
     "/documents": "frontend/src/routes/documents/+page.svelte",
     "/lorebook": "frontend/src/routes/lorebook/+page.svelte",
+    "/settings": "frontend/src/routes/settings/+page.svelte",
 }
 for route, relative in route_files.items():
     if not (ROOT / relative).is_file():
@@ -80,7 +81,7 @@ for route, relative in route_files.items():
     if f"`{route}`" not in ui_contract:
         fail(f"UI_PAGE_CONTRACT.md does not document route {route}")
 if not any("documented route" in item or "does not document route" in item for item in FAILURES):
-    passed("five global routes exist and are documented")
+    passed("five lifecycle routes and the settings utility route exist and are documented")
 
 link_expectations = [
     ("README.md", readme, "docs/UI_PAGE_CONTRACT.md"),

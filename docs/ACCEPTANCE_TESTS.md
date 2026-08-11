@@ -44,5 +44,6 @@
 | 40 | 결과물 견본의 전체 원고 설계 | PASS | 주제·배경·주요 요소·갈등·변수·집필 지침·전개 방식·문체·필력을 원고 설계 장부에 표시하고 형식·시점·시제·분량 출력 장부와 분리, desktop/mobile 일치 |
 | 41 | 장문 실제 분량·로어북 스크롤 | PASS | 6,000자 이상 블록별 이어쓰기, 95% 문자 수 gate와 GenerationRun 감사, 짧은 초안의 원래 목표 복구, reader 실제 scrollTop 변화, 출처·provenance 단일 카드 |
 | 42 | 모바일 스크롤·로어북 목차 | PASS | 390px·360px 다섯 route, 세계관 본문 제스처·AI panel min-width/pointer 안전, 압축 command bar, `/lorebook` 목차 → `?entry` 읽기 → 복귀, 네 테마·직접 URL·desktop 2열 회귀 |
+| 43 | 역할별 로컬 모델 연결 | PASS | Writer·Utility·Vision·Embedding 연결 시험/저장/`.env` 복귀, API key 응답·감사 로그 마스킹, Qwen preset의 Embedding 비변경, 1600×900·390×844·360×844 UI 회귀 |
 
 대표 실제 프로젝트 slug는 `black-route-chronicle`이며 로컬 전용 DB에 정식 세계관 자료 9개와 관계·집필 지침을 보관합니다. 기본 전개 방식 프리셋은 공용이고, 사용자가 만든 전개 방식과 참고 분석 승인 결과는 프로젝트에 귀속됩니다. 최신 자동 검증 수치는 루트 `VERIFICATION.md`를 권위 기록으로 사용합니다.

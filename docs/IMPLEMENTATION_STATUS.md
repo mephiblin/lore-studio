@@ -41,7 +41,8 @@
 - 로어북 `.page-tools` 왼쪽의 브라우저 로컬 열람 테마 4종: 기존 노말, 밝은 양피지·굵은 적갈색 판타지아, 단순 선형 암부·형광 녹색·배경 글리치 메카니컬, 공포 질감 없는 남색 도시 네온 어반 판타지, 이미지보다 어두운 작업면 여백과 공통 진녹색·금색 `글 편집`, 읽기/편집 고대비·번호·금색 ring·ARIA 선택 표현
 - 6,000자 이상 초안·완성 보강의 전개 블록별 이어쓰기와 실제 글자 수 95% 저장 gate, 호출·목표·실제 분량 감사 기록, 원래 목표보다 짧은 초안을 복구하는 `필요한 곳 보강`
 - 긴 로어북 본문의 reader 내부 스크롤과 출처 초안·접힌 생성 설정을 합친 단일 출처 카드
-- `$lore-studio-ui-safety` 프로젝트 로컬 skill과 읽기 전용 정적 preflight: UI 계약·변경 체크리스트 기반 반복 점검, 5개 route·migration head·manifest·API 경유 규칙 확인, 기능 계약과 점검 절차의 변경 범위에 따른 문서·테스트·skill 동기화
+- `$lore-studio-ui-safety` 프로젝트 로컬 skill과 읽기 전용 정적 preflight: UI 계약·변경 체크리스트 기반 반복 점검, 5개 생명주기 route와 `/settings` 유틸리티·migration head·manifest·API 경유 규칙 확인, 기능 계약과 점검 절차의 변경 범위에 따른 문서·테스트·skill 동기화
+- Writer·Utility·Vision·Embedding 역할별 OpenAI 호환 모델 연결 시험·저장·`.env` 복귀 화면. API key 원문은 브라우저·감사 로그에 반환하지 않고 Qwen preset은 Embedding을 보존
 
 ## 실제 환경 증거
 
@@ -52,14 +53,14 @@ Utility 9-case 결과는 Qwen3.5-4B가 namespace 누출로 탈락했고 Gemma4-2
 ## 최종 검증
 
 - Ruff PASS
-- pytest `30 passed, 3 skipped` (실제 endpoint opt-in tests는 기본 run에서 skip)
+- pytest `33 passed, 3 skipped` (실제 endpoint opt-in tests는 기본 run에서 skip)
 - 실제 모델 opt-in `3 passed` (Writer/Utility, Embedding, Vision)
 - bundle/schema/YAML PASS
 - Svelte production build PASS
 - 실제 데이터 Playwright `37 passed, 9 skipped` (1600×900/390×844/360×844, 모바일 자료 본문 scroll·AI 패널·command bar·로어북 목차→읽기, 확인·작성 원고 설계·흐름/초안 교체, 원고 저장·완성 다듬기·긴 본문/출처 카드 포함)
 - 빈 데이터/기능별 조건 skip UI E2E `19 passed, 27 skipped`
 - Compose build/up 및 DB health PASS
-- PostgreSQL Alembic `20260809_0006` 기존 데이터 upgrade, 프로젝트 삭제 감사 묘비 보존 및 임시 fresh DB upgrade/downgrade/upgrade PASS
+- PostgreSQL Alembic `20260810_0008` 기존 데이터 upgrade, 프로젝트 삭제 감사 묘비 보존, 역할별 모델 연결·thinking 설정 및 임시 fresh DB upgrade/downgrade/upgrade PASS
 - 프로젝트 로컬 skill package 검증과 UI 계약 정적 preflight `7 passed, 0 failures`
 
 ## 남은 제한

@@ -230,9 +230,32 @@ test('dense voice profile galleries preserve card height and scroll inside the w
 test('world material AI edits stay reviewable and use temporary references', async ({ page }) => {
   test.skip(process.env.E2E_EXPECT_DATA !== 'true', 'requires the curated Black Route world project');
 
+  let rewriteAttempts = 0;
   await page.route('**/api/v1/concept-pages/*/ai/rewrite-selection', async (route) => {
     const payload = route.request().postDataJSON();
     expect(payload.operation).toBe('longer');
+    expect(payload.instruction.length).toBeLessThanOrEqual(2000);
+    expect(payload.source_page_ids.length).toBeLessThanOrEqual(12);
+    expect(payload.source_page_ids.every((id) => typeof id === 'string')).toBe(true);
+    expect(payload.locked_facts.every((item) => typeof item === 'string')).toBe(true);
+    expect(payload.open_questions.every((item) => typeof item === 'string')).toBe(true);
+    expect(payload.forbidden_changes.every((item) => typeof item === 'string')).toBe(true);
+    rewriteAttempts += 1;
+    if (rewriteAttempts === 1) {
+      await route.fulfill({
+        status: 422,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          detail: [{
+            type: 'string_too_long',
+            loc: ['body', 'instruction'],
+            msg: 'String should have at most 2000 characters',
+            ctx: { max_length: 2000 }
+          }]
+        })
+      });
+      return;
+    }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -288,8 +311,11 @@ test('world material AI edits stay reviewable and use temporary references', asy
   const rewritePanel = page.getByRole('form', { name: '선택 영역 AI 수정' });
   await expect(rewritePanel).toBeVisible();
   await expect(rewritePanel).toContainText('연결된 자료');
+  await expect(rewritePanel.getByLabel('추가 지시')).toHaveAttribute('maxlength', '2000');
   await rewritePanel.getByLabel('수정 방식').selectOption('longer');
   await expect(rewritePanel.getByLabel('수정 방식')).toContainText('더 자세히 (약 2배)');
+  await rewritePanel.getByRole('button', { name: '수정 제안' }).click();
+  await expect(page.getByRole('alert')).toContainText('추가 지시은(는) 2,000자 이하여야 합니다.');
   await rewritePanel.getByRole('button', { name: '수정 제안' }).click();
 
   const proposal = page.getByRole('region', { name: 'AI 본문 제안' });
@@ -400,7 +426,12 @@ test('dense Diablo materials stay bounded and use its project taxonomy', async (
     }
     const cardTitle = (await firstCard.locator('.wizard-card-copy strong').textContent()).trim();
     const placeholder = firstCard.locator('.project-cover-placeholder > span');
-    if (await placeholder.count()) await expect(placeholder).toHaveText(cardTitle.slice(0, 5).toUpperCase());
+    if (await placeholder.count()) {
+      const characters = Array.from(cardTitle.toUpperCase()).slice(0, 16);
+      const expected = [characters.slice(0, 8).join(''), characters.slice(8).join('')].filter(Boolean).join('\n');
+      expect(await placeholder.textContent()).toBe(expected);
+      expect(await placeholder.evaluate((element) => getComputedStyle(element).whiteSpace)).toBe('pre-line');
+    }
   }
   await page.getByLabel('자료 종류').selectOption({ label: '일반 몬스터 종족' });
   await expect(page.locator('.wizard-choice-card').first()).toContainText('일반 몬스터 종족');
@@ -595,7 +626,11 @@ test('a project can be added after projects already exist', async ({ page }, tes
     apiOrigin = new URL(createdRequest.url()).origin;
     const projectCard = page.locator('.project-card').filter({ has: page.getByRole('heading', { name: projectName }) });
     await expect(projectCard).toBeVisible();
-    await expect(projectCard.locator('.project-cover-placeholder > span')).toHaveText(projectName.trim().slice(0, 5).toUpperCase());
+    const coverCharacters = Array.from(projectName.trim().toUpperCase()).slice(0, 16);
+    const expectedCoverLabel = [coverCharacters.slice(0, 8).join(''), coverCharacters.slice(8).join('')].filter(Boolean).join('\n');
+    const coverLabel = projectCard.locator('.project-cover-placeholder > span');
+    expect(await coverLabel.textContent()).toBe(expectedCoverLabel);
+    expect(await coverLabel.evaluate((element) => getComputedStyle(element).whiteSpace)).toBe('pre-line');
     if (testInfo.project.name === 'desktop') {
       expect((await projectCard.boundingBox()).width).toBeLessThanOrEqual(305);
     }

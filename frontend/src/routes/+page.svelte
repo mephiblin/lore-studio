@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import ProjectCreator from '$lib/components/ProjectCreator.svelte';
   import { api } from '$lib/api';
+  import { coverFallbackLabel } from '$lib/labels';
   import { forgetProject, rememberProject } from '$lib/project';
 
   let projects = [];
@@ -33,7 +34,7 @@
   }
 
   function projectInitial(project) {
-    return project.name.trim().slice(0, 5).toUpperCase() || 'LS';
+    return coverFallbackLabel(project.name);
   }
 
   function loadImage(file) {
@@ -147,7 +148,7 @@
   </section>
 
   <section class="section-heading row spread wrap">
-    <div><p class="eyebrow">프로젝트</p><h2>어느 세계에서 작업할까요?</h2></div>
+    <h2>어느 세계에서 작업할까요?</h2>
     <ProjectCreator onCreated={projectCreated} />
   </section>
 

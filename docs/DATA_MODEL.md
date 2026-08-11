@@ -1,6 +1,6 @@
 # 데이터 모델
 
-현재 Alembic head는 `20260809_0006`입니다. `0001`이 PostgreSQL extension `vector`, schema `lore_app`/`lore_vector`, 기반 테이블을 만들고, `0002`~`0004`가 로어북 분리와 프로젝트 소유 자료 종류를 이관하며, `0005`가 버전형 문체 프로필·승인 예시·세션 선택 스냅샷을 추가합니다. `0006`은 프로젝트 삭제 뒤에도 감사 기록을 `project_id=NULL` 묘비로 보존합니다.
+현재 Alembic head는 `20260810_0008`입니다. `0001`이 PostgreSQL extension `vector`, schema `lore_app`/`lore_vector`, 기반 테이블을 만들고, `0002`~`0004`가 로어북 분리와 프로젝트 소유 자료 종류를 이관하며, `0005`가 버전형 문체 프로필·승인 예시·세션 선택 스냅샷을 추가합니다. `0006`은 프로젝트 삭제 뒤에도 감사 기록을 `project_id=NULL` 묘비로 보존하고, `0007`은 역할별 OpenAI 호환 모델 연결 override, `0008`은 선택적 thinking 비활성화를 추가합니다.
 
 | 영역 | 테이블 | 핵심 경계 |
 |---|---|---|
@@ -11,6 +11,7 @@
 | 문서 | lore_documents, lore_revisions, lore_blocks | `draft` 초안과 `lorebook` 완성본을 별도 행으로 저장, 출처 초안 ID·해시·최종 생성 설정, 위치/Move/근거/확실성/잠금, 전체 초안 원자 저장 리비전 |
 | 검토 | audit_findings, proposed_concept_updates, reference_analyses, audit_logs | proposal/apply/dismiss 및 명시 승인·삭제. 프로젝트 삭제 로그는 `project_id=NULL` 묘비 기록으로 남음 |
 | 검색 | index_jobs, lore_vector.embedding_chunks | project/source/version/hash 격리 |
+| 운영 설정 | model_connection_settings | Writer·Utility·Vision·Embedding 역할별 endpoint·alias·timeout·context 예산·thinking 비활성화. 앱 행이 없으면 `.env`를 사용하며 key 원문은 API·감사 로그에서 마스킹 |
 
 권위 전이는 `CANDIDATE → DRAFT_SETTING → PROJECT_CANON`만 허용합니다. 다른 source role은 근거 사용 정책이며 임의 승격 경로가 아닙니다. 후보 정사 승인은 내부적으로 두 단계를 모두 기록합니다.
 

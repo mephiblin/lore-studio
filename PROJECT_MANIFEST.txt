@@ -19,12 +19,16 @@ backend/alembic/versions/20260805_0003_separate_lorebook.py
 backend/alembic/versions/20260808_0004_project_owned_categories.py
 backend/alembic/versions/20260809_0005_voice_profiles.py
 backend/alembic/versions/20260809_0006_project_delete_audit.py
+backend/alembic/versions/20260810_0007_model_connection_settings.py
+backend/alembic/versions/20260810_0008_model_thinking_mode.py
 backend/app/__init__.py
 backend/app/api/__init__.py
+backend/app/api/model_connections.py
 backend/app/api/router.py
 backend/app/config.py
 backend/app/db.py
 backend/app/main.py
+backend/app/model_connection_schemas.py
 backend/app/models.py
 backend/app/schemas.py
 backend/app/services/__init__.py
@@ -35,6 +39,7 @@ backend/app/services/concept_ai.py
 backend/app/services/context_compiler.py
 backend/app/services/harness.py
 backend/app/services/model_gateway.py
+backend/app/services/model_connections.py
 backend/app/services/revisions.py
 backend/app/services/search.py
 backend/app/services/utility_tools.py
@@ -51,6 +56,7 @@ backend/tests/test_draft_editing.py
 backend/tests/test_generation_pipeline.py
 backend/tests/test_local_models.py
 backend/tests/test_model_gateway.py
+backend/tests/test_model_connections.py
 backend/tests/test_search.py
 backend/tests/test_writing_recipes.py
 backend/tests/test_voice_profiles.py
@@ -132,12 +138,14 @@ frontend/src/routes/documents/+page.svelte
 frontend/src/routes/editor/+page.svelte
 frontend/src/routes/lorebook/+page.svelte
 frontend/src/routes/playbook/+page.svelte
+frontend/src/routes/settings/+page.svelte
 frontend/src/styles.css
 frontend/static/themes/lorebook-fantasia.webp
 frontend/static/themes/lorebook-mechanical.webp
 frontend/static/themes/lorebook-urban.webp
 frontend/svelte.config.js
 frontend/tests/workspace.spec.js
+frontend/tests/model-settings.spec.js
 frontend/vite.config.js
 sample/README.md
 sample/concept-pages/black-lighthouse.md

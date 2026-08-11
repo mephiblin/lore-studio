@@ -123,16 +123,28 @@
   }
 
   function boundaryPayload() {
+    const stringList = (values) => (Array.isArray(values)
+      ? values.filter((value) => typeof value === 'string').map((value) => value.trim()).filter(Boolean)
+      : []);
     return {
-      locked_facts: aiBoundaries?.locked_facts || [],
-      open_questions: aiBoundaries?.open_questions || [],
-      forbidden_changes: aiBoundaries?.forbidden_changes || []
+      locked_facts: stringList(aiBoundaries?.locked_facts),
+      open_questions: stringList(aiBoundaries?.open_questions),
+      forbidden_changes: stringList(aiBoundaries?.forbidden_changes)
     };
   }
 
   async function submitRewrite() {
     if (!editor || !aiPageId || !selectionReady) return;
     aiError = '';
+    const instruction = rewriteInstruction.trim();
+    if (instruction.length > 2000) {
+      aiError = '추가 지시는 2,000자 이하로 줄여 주세요.';
+      return;
+    }
+    const validSourceIds = new Set(sourceOptions.map((source) => source?.id).filter((id) => typeof id === 'string'));
+    const sourcePageIds = rewriteUsesLinked
+      ? [...new Set(linkedSourceIds.filter((id) => typeof id === 'string' && validSourceIds.has(id)))].slice(0, 12)
+      : [];
     busy = 'selection';
     const body = editor.getJSON();
     proposalSnapshot = JSON.stringify(body);
@@ -143,8 +155,8 @@
         selection_to: savedSelection.to,
         selection_text: savedSelection.text,
         operation: rewriteOperation,
-        instruction: rewriteInstruction,
-        source_page_ids: rewriteUsesLinked ? linkedSourceIds.slice(0, 12) : [],
+        instruction,
+        source_page_ids: sourcePageIds,
         ...boundaryPayload()
       });
       proposal = { ...proposal, placement: 'selection', selection: { ...savedSelection } };
@@ -332,7 +344,7 @@
           </select>
         </label>
         <label class="rewrite-instruction">추가 지시
-          <input bind:value={rewriteInstruction} placeholder="선택 사항" />
+          <input bind:value={rewriteInstruction} maxlength="2000" placeholder="선택 사항 · 2,000자 이하" />
         </label>
       </div>
       {#if linkedSourceIds.length}

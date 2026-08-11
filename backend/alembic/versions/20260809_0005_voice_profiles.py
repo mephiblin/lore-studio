@@ -173,7 +173,7 @@ def upgrade() -> None:
             ["voice_profile_id", "status", "position"],
             schema=SCHEMA,
         )
-    if not any("source_concept_page_id" in name for name in example_indexes):
+    if "ix_voice_profile_examples_source_page" not in example_indexes:
         op.create_index(
             "ix_voice_profile_examples_source_page",
             "voice_profile_examples",

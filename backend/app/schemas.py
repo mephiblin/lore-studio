@@ -285,8 +285,9 @@ class ConceptBoundarySuggestionRead(BaseModel):
 
 class ConceptAiRewriteRequest(BaseModel):
     body_json: dict[str, Any]
-    selection_from: int = Field(ge=1)
-    selection_to: int = Field(ge=2)
+    # ProseMirror uses position 0 when an AllSelection starts at the document boundary.
+    selection_from: int = Field(ge=0)
+    selection_to: int = Field(ge=1)
     selection_text: str = Field(min_length=1, max_length=12_000)
     operation: Literal[
         "polish",

@@ -45,7 +45,7 @@ Map each requested or changed behavior to:
 - persistence, cancel, reload, project-switch, or deletion consequence;
 - expected automated test and durable evidence.
 
-Always include the five routes `/`, `/editor`, `/playbook`, `/documents`, and `/lorebook` in a full audit. Include empty, reading, editing, selected, loading/error, and dense states when applicable.
+Always include the five lifecycle routes `/`, `/editor`, `/playbook`, `/documents`, and `/lorebook` in a full audit. Include the `/settings` utility route whenever model connection configuration or the global shell changes. Include empty, reading, editing, selected, loading/error, and dense states when applicable.
 
 ## Inspect UI safety
 

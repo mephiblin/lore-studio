@@ -171,7 +171,7 @@
 
   <section class="lorebook-mobile-index" aria-label="로어북 목차">
     <header class="lorebook-index-heading">
-      <div><p class="eyebrow">완성된 글</p><h1>책장</h1><p>제목을 고르면 읽기 화면으로 이동합니다.</p></div>
+      <div><h1>책장</h1><p>제목을 고르면 읽기 화면으로 이동합니다.</p></div>
       <span class="lorebook-index-count"><b>{entries.length}</b><small>ARTICLES</small></span>
     </header>
     {#if entries.length}
@@ -191,7 +191,7 @@
 
   <div class="lorebook-layout" class:mobile-reader-open={mobileReaderOpen}>
     <aside class="card stack lorebook-shelf">
-      <div class="row spread"><div><p class="eyebrow">완성된 글</p><h3 class="lorebook-shelf-title">책장</h3></div><span class="badge">{entries.length}</span></div>
+      <div class="row spread"><h3 class="lorebook-shelf-title">책장</h3><span class="badge">{entries.length}</span></div>
       <div class="list lorebook-list">
         {#each entries as entry}
           <button class:active={selected?.id === entry.id} on:click={() => selectEntry(entry)}><strong>{entry.title}</strong><small>{entry.body_markdown.length.toLocaleString()}자 · {new Date(entry.published_at || entry.updated_at).toLocaleDateString('ko-KR')}</small></button>
@@ -210,7 +210,6 @@
         <article class="card lorebook-sheet" class:editing>
           <header class="lorebook-sheet-heading">
             <div class="lorebook-title-block">
-              <p class="eyebrow">로어북 글</p>
               {#if editing}<input aria-label="로어북 글 제목" bind:value={selected.title} />{:else}<h2>{selected.title}</h2>{/if}
               <span>{statusLabel(selected.status)} · {selected.body_markdown.length.toLocaleString()}자 · {new Date(selected.published_at || selected.updated_at).toLocaleString('ko-KR')}</span>
             </div>

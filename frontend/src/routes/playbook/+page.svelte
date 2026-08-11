@@ -4,7 +4,7 @@
   import ProjectCreator from '$lib/components/ProjectCreator.svelte';
   import WritingBriefSpecimen from '$lib/components/WritingBriefSpecimen.svelte';
   import { api } from '$lib/api';
-  import { moveDescriptions, moveLabels, roleLabel } from '$lib/labels';
+  import { coverFallbackLabel, moveDescriptions, moveLabels, roleLabel } from '$lib/labels';
   import { initialProjectId, rememberProject } from '$lib/project';
 
   let projects = [], pages = [], cards = [], recipes = [], categories = [], voiceProfiles = [];
@@ -152,7 +152,7 @@
   }
 
   function conceptInitial(page) {
-    return page.title.trim().slice(0, 5).toUpperCase() || '자료';
+    return coverFallbackLabel(page.title, '자료');
   }
 
   function cardRoleLabel(page) {
