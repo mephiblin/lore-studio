@@ -1198,6 +1198,9 @@ async def rewrite_concept_page_selection(
 ) -> dict[str, Any]:
     page = _get_or_404(db, ConceptPage, page_id, "컨셉 페이지")
     profile = local_text_profile(payload.model_key)
+    current_hash = body_hash(payload.body_json)
+    context: dict[str, Any] = {}
+    source_ids: list[str] = []
     if payload.selection_from >= payload.selection_to:
         raise _error(422, "INVALID_SELECTION", "수정할 본문 범위를 다시 선택해 주세요.")
     try:
@@ -1229,11 +1232,42 @@ async def rewrite_concept_page_selection(
             instruction=payload.instruction,
         )
     except ConceptAiError as exc:
+        if exc.result is not None:
+            db.add(
+                GenerationRun(
+                    project_id=page.project_id,
+                    task="concept_selection_rewrite",
+                    model_role=exc.result.role,
+                    model=exc.result.model,
+                    endpoint=exc.result.endpoint,
+                    status="failed",
+                    params_json=exc.result.params,
+                    usage_json=exc.result.usage,
+                    input_hash=current_hash,
+                    input_json={
+                        "concept_page_id": page.id,
+                        "body_json": payload.body_json,
+                        "selection": {
+                            "from": payload.selection_from,
+                            "to": payload.selection_to,
+                            "text": payload.selection_text,
+                        },
+                        "operation": payload.operation,
+                        "model_key": payload.model_key,
+                        "instruction": payload.instruction,
+                        "context": context,
+                    },
+                    prompt_components={"concept_editor": "selection_contextual_rewrite_v3"},
+                    selected_concept_ids=[page.id, *source_ids],
+                    output_text=exc.result.content,
+                    error_json={"code": exc.code, "message": str(exc)},
+                )
+            )
+            db.commit()
         raise _error(exc.status_code, exc.code, str(exc)) from exc
     except ModelGatewayError as exc:
         raise _error(502, exc.code, str(exc)) from exc
 
-    current_hash = body_hash(payload.body_json)
     run = GenerationRun(
         project_id=page.project_id,
         task="concept_selection_rewrite",
@@ -1288,6 +1322,9 @@ async def draft_concept_page_body(
 ) -> dict[str, Any]:
     page = _get_or_404(db, ConceptPage, page_id, "컨셉 페이지")
     profile = local_text_profile(payload.model_key)
+    current_hash = body_hash(payload.body_json)
+    context: dict[str, Any] = {}
+    source_ids: list[str] = []
     try:
         context, source_ids, _body = compile_concept_ai_context(
             db,
@@ -1307,11 +1344,38 @@ async def draft_concept_page_body(
             length=payload.length,
         )
     except ConceptAiError as exc:
+        if exc.result is not None:
+            db.add(
+                GenerationRun(
+                    project_id=page.project_id,
+                    task="concept_body_draft",
+                    model_role=exc.result.role,
+                    model=exc.result.model,
+                    endpoint=exc.result.endpoint,
+                    status="failed",
+                    params_json=exc.result.params,
+                    usage_json=exc.result.usage,
+                    input_hash=current_hash,
+                    input_json={
+                        "concept_page_id": page.id,
+                        "body_json": payload.body_json,
+                        "prompt": payload.prompt,
+                        "model_key": payload.model_key,
+                        "placement": payload.placement,
+                        "length": payload.length,
+                        "context": context,
+                    },
+                    prompt_components={"concept_editor": "body_draft_v2"},
+                    selected_concept_ids=[page.id, *source_ids],
+                    output_text=exc.result.content,
+                    error_json={"code": exc.code, "message": str(exc)},
+                )
+            )
+            db.commit()
         raise _error(exc.status_code, exc.code, str(exc)) from exc
     except ModelGatewayError as exc:
         raise _error(502, exc.code, str(exc)) from exc
 
-    current_hash = body_hash(payload.body_json)
     run = GenerationRun(
         project_id=page.project_id,
         task="concept_body_draft",

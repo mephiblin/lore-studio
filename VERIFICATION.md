@@ -21,12 +21,12 @@
 - 프로젝·글 만들기 fallback 커버: 제목을 Unicode 문자 기준 최대 16자로 확장하고 8자를 넘으면 `8자\n나머지`로 표시. 공용 `coverFallbackLabel`·`white-space:pre-line`을 사용하며 긴 임시 프로젝을 생성·검증·삭제하는 desktop/mobile Playwright PASS. 좌측 `로컬 우선` 설명은 DOM에서 제거했고 1600×900·390×844·360×844에서 문구 0개·가로 overflow 0px·커버 비율 1.778·console/page error 0개, 임시 `UX 검증` 프로젝 0개 PASS
 - 세계관 자료 AI 수정 422 회귀: Tiptap 전체 선택의 실제 `selection_from=0`과 백엔드·JSON Schema의 최솟값 1 불일치를 재현하고 0을 정상 문서 경계로 수정. 실제 Diablo/두리엘 본문을 Chromium 1600×900에서 전체 선택해 요청한 결과 HTTP 200·`CANDIDATE`·`persisted:false`·저장 본문 불변·가로 overflow 0·console error 0 PASS. 422 표준 검증 상세를 필드별로 표시하고 추가 지시 2,000자·연결 자료 12개·문자열 ID/경계 목록 제한을 프론트에서 선검증. 집중 Playwright desktop/mobile 2 passed
 - Ruff: `All checks passed`
-- pytest: `46 passed, 3 skipped` (자료 양산 모델 분리·동시성 semaphore·구조화 품질·JSON 복구·자동 재작성·명시 저장 포함; Writer/Utility, Embedding, Vision 실제 endpoint tests는 기본 suite에서 의도적으로 skip)
+- pytest: `48 passed, 3 skipped` (자료 양산 모델 분리·동시성 semaphore·구조화 품질·JSON 복구·자동 재작성·명시 저장과 세계관 AI 제안의 코드펜스·제어문자 복구, 동일 모델 사고 출력을 끈 1회 형식 재작성, 최종 실패 감사 포함; Writer/Utility, Embedding, Vision 실제 endpoint tests는 기본 suite에서 의도적으로 skip)
 - 실제 모델 opt-in: `3 passed` (Writer/Utility structured output, BGE-M3 1024차원, Vision data URL)
 - SvelteKit adapter-node production build 및 backend/frontend 컨테이너 재빌드·재기동, `/api/v1/health` PASS. 자료 양산 집중 Playwright는 desktop/mobile 및 desktop에서 강제한 360px 계약 `3 passed, 1 viewport skip`
 - Playwright Chromium desktop 1600×900/mobile 390×844 실제 인수 자료 포함 회귀: `46 passed, 12 skipped`. 390×500 낮은 가시 높이의 AI 작성 modal 테스트를 추가했고, 병렬 실행에서 프로젝트 전환 직후 0개 상태를 읽던 기존 테스트는 첫 자료 노출을 기다리도록 동기화
 - 세계관 본문 AI 모델 선택: AI 수정에서 Qwen, 이어진 AI 작성에서 Gemma를 선택해 요청 `model_key`와 제안 모델명이 일치하고 desktop/mobile에서 가로 overflow 0 PASS. 실제 요청도 Qwen 수정=`qwen36-heretic-mtp`·`http://host.docker.internal:18091/v1`, Gemma 초안=`gemma4-26b-heretic-mtp`·`http://host.docker.internal:18093/v1`로 GenerationRun에 기록됐으며 둘 다 `CANDIDATE`·`persisted=false`, 원문 불변, 임시 프로젝트 0개로 정리 PASS
-- 빈 데이터/기능별 조건 skip UI 회귀: `27 passed, 29 skipped`
+- 빈 데이터/기능별 조건 skip UI 회귀: `28 passed, 30 skipped`
 - 문체·필력: DRAFT 명시 승인·사용 후 새 버전·공용/프로젝트 범위·권리별 짧은 예시 격리 API, 다섯 번째 로컬 탭과 내부 스크롤·고정 footer 모달, 글 만들기 `모델 기본 문체`/승인 프로필 명시 선택, profile/version/example GenerationRun snapshot, 원고 필력 점검과 승인형 수정 제안 PASS
 - 프로젝트 전개 방식 생성·수정·글 만들기 선택·삭제 desktop/mobile 집중 회귀: `2 passed`
 - 세계관 자료의 전개 방식 목록: 검은 항로/신규 프로젝트 모두 세계관·소설·수필·보고서·현장 구술을 포괄하는 공용 기본 9개 노출, 프로젝트 전용 항목과 출처 구분 PASS
