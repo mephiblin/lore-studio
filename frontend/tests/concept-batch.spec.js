@@ -196,6 +196,42 @@ test('existing material AI rewrite and draft dialogs select Qwen or Gemma per re
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
+test('world material markdown mode round-trips rich document structure', async ({ page }) => {
+  await mockEditor(page);
+  await page.goto('/editor');
+  await page.getByRole('button', { name: '글 편집' }).click();
+  await page.getByRole('button', { name: 'Markdown 편집' }).click();
+
+  const sourceEditor = page.getByLabel('세계관 자료 Markdown 본문');
+  const markdown = [
+    '## 공동 화덕',
+    '',
+    '**겨울 의식**과 *해질녘*을 기록한다.',
+    '',
+    '- 붉은 해초',
+    '- 거친 소금',
+    '',
+    '> 불을 끌 때까지 문을 열지 말라.',
+    '',
+    '[성문 기록](https://example.com/gate)'
+  ].join('\n');
+  await sourceEditor.fill(markdown);
+  await page.getByRole('button', { name: '서식 편집' }).click();
+
+  const document = page.locator('.ProseMirror');
+  await expect(document.getByRole('heading', { name: '공동 화덕', level: 2 })).toBeVisible();
+  await expect(document.locator('strong')).toHaveText('겨울 의식');
+  await expect(document.locator('em')).toHaveText('해질녘');
+  await expect(document.locator('li')).toHaveCount(2);
+  await expect(document.locator('blockquote')).toContainText('불을 끌 때까지');
+  await expect(document.getByRole('link', { name: '성문 기록' })).toHaveAttribute('href', 'https://example.com/gate');
+
+  await page.getByRole('button', { name: 'Markdown 편집' }).click();
+  await expect(sourceEditor).toHaveValue(/## 공동 화덕/);
+  await expect(sourceEditor).toHaveValue(/\*\*겨울 의식\*\*/);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
 test('mobile AI draft keeps its fields scrollable and submit action visible', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'deterministic mobile-height contract');
   await page.setViewportSize({ width: 390, height: 500 });

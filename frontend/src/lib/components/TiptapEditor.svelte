@@ -1,10 +1,12 @@
 <script>
   import { onDestroy, onMount } from 'svelte';
   import { Editor } from '@tiptap/core';
+  import Link from '@tiptap/extension-link';
   import Placeholder from '@tiptap/extension-placeholder';
   import StarterKit from '@tiptap/starter-kit';
   import { api } from '$lib/api';
   import { LoreBlock } from '$lib/extensions/LoreBlock';
+  import { isSafeMarkdownHref, markdownToTiptap, tiptapToMarkdown } from '$lib/markdown';
 
   export let value = { type: 'doc', content: [] };
   export let onChange = () => {};
@@ -46,6 +48,8 @@
   let cursorAtDraftOpen = 1;
   let visibleViewportHeight = 0;
   let visibleViewportTop = 0;
+  let markdownMode = false;
+  let markdownDraft = '';
 
   $: filteredSources = sourceOptions.filter((source) => {
     const query = sourceQuery.trim().toLowerCase();
@@ -75,6 +79,7 @@
   function editorChanged(currentEditor) {
     const json = currentEditor.getJSON();
     lastExternal = JSON.stringify(json);
+    if (markdownMode) markdownDraft = tiptapToMarkdown(json);
     onChange(json);
   }
 
@@ -83,6 +88,12 @@
       element: mount,
       extensions: [
         StarterKit,
+        Link.configure({
+          openOnClick: true,
+          autolink: false,
+          linkOnPaste: true,
+          isAllowedUri: isSafeMarkdownHref
+        }),
         LoreBlock,
         Placeholder.configure({ placeholder: '설정, 이야기 조각, 인용, 메모를 자유롭게 작성하십시오.' })
       ],
@@ -112,9 +123,34 @@
     if (incoming !== lastExternal) {
       editor.commands.setContent(value || { type: 'doc', content: [] }, false);
       lastExternal = incoming;
+      if (markdownMode) markdownDraft = tiptapToMarkdown(value);
       savedSelection = null;
       proposal = null;
     }
+  }
+  $: if (!editable && markdownMode) markdownMode = false;
+
+  function toggleMarkdownMode() {
+    if (!editor) return;
+    aiError = '';
+    rewriteOpen = false;
+    savedSelection = null;
+    if (!markdownMode) {
+      markdownDraft = tiptapToMarkdown(editor.getJSON());
+      markdownMode = true;
+      return;
+    }
+    syncMarkdownDraft();
+    markdownMode = false;
+    requestAnimationFrame(() => editor?.commands.focus('end'));
+  }
+
+  function syncMarkdownDraft() {
+    if (!editor) return;
+    const body = markdownToTiptap(markdownDraft);
+    editor.commands.setContent(body, false);
+    lastExternal = JSON.stringify(body);
+    onChange(body);
   }
 
   function keepSelection(event) {
@@ -216,65 +252,6 @@
     }
   }
 
-  function textNode(text) {
-    return { type: 'text', text };
-  }
-
-  function textToNodes(text) {
-    const lines = text.replace(/\r/g, '').split('\n');
-    const nodes = [];
-    let paragraph = [];
-    let bullets = [];
-
-    function flushParagraph() {
-      const content = paragraph.join(' ').trim();
-      if (content) nodes.push({ type: 'paragraph', content: [textNode(content)] });
-      paragraph = [];
-    }
-
-    function flushBullets() {
-      if (bullets.length) {
-        nodes.push({
-          type: 'bulletList',
-          content: bullets.map((item) => ({
-            type: 'listItem',
-            content: [{ type: 'paragraph', content: [textNode(item)] }]
-          }))
-        });
-      }
-      bullets = [];
-    }
-
-    for (const rawLine of lines) {
-      const line = rawLine.trim();
-      if (!line) {
-        flushParagraph();
-        flushBullets();
-      } else if (/^#{2,3}\s+/.test(line)) {
-        flushParagraph();
-        flushBullets();
-        const level = line.startsWith('### ') ? 3 : 2;
-        nodes.push({ type: 'heading', attrs: { level }, content: [textNode(line.replace(/^#{2,3}\s+/, ''))] });
-      } else if (line.startsWith('- ')) {
-        flushParagraph();
-        bullets.push(line.slice(2).trim());
-      } else if (line.startsWith('> ')) {
-        flushParagraph();
-        flushBullets();
-        nodes.push({
-          type: 'blockquote',
-          content: [{ type: 'paragraph', content: [textNode(line.slice(2).trim())] }]
-        });
-      } else {
-        flushBullets();
-        paragraph.push(line);
-      }
-    }
-    flushParagraph();
-    flushBullets();
-    return nodes.length ? nodes : [{ type: 'paragraph' }];
-  }
-
   function applyProposal() {
     if (!editor || !proposal || proposalStale) return;
     if (proposal.mode === 'rewrite_selection') {
@@ -296,11 +273,11 @@
       } else {
         editor.chain().focus().insertContentAt(
           { from: selection.from, to: selection.to },
-          textToNodes(proposal.proposed_text)
+          markdownToTiptap(proposal.proposed_text).content
         ).run();
       }
     } else {
-      const nodes = textToNodes(proposal.proposed_text);
+      const nodes = markdownToTiptap(proposal.proposed_text).content;
       if (proposal.placement === 'replace') {
         editor.commands.setContent({ type: 'doc', content: nodes }, true);
       } else if (proposal.placement === 'append') {
@@ -332,13 +309,15 @@
 
 <div class="editor-shell">
   {#if editable}<div class="editor-toolbar" aria-label="본문 서식">
-    <button type="button" on:click={() => editor?.chain().focus().toggleBold().run()} aria-label="굵게"><strong>B</strong></button>
-    <button type="button" on:click={() => editor?.chain().focus().toggleItalic().run()} aria-label="기울임"><em>I</em></button>
-    <button type="button" on:click={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}>제목</button>
-    <button type="button" on:click={() => editor?.chain().focus().toggleBulletList().run()}>목록</button>
-    <button type="button" on:click={() => editor?.chain().focus().toggleBlockquote().run()}>인용</button>
+    {#if !markdownMode}
+      <button type="button" on:click={() => editor?.chain().focus().toggleBold().run()} aria-label="굵게"><strong>B</strong></button>
+      <button type="button" on:click={() => editor?.chain().focus().toggleItalic().run()} aria-label="기울임"><em>I</em></button>
+      <button type="button" on:click={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}>제목</button>
+      <button type="button" on:click={() => editor?.chain().focus().toggleBulletList().run()}>목록</button>
+      <button type="button" on:click={() => editor?.chain().focus().toggleBlockquote().run()}>인용</button>
+    {/if}
     <span class="toolbar-divider" aria-hidden="true"></span>
-    <button
+    {#if !markdownMode}<button
       type="button"
       class="ai-tool"
       class:active={rewriteOpen}
@@ -346,7 +325,7 @@
       title={selectionReady ? '선택한 부분만 문맥에 맞게 수정' : '본문에서 수정할 문장을 먼저 선택하세요'}
       on:mousedown={keepSelection}
       on:click={openRewrite}
-    >AI 수정</button>
+    >AI 수정</button>{/if}
     <button
       type="button"
       class="ai-tool primary-ai"
@@ -354,6 +333,13 @@
       on:mousedown={keepSelection}
       on:click={openDraft}
     >AI 작성</button>
+    <button
+      type="button"
+      class="markdown-mode-button"
+      class:active={markdownMode}
+      aria-pressed={markdownMode}
+      on:click={toggleMarkdownMode}
+    >{markdownMode ? '서식 편집' : 'Markdown 편집'}</button>
   </div>{/if}
 
   {#if rewriteOpen}
@@ -406,7 +392,19 @@
     </section>
   {/if}
 
-  <div bind:this={mount} class:reader={!editable} class="editor-content" aria-label={editable ? '세계관 자료 본문 편집' : '세계관 자료 본문'}></div>
+  {#if markdownMode && editable}
+    <div class="markdown-editor-pane">
+      <textarea
+        class="markdown-source-editor"
+        aria-label="세계관 자료 Markdown 본문"
+        bind:value={markdownDraft}
+        on:input={syncMarkdownDraft}
+        spellcheck="true"
+      ></textarea>
+      <small>`#` 제목 · `**굵게**` · `-` 목록 · `>` 인용 · 코드 블록 · 링크를 사용할 수 있습니다.</small>
+    </div>
+  {/if}
+  <div bind:this={mount} class:reader={!editable} class:hidden={markdownMode && editable} class="editor-content" aria-label={editable ? '세계관 자료 본문 편집' : '세계관 자료 본문'}></div>
 </div>
 
 {#if draftOpen}
@@ -493,6 +491,16 @@
   .editor-toolbar .ai-tool.active { border-color:var(--nav-deep, #173f38); background:#fff; }
   .editor-toolbar .primary-ai { background:var(--nav-deep, #173f38); color:var(--nav-accent, #f2cf5b); }
   .editor-toolbar .primary-ai:hover:not(:disabled) { background:var(--nav-deep, #173f38); color:var(--nav-accent, #f2cf5b); filter:brightness(1.08); }
+  .editor-toolbar .markdown-mode-button { min-width:106px; margin-left:auto; color:var(--nav-deep, #173f38); font-weight:800; }
+  .editor-toolbar .markdown-mode-button.active { border-color:var(--nav-deep, #173f38); background:#fff; }
+  .editor-content.hidden { display:none; }
+  .markdown-editor-pane { min-height:0; flex:1 1 auto; display:flex; flex-direction:column; }
+  .markdown-source-editor {
+    min-height:430px; flex:1 1 auto; resize:none; border:0; border-radius:0; padding:clamp(24px, 4vw, 48px);
+    outline:none; background:#fbfcf9; color:var(--ink); font:14px/1.75 ui-monospace, "SFMono-Regular", Consolas, "Noto Sans KR", monospace;
+    tab-size:2;
+  }
+  .markdown-editor-pane > small { flex:0 0 auto; padding:8px 12px; border-top:1px solid var(--line); color:var(--muted); background:var(--paper-deep); font-size:10px; }
   .editor-content { min-height: 0; flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
   .editor-content :global(.ProseMirror) {
     min-height: 430px;
@@ -605,7 +613,9 @@
   }
   @media (max-width: 540px) {
     .editor-toolbar { flex-wrap:wrap; }
+    .editor-toolbar .markdown-mode-button { margin-left:0; }
     .editor-content :global(.ProseMirror) { min-height: 360px; padding:22px 18px; font-size:15px; }
+    .markdown-source-editor { min-height:360px; padding:22px 18px; font-size:13px; }
     .rewrite-controls { grid-template-columns:1fr; }
     .ai-modal-backdrop { align-items:end; padding:0; }
     .ai-draft-modal { width:100%; max-height:min(92dvh, calc(100dvh - env(safe-area-inset-bottom))); border-radius:12px 12px 0 0; padding:18px; }

@@ -4,6 +4,7 @@
   import { page } from '$app/stores';
   import ProjectCreator from '$lib/components/ProjectCreator.svelte';
   import { api, API_BASE } from '$lib/api';
+  import { markdownToSafeHtml } from '$lib/markdown';
   import { initialProjectId, rememberProject } from '$lib/project';
 
   const LOREBOOK_THEME_KEY = 'lore-studio:lorebook-theme';
@@ -18,7 +19,7 @@
   let busy = '', error = '', message = '';
   let editing = false;
   let lorebookTheme = 'normal';
-  $: readingBlocks = readerBlocks(selected?.body_markdown || '');
+  $: readingHtml = markdownToSafeHtml(selected?.body_markdown || '');
   $: activeThemeName = lorebookThemes.find((theme) => theme.id === lorebookTheme)?.name || '노말';
   $: requestedEntryId = $page.url.searchParams.get('entry') || '';
   $: mobileReaderOpen = !!selected && requestedEntryId === selected.id;
@@ -111,15 +112,6 @@
 
   function statusLabel(value) {
     return ({ approved: '완료', review: '검토 중', archived: '보관' })[value] || value;
-  }
-
-  function readerBlocks(markdown) {
-    return markdown.split(/\n\s*\n/).map((raw) => raw.trim()).filter(Boolean).map((raw) => {
-      if (raw.startsWith('### ')) return { type: 'h4', text: raw.slice(4) };
-      if (raw.startsWith('## ')) return { type: 'h3', text: raw.slice(3) };
-      if (raw.startsWith('# ')) return { type: 'h2', text: raw.slice(2) };
-      return { type: 'p', text: raw };
-    });
   }
 
   function cancelEdit() {
@@ -216,15 +208,13 @@
             <div class="lorebook-heading-actions"><span class="lorebook-mark">LORE<br />BOOK</span>{#if !editing}<button class="secondary lorebook-edit-button" on:click={() => editing = true}>글 편집</button>{/if}</div>
           </header>
           {#if editing}
-            <textarea class="lorebook-body lorebook-body-editor" aria-label="로어북 글 내용" bind:value={selected.body_markdown}></textarea>
+            <div class="lorebook-markdown-editor">
+              <textarea class="lorebook-body lorebook-body-editor" aria-label="로어북 글 내용" bind:value={selected.body_markdown}></textarea>
+              <small>Markdown 원문 편집 · 제목, 강조, 목록, 인용, 코드, 링크, 구분선을 읽기 화면에 반영합니다.</small>
+            </div>
           {:else}
             <div class="lorebook-body lorebook-body-reader" aria-label="로어북 글 내용">
-              {#each readingBlocks as block}
-                {#if block.type === 'h2'}<h2>{block.text}</h2>
-                {:else if block.type === 'h3'}<h3>{block.text}</h3>
-                {:else if block.type === 'h4'}<h4>{block.text}</h4>
-                {:else}<p>{block.text}</p>{/if}
-              {/each}
+              {@html readingHtml}
             </div>
           {/if}
           <footer class="lorebook-actions">

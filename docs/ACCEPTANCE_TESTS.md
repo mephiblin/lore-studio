@@ -51,4 +51,6 @@
 | 47 | 로컬 LLM 새 문맥·Thinking 계약 | PASS | Qwen·Gemma 서버/앱 Thinking OFF, Gemma 무지정 응답 reasoning 0, MTP draft/accepted 4/4, AI 작성 본문·경계·명시 참고 제한, 형식 재시도 assistant history 0, 전 생성 호출 max token 상한, 실제 Gemma CANDIDATE |
 | 47 | 세계관 AI 제안 응답 복구 | PASS | 코드펜스·앞뒤 설명·문자열 제어문자 JSON 복구, 잘못된 응답은 동일 모델의 사고 출력을 끈 형식 복구 모드로 1회 자동 재작성, 누적 토큰·재작성 사유 기록, 최종 실패 감사와 편집 본문 불변 |
 
+| 49 | 세계관 자료·로어북 Markdown | PASS | Tiptap↔Markdown 양방향 편집, 기존 `body_json` 호환, AI 제안 구조 반영, 로어북 `body_markdown` 원문 편집과 제목·강조·목록·인용·코드·링크·구분선 렌더링, raw HTML·URL 안전 검증 |
+
 대표 실제 프로젝트 slug는 `black-route-chronicle`이며 로컬 전용 DB에 정식 세계관 자료 9개와 관계·집필 지침을 보관합니다. 기본 전개 방식 프리셋은 공용이고, 사용자가 만든 전개 방식과 참고 분석 승인 결과는 프로젝트에 귀속됩니다. 최신 자동 검증 수치는 루트 `VERIFICATION.md`를 권위 기록으로 사용합니다.

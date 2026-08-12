@@ -228,6 +228,8 @@ docker compose exec -T backend alembic current
 - [ ] 로어북 `글 편집` 버튼은 네 테마 모두 동일한 진녹색 배경·금색 텍스트의 공통 표현이다.
 - [ ] 데스크톱 로어북 reader에서 긴 본문의 `scrollHeight > clientHeight`이고 실제 `scrollTop`이 변하며, 문서 시트가 본문을 잘라내지 않는다.
 - [ ] 모바일 로어북은 `/lorebook`의 목차와 `?entry=<id>`의 읽기 화면을 동시에 노출하지 않고, 직접 URL·새로고침·`목차로`·삭제 후 복귀가 일관된다.
+- [ ] 세계관 자료 Markdown 모드는 기존 `body_json`을 저장 권위로 유지하고 Tiptap↔Markdown 전환 후 제목·강조·목록·인용·코드·링크·구분선을 보존한다.
+- [ ] 로어북은 `body_markdown` 원문을 편집·내보내기하고 읽기 화면에서 같은 문서 구조를 렌더링하며, raw HTML과 위험한 URL scheme을 실행하지 않는다.
 - [ ] 모바일 로어북 목차에 제목·분량·날짜가 터치 목록으로 보이고, 읽기 화면은 `목차로`·현재 번호·본문을 우선한다.
 - [ ] `이 글을 만든 설정` provenance는 출처 초안 링크 카드 내부에 접혀 있고 별도 카드로 중복 점유하지 않는다.
 - [ ] 프로젝트 삭제 뒤 AuditLog의 삭제 이름은 남고 `project_id`는 `NULL`이다.

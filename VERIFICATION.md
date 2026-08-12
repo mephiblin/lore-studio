@@ -9,6 +9,7 @@
 - 역할별 이중 vLLM 연결: `/settings`와 `model-connections` API로 Writer=`gemma4-26b-heretic-mtp`, Utility/Vision=`qwen36-heretic-mtp`, Embedding=`bge-m3`를 동시에 등록. key 원문 응답·감사 로그 비노출, `.env` fallback, 저장 전 `/v1/models`/alias 확인, Qwen·Gemma 모두 `enable_thinking=false`와 MTP 독립성 검증 PASS
 - Gemma vLLM 서버 기본 Thinking OFF: `chat_template_kwargs`를 보내지 않은 실호출이 `content=OK`, `reasoning_content=null`로 응답. 동일 요청의 MTP 메트릭은 draft 4/accepted 4로 유지 PASS. Lore Studio Writer DB override·Gemma 선택형 profile·설정 UI도 OFF로 일치
 - LLM fresh-context 감사: 모든 Writer·Utility·Vision·선택형 호출을 분류하고, `AI 작성`은 현재 본문·작성 경계·명시 선택 참고만 전달. 형식 재시도는 실패 assistant 출력을 제외하고 새로 작성하며, 이어쓰기·품질 수정만 현재 채택 초안을 의도적으로 재사용. 전 생성 호출 `max_tokens` 상한 확인 PASS
+- Markdown 편집·읽기: 세계관 자료의 Tiptap↔Markdown 양방향 전환과 AI Markdown 제안 반영, 로어북 `body_markdown` 원문 편집과 제목·강조·목록·인용·코드·링크·구분선 렌더링 PASS. raw HTML은 문자로 표시하고 스크립트 0개·위험 URL 미링크를 확인. 전체 Playwright 회귀 `49 passed, 13 skipped`
 - 실제 Lore ModelGateway: Gemma Writer가 정확히 `LORE_OK`, Qwen Utility가 `{"status":"ok"}` JSON을 반환하고 opt-in Writer/Utility·Vision·Embedding `3 passed`. `/models/status` 네 역할 `available=true`, Vision image capability와 Embedding 비-chat capability 표시 PASS
 - Gemma Docker bridge proxy: `lore-studio-gemma-vllm-proxy.socket` active/enabled, `172.17.0.1:18093 → 127.0.0.1:18092`; 실행 중 backend 컨테이너의 `/v1/models`에서 Gemma alias 확인 PASS
 - 모델 설정 UI: production build와 Chromium 1600×900·390×844·360×844 집중 회귀 `3 passed, 1 viewport skip`; 실제 운영 화면도 세 viewport 모두 Writer=Gemma·Utility/Vision=Qwen, 로컬 선택기 3개, 가로 overflow 0, console/page error 0 PASS

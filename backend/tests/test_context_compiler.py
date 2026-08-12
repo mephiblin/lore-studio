@@ -28,6 +28,26 @@ def test_tiptap_to_text_extracts_nested_text() -> None:
     assert "본문" in text
 
 
+def test_tiptap_to_text_preserves_markdown_line_breaks() -> None:
+    doc = {
+        "type": "doc",
+        "content": [
+            {
+                "type": "paragraph",
+                "content": [
+                    {"type": "text", "text": "첫 줄"},
+                    {"type": "hardBreak"},
+                    {"type": "text", "text": "둘째 줄"},
+                ],
+            },
+            {"type": "horizontalRule"},
+            {"type": "codeBlock", "content": [{"type": "text", "text": "watch()"}]},
+        ],
+    }
+
+    assert tiptap_to_text(doc) == "첫 줄\n둘째 줄\n\nwatch()"
+
+
 def test_context_separates_facts_and_discourse_references() -> None:
     db = make_db()
     project = Project(name="테스트", slug="test", universe_namespace="world-a")

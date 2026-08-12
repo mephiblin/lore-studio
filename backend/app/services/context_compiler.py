@@ -32,15 +32,19 @@ def tiptap_to_text(node: Any) -> str:
     if isinstance(node, str):
         return node
     if isinstance(node, list):
-        return "\n".join(filter(None, (tiptap_to_text(item) for item in node)))
+        return "".join(tiptap_to_text(item) for item in node)
     if not isinstance(node, dict):
         return ""
     if node.get("type") == "text":
         return str(node.get("text", ""))
+    if node.get("type") == "hardBreak":
+        return "\n"
+    if node.get("type") == "horizontalRule":
+        return "\n"
     content = node.get("content", [])
     text = tiptap_to_text(content)
     if node.get("type") in {"paragraph", "heading", "blockquote", "listItem"}:
-        return text + "\n"
+        return text.rstrip("\n") + "\n"
     return text
 
 

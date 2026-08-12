@@ -12,7 +12,7 @@ Lore Studio는 세계관 자료, 프로젝트 집필 지침, 전개 방식, 결�
 - 자료 경계 자동 컴파일 + 편집 가능한 글의 흐름 → LoreBlock 초안 → 세 감사 → revision 단계 기록
 - 제목·상태·전체 문단 원자 저장, 단계 이동 자동 저장, 문단 추가·삭제·잠금, 부분 재작성 Diff 승인/폐기
 - 최신 초안과 읽기 전용 원본 설계, 명시적인 보강 목표를 Writer에 전달하는 완성 다듬기와 별도 로어북 저장
-- 설정 후보 추출/승인, Markdown/HTML/JSON 내보내기
+- 세계관 자료의 서식·Markdown 양방향 편집, 로어북 Markdown 읽기·편집, Markdown/HTML/JSON 내보내기
 - 이미지 Vision 제안, 참고 글 구조 분석, 내레이션 visual beat/ComfyUI 초안
 - 한국어 SvelteKit/Tiptap 데스크톱·모바일 UI와 Playwright 검증
 
