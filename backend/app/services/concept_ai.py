@@ -14,16 +14,6 @@ from app.models import ConceptPage
 from app.services.context_compiler import ROLE_FACT, tiptap_to_text
 from app.services.model_gateway import ModelCallResult, ModelGateway, ModelProfile
 
-AI_TEXT_SCHEMA: dict[str, Any] = {
-    "type": "object",
-    "additionalProperties": False,
-    "required": ["content_text", "warnings"],
-    "properties": {
-        "content_text": {"type": "string", "minLength": 1},
-        "warnings": {"type": "array", "items": {"type": "string"}},
-    },
-}
-
 AI_REWRITE_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
@@ -183,6 +173,36 @@ def _parse_response(content: str) -> tuple[str, list[str]]:
     return text.strip(), [str(item) for item in warnings if str(item).strip()]
 
 
+def _parse_text_proposal(content: str) -> tuple[str, list[str]]:
+    """Accept an authored body as text while preserving old JSON responses.
+
+    Concept body drafting is prose generation, not data extraction.  A non-empty
+    Markdown/plain-text response is therefore already a valid proposal.  Older
+    clients and model habits may still wrap it in ``content_text``; unwrap that
+    only when it is a complete, valid object.
+    """
+    text = content.strip()
+    if not text:
+        raise ConceptAiError("AI_RESPONSE_EMPTY", "AI가 빈 제안을 반환했습니다.", status_code=502)
+
+    try:
+        data = json.loads(text, strict=False)
+    except (json.JSONDecodeError, TypeError):
+        data = None
+    if isinstance(data, dict):
+        wrapped = data.get("content_text")
+        if isinstance(wrapped, str) and wrapped.strip():
+            warnings = data.get("warnings", [])
+            if not isinstance(warnings, list):
+                warnings = []
+            return wrapped.strip(), [str(item) for item in warnings if str(item).strip()]
+
+    fence = re.fullmatch(r"```(?:markdown|md|text)?\s*\n([\s\S]*?)\n```", text, re.IGNORECASE)
+    if fence and fence.group(1).strip():
+        return fence.group(1).strip(), []
+    return text, []
+
+
 def _merge_retry_result(
     first: ModelCallResult,
     revised: ModelCallResult,
@@ -262,6 +282,29 @@ async def _complete_structured_proposal(
             final_error.result = combined
             raise
         return text, warnings, combined
+
+
+async def _complete_text_proposal(
+    gateway: ModelGateway,
+    *,
+    profile: ModelProfile,
+    messages: list[dict[str, Any]],
+    temperature: float,
+    max_tokens: int,
+) -> tuple[str, list[str], ModelCallResult]:
+    result = await gateway.complete_for_profile(
+        profile,
+        messages,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        response_mode="text",
+    )
+    try:
+        text, warnings = _parse_text_proposal(result.content)
+    except ConceptAiError as exc:
+        exc.result = result
+        raise
+    return text, warnings, result
 
 
 def compile_concept_ai_context(
@@ -486,7 +529,8 @@ async def draft_concept_body(
         "length_guidance": length_guidance,
         "read_only_context": context,
         "rules": [
-            "사용자가 편집할 세계관 자료 초안만 content_text로 반환한다.",
+            "사용자가 편집할 세계관 자료의 본문만 평문 또는 Markdown으로 반환한다.",
+            "JSON, content_text 필드, 코드펜스, 작성 설명과 후기 없이 본문 첫 글자부터 시작한다.",
             "user_prompt를 이번 작성의 주요 지시로 삼고 본문을 처음부터 새로 작성한다.",
             "current_document.body_context는 현재 문서의 내용 참고일 뿐, 이전 AI 응답이나 대화 기록이 아니다.",
             "제목은 ##, 목록은 - , 인용은 > 로 시작해 간단한 구조를 표현할 수 있다.",
@@ -502,17 +546,16 @@ async def draft_concept_body(
             "role": "system",
             "content": (
                 "사용자의 지시와 세계관 자료 문맥을 바탕으로 편집 가능한 본문을 작성한다. 결과는 "
-                "사용자가 검토할 CANDIDATE이며 어떤 데이터도 자동 저장하거나 정사로 승격하지 않는다."
+                "사용자가 검토할 CANDIDATE이며 어떤 데이터도 자동 저장하거나 정사로 승격하지 않는다. "
+                "응답은 JSON이 아니라 완성된 평문 또는 Markdown 본문만 출력한다."
             ),
         },
         {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
     ]
-    return await _complete_structured_proposal(
+    return await _complete_text_proposal(
         gateway,
         profile=profile,
         messages=messages,
         temperature=0.45,
         max_tokens=max_tokens,
-        response_schema=AI_TEXT_SCHEMA,
-        schema_name="concept_body_draft",
     )

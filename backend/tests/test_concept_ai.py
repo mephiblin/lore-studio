@@ -8,7 +8,7 @@ import app.api.router as router_module
 from app.db import get_db
 from app.main import app
 from app.models import ConceptPage, GenerationRun
-from app.services.concept_ai import _parse_response
+from app.services.concept_ai import _parse_response, _parse_text_proposal
 from app.services.model_gateway import ModelCallResult
 
 
@@ -78,7 +78,18 @@ def test_concept_ai_recovers_embedded_json_with_control_characters() -> None:
     assert warnings == ["검토 필요"]
 
 
-def test_concept_ai_retries_invalid_structure_and_audits_final_failure(monkeypatch) -> None:
+def test_concept_ai_text_proposal_accepts_markdown_and_legacy_json() -> None:
+    markdown = "## 성문\n\n본문만 반환한 정상 응답"
+    assert _parse_text_proposal(markdown) == (markdown, [])
+    assert _parse_text_proposal(f"```markdown\n{markdown}\n```") == (markdown, [])
+    assert _parse_text_proposal(
+        json.dumps({"content_text": markdown, "warnings": ["검토 필요"]}, ensure_ascii=False)
+    ) == (markdown, ["검토 필요"])
+
+
+def test_concept_ai_draft_accepts_plain_body_without_format_retry_and_audits_empty(
+    monkeypatch,
+) -> None:
     db = isolated_session()
 
     def override_db():  # type: ignore[no-untyped-def]
@@ -102,14 +113,11 @@ def test_concept_ai_retries_invalid_structure_and_audits_final_failure(monkeypat
                 "body_json": _paragraph("저장된 본문"),
             },
         ).json()
-        valid = json.dumps(
-            {"content_text": "## 복구된 초안\n\n사용자가 검토할 본문이다.", "warnings": []},
-            ensure_ascii=False,
-        )
-        gateway = SequencedConceptAiGateway(["본문만 반환한 잘못된 응답", valid])
+        plain_body = "## 바로 쓴 초안\n\n사용자가 검토할 Markdown 본문이다."
+        gateway = SequencedConceptAiGateway([plain_body])
         monkeypatch.setattr(router_module.harness, "gateway", gateway)
 
-        recovered = client.post(
+        drafted = client.post(
             f"/api/v1/concept-pages/{current['id']}/ai/draft",
             json={
                 "body_json": _paragraph("저장되지 않은 편집 본문"),
@@ -119,28 +127,19 @@ def test_concept_ai_retries_invalid_structure_and_audits_final_failure(monkeypat
             },
         )
 
-        assert recovered.status_code == 200
-        assert recovered.json()["proposed_text"].startswith("## 복구된 초안")
-        assert len(gateway.calls) == 2
-        retry_call = gateway.calls[1]
-        assert all(message["role"] != "assistant" for message in retry_call["messages"])
-        assert "처음부터 새로" in retry_call["messages"][-1]["content"]
-        assert retry_call["kwargs"]["max_tokens"] == 1200
-        assert retry_call["kwargs"]["extra_params"] == {
-            "chat_template_kwargs": {"enable_thinking": False}
-        }
-        recovered_run = db.scalar(
-            select(GenerationRun).where(GenerationRun.id == recovered.json()["run_id"])
+        assert drafted.status_code == 200
+        assert drafted.json()["proposed_text"] == plain_body
+        assert len(gateway.calls) == 1
+        assert gateway.calls[0]["kwargs"]["response_mode"] == "text"
+        assert "json_schema" not in gateway.calls[0]["kwargs"]
+        completed_run = db.scalar(
+            select(GenerationRun).where(GenerationRun.id == drafted.json()["run_id"])
         )
-        assert recovered_run is not None
-        assert recovered_run.status == "completed"
-        assert recovered_run.params_json["automatic_revisions"] == {
-            "attempts": 1,
-            "reasons": ["AI_RESPONSE_INVALID"],
-        }
-        assert recovered_run.usage_json["total_tokens"] == 101
+        assert completed_run is not None
+        assert completed_run.status == "completed"
+        assert completed_run.output_text == plain_body
 
-        failed_gateway = SequencedConceptAiGateway(["첫 실패", "두 번째 실패"])
+        failed_gateway = SequencedConceptAiGateway(["   "])
         monkeypatch.setattr(router_module.harness, "gateway", failed_gateway)
         failed = client.post(
             f"/api/v1/concept-pages/{current['id']}/ai/draft",
@@ -153,17 +152,85 @@ def test_concept_ai_retries_invalid_structure_and_audits_final_failure(monkeypat
         )
 
         assert failed.status_code == 502
-        assert failed.json()["detail"]["code"] == "AI_RESPONSE_INVALID"
+        assert failed.json()["detail"]["code"] == "AI_RESPONSE_EMPTY"
+        assert len(failed_gateway.calls) == 1
         failed_run = db.scalar(
             select(GenerationRun)
             .where(GenerationRun.project_id == project["id"], GenerationRun.status == "failed")
             .order_by(GenerationRun.created_at.desc())
         )
         assert failed_run is not None
-        assert failed_run.output_text == "두 번째 실패"
-        assert failed_run.error_json["code"] == "AI_RESPONSE_INVALID"
-        assert failed_run.params_json["automatic_revisions"]["attempts"] == 1
+        assert failed_run.output_text == "   "
+        assert failed_run.error_json["code"] == "AI_RESPONSE_EMPTY"
         assert db.get(ConceptPage, current["id"]).body_json == _paragraph("저장된 본문")
+
+        valid_rewrite = json.dumps(
+            {
+                "context_summary": "편집 중인 본문의 문맥이다.",
+                "continuity_requirements": ["앞뒤 흐름을 유지한다."],
+                "content_text": "문맥에 맞게 다듬은 본문",
+                "warnings": [],
+            },
+            ensure_ascii=False,
+        )
+        rewrite_gateway = SequencedConceptAiGateway(["형식이 아닌 첫 응답", valid_rewrite])
+        monkeypatch.setattr(router_module.harness, "gateway", rewrite_gateway)
+        rewritten = client.post(
+            f"/api/v1/concept-pages/{current['id']}/ai/rewrite-selection",
+            json={
+                "body_json": _paragraph("저장되지 않은 편집 본문"),
+                "model_key": "gemma",
+                "selection_from": 0,
+                "selection_to": 14,
+                "selection_text": "저장되지 않은 편집 본문",
+                "operation": "polish",
+            },
+        )
+        assert rewritten.status_code == 200
+        assert rewritten.json()["proposed_text"] == "문맥에 맞게 다듬은 본문"
+        assert len(rewrite_gateway.calls) == 2
+        retry_call = rewrite_gateway.calls[1]
+        assert all(message["role"] != "assistant" for message in retry_call["messages"])
+        assert "처음부터 새로" in retry_call["messages"][-1]["content"]
+        assert retry_call["kwargs"]["extra_params"] == {
+            "chat_template_kwargs": {"enable_thinking": False}
+        }
+        rewrite_run = db.scalar(
+            select(GenerationRun).where(GenerationRun.id == rewritten.json()["run_id"])
+        )
+        assert rewrite_run is not None
+        assert rewrite_run.params_json["automatic_revisions"] == {
+            "attempts": 1,
+            "reasons": ["AI_RESPONSE_INVALID"],
+        }
+
+        invalid_rewrite_gateway = SequencedConceptAiGateway(["첫 실패", "두 번째 실패"])
+        monkeypatch.setattr(router_module.harness, "gateway", invalid_rewrite_gateway)
+        rewrite_failed = client.post(
+            f"/api/v1/concept-pages/{current['id']}/ai/rewrite-selection",
+            json={
+                "body_json": _paragraph("저장되지 않은 편집 본문"),
+                "model_key": "gemma",
+                "selection_from": 0,
+                "selection_to": 14,
+                "selection_text": "저장되지 않은 편집 본문",
+                "operation": "polish",
+            },
+        )
+        assert rewrite_failed.status_code == 502
+        assert rewrite_failed.json()["detail"]["code"] == "AI_RESPONSE_INVALID"
+        rewrite_failed_run = db.scalar(
+            select(GenerationRun)
+            .where(
+                GenerationRun.project_id == project["id"],
+                GenerationRun.task == "concept_selection_rewrite",
+                GenerationRun.status == "failed",
+            )
+            .order_by(GenerationRun.created_at.desc())
+        )
+        assert rewrite_failed_run is not None
+        assert rewrite_failed_run.output_text == "두 번째 실패"
+        assert rewrite_failed_run.params_json["automatic_revisions"]["attempts"] == 1
     finally:
         app.dependency_overrides.clear()
         db.close()

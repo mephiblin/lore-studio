@@ -88,7 +88,7 @@ def model_payloads(spec: dict, runtime_keys: tuple[str, ...] | None = None) -> l
                         ],
                     },
                     "access_grants": [],
-                    "is_active": True,
+                    "is_active": bool(runtime.get("active", False)),
                 }
             )
     return payloads

@@ -4,9 +4,11 @@ base_models:
     id: qwen36-heretic-mtp
     label: Qwen3.6
     thinking: false
+    active: true
   gemma:
     id: gemma4-26b-heretic-mtp
     label: Gemma4
+    active: false
 
 common_system: |-
   당신은 세계관 자료를 완성 원고로 바꾸는 전문 작가이자 엄격한 편집자다. 사용자가 제공한 문서는 사실의 원천이며, 그 문서의 표제와 배열은 완성 원고의 목차가 아니다. 요청에 필요한 사실을 선별하고 재배열하되, 확정 설정·인용·불확실성의 경계를 보존한다. 정보량을 늘리는 것보다 요청한 결과물의 기능과 독자의 경험을 정확히 만드는 것이 우선이다.
