@@ -16,9 +16,9 @@
 | 모델 | 컨테이너용 Base URL | alias | Thinking 기본값 |
 |---|---|---|---|
 | Qwen3.6 35B heretic MTP | `http://host.docker.internal:18091/v1` | `qwen36-heretic-mtp` | 끄기 |
-| Gemma4 26B heretic MTP | `http://host.docker.internal:18093/v1` | `gemma4-26b-heretic-mtp` | 모델 기본값 |
+| Gemma4 26B heretic MTP | `http://host.docker.internal:18093/v1` | `gemma4-26b-heretic-mtp` | 끄기 (vLLM 서버 기본 OFF) |
 
-`이 PC 권장 분담 적용`은 Writer=Gemma, Utility·Vision=Qwen으로 채우고 BGE-M3 Embedding을 유지합니다. Qwen의 `Thinking 끄기`는 `chat_template_kwargs.enable_thinking=false`이며 vLLM의 native MTP speculative decoding은 계속 작동합니다. Qwen-MM의 local Faster-Whisper는 별도 도구 서비스이며 Lore Studio의 네 모델 역할에는 포함하지 않습니다.
+`이 PC 권장 분담 적용`은 Writer=Gemma, Utility·Vision=Qwen으로 채우고 BGE-M3 Embedding을 유지합니다. Qwen과 Gemma 모두 vLLM 서버 기본이 `chat_template_kwargs.enable_thinking=false`이며 Lore Studio도 같은 값을 명시적으로 전달합니다. 이 설정은 출력 추론 모드만 끄며 vLLM의 native MTP speculative decoding은 계속 작동합니다. Qwen-MM의 local Faster-Whisper는 별도 도구 서비스이며 Lore Studio의 네 모델 역할에는 포함하지 않습니다.
 
 `세계관 자료 → 자료 양산`과 기존 자료 본문의 `AI 수정 / AI 작성`에서는 역할 재배정과 별개인 `QWEN_SELECTABLE_*`·`GEMMA_SELECTABLE_*` 연결을 모델 이름으로 직접 선택합니다. 선택 모델의 explicit profile로 호출하므로 Qwen 작업 실패 시 Gemma로 자동 fallback하지 않습니다. 자료 양산의 씨앗 제안은 호출 1개이고, 본문 단계는 사용자가 고른 씨앗 1–10개 수만큼 동시 호출합니다.
 

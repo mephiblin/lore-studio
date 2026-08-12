@@ -239,12 +239,12 @@ async def _complete_structured_proposal(
             profile,
             [
                 *messages,
-                {"role": "assistant", "content": result.content},
                 {
                     "role": "user",
                     "content": (
-                        "직전 응답은 제안 본문을 읽을 수 없었다. 설명이나 코드펜스를 덧붙이지 말고, "
-                        "같은 근거와 작성 지시를 지킨 전체 결과를 지정 JSON 스키마로 다시 작성하라."
+                        "이전 응답은 형식 검증에 실패했으며 내용은 새 작성의 근거로 "
+                        "사용하지 마라. 위의 사용자 지시와 읽기 전용 문맥만으로 전체 결과를 "
+                        "처음부터 새로 작성하고, 설명과 코드펜스 없이 지정 JSON 스키마만 반환하라."
                     ),
                 },
             ],
@@ -385,6 +385,25 @@ def compile_concept_ai_context(
     return context, accepted_ids, body
 
 
+def concept_draft_context(context: dict[str, Any]) -> dict[str, Any]:
+    """Reduce automatic draft context to authored text and explicit boundaries.
+
+    Page metadata is useful for selection rewrites, but it can anchor a fresh draft to
+    stale title/summary/tag decisions. Explicitly selected references remain because
+    selecting them is a user action, not hidden conversation history.
+    """
+    current_page = context["current_page"]
+    return {
+        "current_document": {
+            "body_context": current_page["body_context"],
+            "writing_boundaries": current_page["writing_boundaries"],
+        },
+        "reference_material": context["reference_material"],
+        "policy": context["policy"],
+        "warnings": context["warnings"],
+    }
+
+
 async def rewrite_concept_selection(
     gateway: ModelGateway,
     *,
@@ -468,6 +487,8 @@ async def draft_concept_body(
         "read_only_context": context,
         "rules": [
             "사용자가 편집할 세계관 자료 초안만 content_text로 반환한다.",
+            "user_prompt를 이번 작성의 주요 지시로 삼고 본문을 처음부터 새로 작성한다.",
+            "current_document.body_context는 현재 문서의 내용 참고일 뿐, 이전 AI 응답이나 대화 기록이 아니다.",
             "제목은 ##, 목록은 - , 인용은 > 로 시작해 간단한 구조를 표현할 수 있다.",
             "fact_eligible 자료만 프로젝트 사실 근거로 사용한다.",
             "candidate_only 자료는 미확정임을 보존하고 확정 사실로 승격하지 않는다.",

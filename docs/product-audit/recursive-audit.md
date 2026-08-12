@@ -162,6 +162,61 @@ Lore Studio는 starter가 아니라 실제 local-first v1.0으로 신뢰할 수 
 - Remaining `FIX_NOW` items: none.
 - Recursion decision: STOP_COMPLETE
 
+## Cycle 4 — 로컬 LLM 호출·문맥 격리
+
+### Completion contract
+
+- Primary user: DGX Spark의 Qwen·Gemma vLLM을 동시에 상주시켜 세계관 자료와 원고를 반복 생성하는 단일 사용자.
+- Top job: 각 AI 기능이 필요한 사용자 자료만 새 요청으로 전달하고, 이전 모델의 숨은 사고나 실패 응답에 끌려가지 않으며, 정해진 분량 안에서 검토 가능한 결과를 받는다.
+- In scope: Gemma vLLM 기본 thinking 정책, Lore Studio의 Writer·Utility·Vision 및 선택형 Qwen/Gemma 호출 전체, AI 작성·수정·자료 양산·플레이북·원고 도구의 메시지 문맥과 출력 상한, 앱 프리셋·운영 문서·감사 기록.
+- Non-goals: MTP speculative decoding 비활성화, 모델·양자화·KV 캐시 교체, Embedding 벡터 계산 의미 변경, 사용자 승인 없는 기존 본문 수정.
+- Constraints: Qwen/Gemma endpoint는 loopback과 Docker bridge proxy만 유지하고 두 모델 상주 메모리 구성을 바꾸지 않는다. 이어쓰기·명시적 품질 수정에는 이미 채택된 원고 조각을 문맥 자료로 사용할 수 있지만 숨은 reasoning이나 실패한 형식 응답은 다음 호출에 대화 이력으로 넘기지 않는다.
+- Completion gates: Gemma vLLM 무지정 요청이 thinking 없이 응답하고 MTP가 유지됨; 모든 텍스트·비전 호출이 정책표에 분류됨; AI 작성은 현재 본문·명시 선택 자료·작성 경계만 새 요청의 데이터로 사용함; 형식 복구는 실패 assistant 응답 없이 새 요청으로 수행함; 모든 생성 호출에 합당한 출력 상한·감사 기록이 있음; 전체 테스트·build·E2E·실모델 대표 호출과 최종 report validator PASS.
+
+### Audit findings
+
+| ID | Severity | Domain | Finding | Evidence | Disposition | Acceptance criterion | Status |
+|---|---|---|---|---|---|---|---|
+| F-015 | P1 | vLLM runtime | Qwen에는 서버 기본 `enable_thinking=false`가 있지만 Gemma Compose에는 같은 인자가 없어 무지정 요청이 내부 사고로 출력 예산을 소진할 수 있다. | 실행 컨테이너 command와 `/home/inri/문서/Qwen-MM-vLLM-Setup/docker-compose.yml`; 실제 Gemma AI 작성에서 900토큰 뒤 본문 없는 502 재현. | FIX_NOW | Gemma Compose에도 서버 기본 OFF를 영속화하고, 필드 없는 실요청의 reasoning 0·정상 본문·MTP 사용을 확인한다. | VERIFIED |
+| F-016 | P1 | Concept AI context | AI 작성의 형식 복구 요청이 실패한 assistant 응답을 다음 messages에 포함하며, 작성 요청은 수정용 전체 context 구조를 재사용해 현재 페이지 ID·제목·종류·요약·태그·빈 selection 상태까지 자동 전달한다. | `backend/app/services/concept_ai.py`의 `_complete_structured_proposal`, `compile_concept_ai_context`, `draft_concept_body`. | FIX_NOW | 형식 복구는 원 요청+복구 지시만의 새 호출이고, AI 작성의 자동 현재 문서 문맥은 본문과 작성 경계로 제한하며 명시 선택 참고 자료만 별도로 유지한다. | VERIFIED |
+| F-017 | P1 | Configuration | Gemma 서버를 OFF로 바꿔도 앱의 Gemma 선택형 기본값, `/settings` 로컬 프리셋, `.env` Writer와 운영 DB Writer가 모두 `disable_thinking=false`라 화면·감사 기록과 실제 동작이 모순된다. | `backend/app/config.py`, `frontend/src/routes/settings/+page.svelte`, `.env*`, `lore_app.model_connection_settings`의 Writer row. | FIX_NOW | Gemma를 가리키는 앱 기본·프리셋·현재 Writer override가 모두 OFF로 표시·기록되고 Qwen 설정과 MTP는 유지된다. | VERIFIED |
+| F-018 | P2 | Call contract | 호출 목적별 허용 문맥·이전 출력 사용·thinking·구조화 모드·출력 상한의 단일 정책표가 없고, 원고 국소 재작성 Writer 호출은 `max_tokens`를 지정하지 않는다. | `gateway.complete*` 전수 검색 결과와 `backend/app/api/router.py` 원고 block rewrite 호출. | FIX_NOW | 모든 호출 지점을 정책표와 테스트로 분류하고, 독립 분석은 stateless, 이어쓰기/품질 수정만 채택 텍스트를 데이터로 사용하며 모든 생성 호출에 목적에 맞는 출력 상한이 존재한다. | VERIFIED |
+
+### Research log
+
+| Question | Conclusion | Sources | Inference / limits |
+|---|---|---|---|
+| vLLM prefix/KV cache가 이전 요청의 생각을 다음 요청에 섞는가? | OpenAI 호환 chat completion은 매번 전달된 `messages`만 의미 문맥으로 사용한다. prefix cache는 동일 prefix의 계산을 재사용하지만 이전 요청 내용을 새 요청에 추가하지 않는다. 실제 위험은 애플리케이션이 과거 assistant 출력이나 생성 원고를 messages/payload에 다시 넣는 경우다. | `backend/app/services/model_gateway.py` 요청 구성, 실행 중 vLLM의 prefix caching 설정과 독립 요청 실험. | vLLM 내부 구현의 성능 캐시는 유지하되 의미 격리는 요청 payload와 회귀 테스트로 검증한다. |
+| 모든 재호출에서 이전 생성문을 빼야 하는가? | 아니다. 장문 이어쓰기·분량 복구·명시적 품질 수정은 사용자가 만들고 있는 동일 원고의 채택된 부분을 데이터로 받아야 연속성과 중복 방지가 가능하다. 반면 JSON 형식 실패나 숨은 사고 출력은 작품으로 채택되지 않았으므로 전달하지 않는다. | `backend/app/services/harness.py`, `concept_batch.py`, `concept_ai.py` 호출 흐름. | 허용 예외를 정책표에 좁게 열거하고 일반 대화 history는 금지한다. |
+
+### Decision and implementation
+
+- Selected approach: Gemma vLLM의 서버 기본 OFF와 Lore Studio의 명시적 OFF를 이중 적용하고, 호출 목적별 fresh-request 문맥 정책을 문서와 테스트로 고정했다.
+- Alternatives considered: Lore Studio 요청마다만 OFF를 보내는 방식은 OpenWebUI 등 다른 Gemma 클라이언트를 보호하지 못한다. 모든 이전 생성문을 제거하는 방식은 장문 이어쓰기와 명시적 수정의 연속성을 깨뜨려 배제한다.
+- Changes made: Gemma Compose에 `--default-chat-template-kwargs '{"enable_thinking":false}'`를 추가하고 컨테이너를 재생성했다. 선택형 Gemma·설정 UI·Writer 환경값·운영 DB override를 OFF로 일치시켰다. `AI 작성`의 현재 문서 자동 문맥을 본문과 작성 경계로 축소하고, 형식 재시도에서 실패 assistant 출력을 제거했다. 원고 문단 재작성에 동적 `max_tokens` 상한을 추가했다.
+- Files / migrations / documentation: `backend/app/services/concept_ai.py`, `backend/app/api/router.py`, model config/settings UI/tests, `docs/LLM_HARNESS.md`, 로컬 모델·UI 계약, vLLM Compose와 Qwen-MM 운영 기록. DB migration은 필요 없음.
+
+### Verification
+
+| Check | Command or method | Result | Artifact / evidence |
+|---|---|---|---|
+| Baseline Gemma command | `docker inspect vllm-gemma4-26b-heretic-mtp` | FAIL reproduced | `--default-chat-template-kwargs` 누락 |
+| Baseline app settings | PostgreSQL/model preset/config inspection | FAIL reproduced | Writer/Gemma `disable_thinking=false` |
+| Gemma 서버 기본 OFF | kwargs 없는 `/v1/chat/completions` 실호출 | PASS; `content=OK`, `reasoning_content=null` | 실행 command에 default kwargs 확인 |
+| Gemma MTP 유지 | vLLM `/metrics` | PASS; draft 4, accepted 4 | `spec_decode_num_draft_tokens_total`, `spec_decode_num_accepted_tokens_total` |
+| 호출 문맥·형식 복구 | focused + full pytest | PASS; 50 passed, 3 opt-in skipped | assistant history 0, draft context key 제한, 양 모델 OFF, 전 호출 `max_tokens` 정적 계약 |
+| Static·build·bundle | Ruff, Svelte build, `make validate` | PASS | Python, adapter-node, schema/YAML, Compose |
+| 설정 UI | Playwright `model-settings.spec.js` | PASS; 3 passed, 1 intentional mobile skip | desktop·mobile·360px, Gemma OFF payload |
+| 전체 UI 회귀 | Playwright 전체 suite, 실제 운영 데이터 | PASS; 46 passed, 12 intentional viewport skips | 5 routes, AI 작성·수정·양산, project workflow, desktop·mobile |
+| 운영 Compose·실제 AI 작성 | backend/frontend rebuild, 임시 project의 Gemma draft | PASS; 197자 `CANDIDATE`, `persisted=false` | 네 model role available, 임시 project 삭제 후 0건 |
+
+### Re-audit
+
+- Regressions checked: 양 vLLM 상주, Gemma MTP, 네 model role 가용성, 설정 저장·보안, 본문 AI 제안의 DB 불변, 모바일·360px 설정 UI, 전체 백엔드 회귀.
+- New or changed findings: 초기 실호출이 MTP 토큰을 4/4 채택해 thinking OFF가 speculative decoding을 끄지 않음을 직접 확인했다. 추가 FIX_NOW는 발견되지 않았다.
+- Remaining `FIX_NOW` items: none.
+- Recursion decision: STOP_COMPLETE
+
 ## Residual risks
 
 | Risk | Impact | Mitigation / owner | Revisit trigger |

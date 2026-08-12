@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     gemma_selectable_model_name: str = "gemma4-26b-heretic-mtp"
     gemma_selectable_model_timeout_seconds: int = Field(default=600, ge=1)
     gemma_selectable_context_budget: int = Field(default=24_000, ge=1_024)
-    gemma_selectable_disable_thinking: bool = False
+    gemma_selectable_disable_thinking: bool = True
 
     fallback_model_base_url: str = ""
     fallback_model_api_key: str = "local"

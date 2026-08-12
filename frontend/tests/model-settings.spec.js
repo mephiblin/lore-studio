@@ -67,7 +67,7 @@ test('model settings assigns both local vLLMs and never echoes a saved key', asy
   await page.locator('.model-profile-card').first().getByRole('button', { name: '연결 시험' }).click();
   await expect(page.getByText(/연결 성공 · gemma4-26b-heretic-mtp/)).toBeVisible();
   expect(testPayload.api_key).toBe('EMPTY');
-  expect(testPayload.disable_thinking).toBe(false);
+  expect(testPayload.disable_thinking).toBe(true);
 
   await page.getByLabel('Writer 로컬 모델').selectOption('qwen');
   await expect(page.getByLabel('Base URL').first()).toHaveValue('http://host.docker.internal:18091/v1');

@@ -112,6 +112,7 @@ from app.services.concept_ai import (
     ConceptAiError,
     body_hash,
     compile_concept_ai_context,
+    concept_draft_context,
     draft_concept_body,
     rewrite_concept_selection,
 )
@@ -1335,6 +1336,7 @@ async def draft_concept_page_body(
             open_questions=payload.open_questions,
             forbidden_changes=payload.forbidden_changes,
         )
+        context = concept_draft_context(context)
         proposed_text, model_warnings, result = await draft_concept_body(
             harness.gateway,
             profile=profile,
@@ -2666,6 +2668,7 @@ async def propose_block_rewrite(
             ],
             role="writer",
             temperature=0.45,
+            max_tokens=min(8000, max(1200, len(block.content_markdown) * 2 + 400)),
             seed=session.seed,
         )
         proposed = result.content.strip()

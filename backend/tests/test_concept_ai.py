@@ -123,10 +123,8 @@ def test_concept_ai_retries_invalid_structure_and_audits_final_failure(monkeypat
         assert recovered.json()["proposed_text"].startswith("## 복구된 초안")
         assert len(gateway.calls) == 2
         retry_call = gateway.calls[1]
-        assert retry_call["messages"][-2] == {
-            "role": "assistant",
-            "content": "본문만 반환한 잘못된 응답",
-        }
+        assert all(message["role"] != "assistant" for message in retry_call["messages"])
+        assert "처음부터 새로" in retry_call["messages"][-1]["content"]
         assert retry_call["kwargs"]["max_tokens"] == 1200
         assert retry_call["kwargs"]["extra_params"] == {
             "chat_template_kwargs": {"enable_thinking": False}
@@ -294,6 +292,25 @@ def test_concept_ai_returns_reviewable_proposals_without_saving(monkeypatch) -> 
         assert draft.json()["proposed_text"].startswith("## 해질의 성문")
         assert gateway.calls[1]["payload"]["placement"] == "append"
         assert gateway.calls[1]["profile"].model == "gemma4-26b-heretic-mtp"
+        draft_context = gateway.calls[1]["payload"]["read_only_context"]
+        assert set(draft_context) == {
+            "current_document",
+            "reference_material",
+            "policy",
+            "warnings",
+        }
+        assert draft_context["current_document"]["body_context"]["text"].startswith(
+            "성문은 늦게"
+        )
+        assert draft_context["reference_material"]["fact_eligible"][0]["title"] == "성문 규칙"
+        assert not {
+            "id",
+            "title",
+            "category",
+            "summary",
+            "tags",
+            "selection_context",
+        }.intersection(draft_context["current_document"])
 
         stored = db.get(ConceptPage, current["id"])
         assert stored is not None

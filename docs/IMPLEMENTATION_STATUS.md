@@ -47,6 +47,7 @@
 - 긴 로어북 본문의 reader 내부 스크롤과 출처 초안·접힌 생성 설정을 합친 단일 출처 카드
 - `$lore-studio-ui-safety` 프로젝트 로컬 skill과 읽기 전용 정적 preflight: UI 계약·변경 체크리스트 기반 반복 점검, 5개 생명주기 route와 `/settings` 유틸리티·migration head·manifest·API 경유 규칙 확인, 기능 계약과 점검 절차의 변경 범위에 따른 문서·테스트·skill 동기화
 - Writer·Utility·Vision·Embedding 역할별 OpenAI 호환 모델 연결 시험·저장·`.env` 복귀 화면. Writer·Utility·Vision은 Qwen·Gemma를 독립 선택하고 권장 분담(Writer=Gemma, Utility/Vision=Qwen)을 적용할 수 있으며 API key 원문은 브라우저·감사 로그에 반환하지 않고 Embedding을 보존
+- Qwen·Gemma vLLM의 서버 기본 Thinking OFF와 앱 profile OFF를 일치시키되 native MTP는 유지. 생성 호출은 대화 history 없는 새 요청을 기본으로 하고, AI 본문 작성은 현재 본문·작성 경계·명시 선택 참고만 전달하며 실패한 형식 응답을 다음 시도에 재사용하지 않음
 
 ## 실제 환경 증거
 

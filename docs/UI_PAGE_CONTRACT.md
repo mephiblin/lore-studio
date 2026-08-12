@@ -364,7 +364,7 @@ Writer·Utility·Vision·Embedding 역할별 OpenAI 호환 연결을 시험하�
 - API 키 입력은 password이며 비워 저장하면 기존 키를 유지합니다. 서버 응답·감사 로그는 키 원문을 반환하지 않고 `저장됨` 여부만 표시합니다.
 - `연결 시험`은 저장하지 않습니다. `시험하고 저장`은 `/v1/models`와 alias를 확인한 경우에만 DB를 바꾸며, 실패하면 편집값과 재시도 동작을 유지합니다.
 - Writer·Utility·Vision 카드의 `이 PC의 로컬 vLLM` 선택은 Qwen(`host.docker.internal:18091/v1`, `qwen36-heretic-mtp`)과 Gemma(`host.docker.internal:18093/v1`, `gemma4-26b-heretic-mtp`)를 각각 제공합니다. 역할별로 서로 다른 모델을 선택할 수 있고 `직접 입력`도 유지합니다.
-- `이 PC 권장 분담 적용`은 Writer에 Gemma, Utility·Vision에 Qwen을 채우며 Embedding 값을 바꾸지 않습니다. Qwen은 `Thinking 끄기`, Gemma는 기본 추론 설정을 사용하고, thinking 비활성화는 응답 추론 모드만 바꾸며 vLLM MTP를 끄지 않습니다.
+- `이 PC 권장 분담 적용`은 Writer에 Gemma, Utility·Vision에 Qwen을 채우며 Embedding 값을 바꾸지 않습니다. 로컬 Qwen과 Gemma는 모두 `Thinking 끄기`를 기본으로 사용하고, thinking 비활성화는 응답 추론 모드만 바꾸며 vLLM native MTP를 끄지 않습니다.
 - 인증 없는 신뢰 LAN 앱과 DB 평문 secret 저장 경계를 화면 하단에 경고하고 인터넷 직접 공개를 금지합니다.
 
 ## 10. 상태별 공통 표현

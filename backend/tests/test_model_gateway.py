@@ -6,7 +6,12 @@ import pytest
 from conftest import HandlerTransport
 
 from app.config import settings
-from app.services.model_gateway import ModelGateway, ModelGatewayError
+from app.services.model_gateway import ModelGateway, ModelGatewayError, local_text_profile
+
+
+def test_both_selectable_local_models_disable_thinking() -> None:
+    assert local_text_profile("qwen").disable_thinking is True
+    assert local_text_profile("gemma").disable_thinking is True
 
 
 def test_utility_profile_resolves_model_and_records_call(monkeypatch) -> None:

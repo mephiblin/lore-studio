@@ -16,6 +16,22 @@ Planner는 title/angle/blocks(move, purpose, evidence_ids, budget, must/avoid, l
 
 모델 장애 시 세션과 입력은 보존되고 구조화 오류는 명시 오류가 됩니다. Embedding 장애는 lexical search로 축소됩니다. 운영 경로는 실제 OpenAI 호환 endpoint만 호출하며 모델이 없거나 응답하지 않으면 성공 응답을 조작하지 않고 명시적으로 실패합니다.
 
+## 호출별 새 문맥 규칙
+
+Lore Studio의 생성 호출은 대화 세션을 재사용하지 않고 각 요청이 전달한 `messages`만으로 독립 실행됩니다. vLLM prefix/KV cache는 같은 입력의 계산을 재사용할 뿐 이전 대화나 생각을 새 요청에 암묵적으로 넣지 않습니다.
+
+| 호출 | 새 요청에 포함하는 문맥 | 이전 AI 출력 처리 |
+|---|---|---|
+| Planner·Utility 분석 | 현재 작업 스냅샷과 구조화 계약 | 포함하지 않음 |
+| 세계관 본문 `AI 작성` | 사용자 지시, 현재 본문, 작성 경계, 명시 선택 참고 자료 | 포함하지 않음. 형식 재시도도 실패 출력 없이 처음부터 새로 작성 |
+| 선택 영역·문단 재작성 | 현재 대상, 앞뒤 문맥, 사실·문체 경계 | 포함하지 않음 |
+| 자료 양산 씨앗·worker | 고정된 참고 스냅샷, 선택 씨앗, 자료 종류 | 품질 보정이 필요한 현재 후보만 의도적으로 포함; 형식 실패 출력은 제외 |
+| 장문 초안·Finalizer | 현재 계획, 근거, 사용자가 수정·수용한 최신 초안 | 이어쓰기·보정 대상인 수용 본문만 의도적으로 포함 |
+| Vision | 현재 이미지와 분석 지시 | 포함하지 않음 |
+| Embedding | 현재 텍스트 청크 또는 검색어 | 해당 없음 |
+
+모든 로컬 생성 호출은 Thinking OFF를 기본으로 하며, 각 호출은 작업 분량과 복구 여유에 맞는 `max_tokens` 안전 상한을 명시합니다. 이 상한은 목표 글자 수가 아니며 실제 분량은 글자 수 계약으로 별도 검증합니다.
+
 실제 모델 결과와 선택 기준은 `docs/model-evaluations/utility-models.*`와 `VERIFICATION.md`를 참조하십시오.
 
 VoiceProfile은 별도 `expression_design`으로 컴파일하며, 권리·상태가 허용된 짧은 예시만 독립 토큰 예산 안에서 `style_examples`에 넣습니다. 이 입력은 사실 근거가 아니며 결과물 형태와 시점·시제가 항상 우선합니다. Planner의 문단에는 `scene_mode`와 `expression_focus`가 추가됩니다. 초안·Finalizer·부분 재작성은 같은 voice snapshot을 사용합니다. 필력 점검은 결정론적 검사와 Utility 감사를 합치지만, 사용자가 항목별 Writer 수정안을 승인하기 전에는 원고를 바꾸지 않습니다.

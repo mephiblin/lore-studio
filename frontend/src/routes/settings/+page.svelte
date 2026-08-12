@@ -20,7 +20,7 @@
       name: 'Gemma 4 26B',
       base_url: 'http://host.docker.internal:18093/v1',
       model: 'gemma4-26b-heretic-mtp',
-      disable_thinking: false
+      disable_thinking: true
     }
   };
 
