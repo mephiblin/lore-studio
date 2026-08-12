@@ -19,9 +19,9 @@ make validate
 
 작성 성향을 추가할 때는 결과 매체는 `config/output_profiles`, 정보 공개 순서는 `config/writing_recipes`, 표현 원칙은 `config/voice_profiles`, 런타임 확률 제어는 `config/sampling_profiles`로 나눕니다. 특정 성향을 위한 전용 `max_tokens`나 고정 글자 수를 자산에 넣지 말고 글 만들기의 기존 분량 설정과 생성 계약을 사용합니다. 샘플링 프로필은 Writer에 적용하고 Planner의 구조화 값은 고정하며 Finalizer는 선택값에서 보수적으로 파생합니다.
 
-자료 양산은 `concept_batch` 서비스와 `/concept-batches/seeds → /generate → /accept` 계약을 사용합니다. planning은 단일 explicit model profile, worker는 선택 씨앗마다 병렬 호출하며, API 테스트는 실제 최대 active 호출 수와 accept 전 ConceptPage 불변을 함께 검증해야 합니다.
+자료 양산은 `concept_batch` 서비스와 `/concept-batches/seeds → /generate → /accept` 계약을 사용합니다. 기본 planning은 Qwen, worker는 Gemma explicit model profile을 사용하고 사용자가 고른 씨앗 수와 `max_concurrency`를 분리합니다. API 테스트는 semaphore의 실제 최대 active 호출 수, 종류별 핵심 항목·계승 사실·새 후보 설정, accept 전 ConceptPage 불변을 함께 검증해야 합니다.
 
-사용자가 모델을 고르는 자료 양산·세계관 본문 AI는 공용 `local_text_profile()`과 `QWEN_SELECTABLE_* / GEMMA_SELECTABLE_*`를 사용합니다. role 기반 `complete()` 대신 `complete_for_profile()`로 호출해 선택 모델을 고정하고 요청의 `model_key`와 GenerationRun의 실제 모델·endpoint를 함께 검사합니다.
+모델을 명시하는 자료 양산·세계관 본문 AI는 공용 `local_text_profile()`과 `QWEN_SELECTABLE_* / GEMMA_SELECTABLE_*`를 사용합니다. role 기반 `complete()` 대신 `complete_for_profile()`로 호출해 모델을 고정하고 자료 양산의 `planner_model_key / writer_model_key`, GenerationRun의 실제 모델·endpoint를 함께 검사합니다.
 
 CI는 Ruff/pytest, bundle schema/YAML, Svelte build, Compose config, 모델 서비스 미연결 상태의 Playwright UI, secret/large-model guard를 실행합니다. 생성·임베딩 실호출은 DGX에서 `make test-models`로 별도 수행합니다.
 

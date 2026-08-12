@@ -45,7 +45,7 @@
 | 41 | 장문 실제 분량·로어북 스크롤 | PASS | 6,000자 이상 블록별 이어쓰기, 95% 문자 수 gate와 GenerationRun 감사, 짧은 초안의 원래 목표 복구, reader 실제 scrollTop 변화, 출처·provenance 단일 카드 |
 | 42 | 모바일 스크롤·로어북 목차 | PASS | 390px·360px 다섯 route, 세계관 본문 제스처·AI panel min-width/pointer 안전, 압축 command bar, `/lorebook` 목차 → `?entry` 읽기 → 복귀, 네 테마·직접 URL·desktop 2열 회귀 |
 | 43 | 역할별 로컬 모델 연결 | PASS | Writer·Utility·Vision의 Qwen·Gemma 독립 선택과 권장 분담, Embedding 연결 보존, 연결 시험/저장/`.env` 복귀, API key 응답·감사 로그 마스킹, 1600×900·390×844·360×844 UI 회귀 |
-| 44 | 세계관 자료 씨앗·병렬 양산 | PASS | 단일 모델의 6–30개 씨앗 제안, 수정 후 1–10개 선택, 선택 수와 worker 동시성 일치, 미선택 미호출, 부분 실패 보존, 명시 저장 전 DB 불변, 저장 후 CANDIDATE, 중복 저장 차단, desktop/mobile/360px modal 회귀 |
+| 44 | 세계관 자료 씨앗·병렬 양산 | PASS | 기본 Qwen 기획→Gemma 집필·동시 작업 4개 자동 계획, 접힌 고급 설정, 차별점·근거가 붙은 6–30개 씨앗, 수정 후 1–10개 선택, 선택 수와 별도 worker 동시성, 간단·보통·상세 분량, 종류별 핵심 항목·계승 사실·새 후보 설정, 미선택 미호출, 부분 실패 보존, 명시 저장 전 DB 불변, 저장 후 CANDIDATE, 중복 저장 차단, desktop/mobile/360px modal 회귀 |
 | 45 | 세계관 본문 AI 요청별 모델 선택 | PASS | AI 수정·AI 작성의 Gemma/Qwen 선택 공유, API model_key·explicit profile·GenerationRun 실제 model/endpoint 일치, 선택 모델 무 fallback, 제안 모델 표시, desktop/mobile 회귀 |
 | 46 | 제한 화자의 현장 구술 | PASS | 결과물·전개·문체 분리, 목격·전언·추측과 지식 범위 계약, 전용 max token·고정 글자 수 없음, desktop/mobile 선택, 실제 Gemma 계획·원고, 임시 자료 삭제 |
 

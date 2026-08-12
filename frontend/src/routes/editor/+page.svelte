@@ -47,7 +47,8 @@
   let batchCandidates = [];
   let batchFailures = [];
   let batchForm = {
-    model_key: 'gemma', source_page_id: '', category_key: '', seed_count: 12, additional_instruction: ''
+    planner_model_key: 'qwen', writer_model_key: 'gemma', source_page_id: '', category_key: '',
+    seed_count: 12, length_key: 'standard', max_concurrency: 4, additional_instruction: ''
   };
 
   const starterRecipeSteps = () => [
@@ -208,12 +209,15 @@
     batchCandidates = [];
     batchFailures = [];
     batchForm = {
-      model_key: 'gemma',
+      planner_model_key: 'qwen',
+      writer_model_key: 'gemma',
       source_page_id: batchSourcePages.some((page) => page.id === selectedPage?.id)
         ? selectedPage.id
         : batchSourcePages[0]?.id || '',
       category_key: selectedPage?.category_key || categories[0]?.key || '',
       seed_count: 12,
+      length_key: 'standard',
+      max_concurrency: 4,
       additional_instruction: ''
     };
     settingsModal = 'concept-batch';
@@ -227,7 +231,7 @@
         project_id: projectId,
         source_page_id: batchForm.source_page_id,
         category_key: batchForm.category_key,
-        model_key: batchForm.model_key,
+        model_key: batchForm.planner_model_key,
         seed_count: Number(batchForm.seed_count),
         additional_instruction: batchForm.additional_instruction.trim()
       });
@@ -249,11 +253,17 @@
     const selectedSeeds = batchSeeds.filter((seed) => seed.selected);
     if (!selectedSeeds.length || selectedSeeds.length > 10 || batchBusy) return;
     error = ''; message = '';
-    batchBusy = `${selectedSeeds.length}명의 집필 에이전트가 동시에 본문을 쓰는 중`;
+    const activeWorkers = Math.min(selectedSeeds.length, Number(batchForm.max_concurrency));
+    batchBusy = `${selectedSeeds.length}개 자료를 최대 ${activeWorkers}개씩 쓰는 중`;
     try {
       const result = await api.post('/concept-batches/generate', {
         seed_run_id: batchSeedRunId,
-        selected_seeds: selectedSeeds.map(({ seed_id, title, summary }) => ({ seed_id, title, summary }))
+        selected_seeds: selectedSeeds.map(({ seed_id, title, summary, distinction, source_basis }) => ({
+          seed_id, title, summary, distinction, source_basis
+        })),
+        writer_model_key: batchForm.writer_model_key,
+        length_key: batchForm.length_key,
+        max_concurrency: Number(batchForm.max_concurrency)
       });
       batchCandidates = result.candidates.map((candidate) => ({
         ...candidate, selected: true, tagsText: (candidate.tags || []).join(', ')
@@ -1277,21 +1287,30 @@
             {#if batchBusy}<div class="batch-progress" role="status"><span class="batch-progress-mark" aria-hidden="true"></span><div><strong>{batchBusy}</strong><small>창을 닫지 말고 잠시 기다려 주세요.</small></div></div>{/if}
 
             {#if batchStep === 'setup'}
-              <div class="batch-intro"><strong>먼저 글감의 지도를 만듭니다.</strong><p>기획 에이전트 1명이 참고 자료를 읽고 제목과 간단한 내용만 제안합니다. 아직 본문을 만들거나 자료를 저장하지 않습니다.</p></div>
+              <div class="batch-intro"><strong>한 번 정하면, 씨앗을 고르는 일만 남습니다.</strong><p>먼저 여러 글감을 제안하고 선택한 것만 본문으로 만듭니다. 저장 전까지 세계관 자료는 바뀌지 않습니다.</p></div>
               <div class="grid-2 batch-setup-grid">
-                <label>사용할 모델<select bind:value={batchForm.model_key} disabled={!!batchBusy}><option value="gemma">Gemma</option><option value="qwen">Qwen</option></select></label>
                 <label>참고 세계관 자료<select bind:value={batchForm.source_page_id} disabled={!!batchBusy}><option value="">자료 선택</option>{#each batchSourcePages as page}<option value={page.id}>{page.title}</option>{/each}</select></label>
                 <label>만들 자료 종류<select bind:value={batchForm.category_key} disabled={!!batchBusy}><option value="">종류 선택</option>{#each categories as category}<option value={category.key}>{category.name}</option>{/each}</select></label>
                 <label>제안받을 씨앗 수 <input aria-label="제안받을 씨앗 수" type="number" min="6" max="30" bind:value={batchForm.seed_count} disabled={!!batchBusy} /></label>
+                <label>자료 한 편의 길이<select aria-label="자료 한 편의 길이" bind:value={batchForm.length_key} disabled={!!batchBusy}><option value="brief">간단 · 약 700자</option><option value="standard">보통 · 약 1,400자</option><option value="detailed">상세 · 약 2,800자</option></select></label>
               </div>
               <label>추가 지시 <textarea bind:value={batchForm.additional_instruction} disabled={!!batchBusy} maxlength="4000" placeholder="예: 지역별 재료와 계층 차이를 드러내고, 축제 음식은 제외해 줘."></textarea></label>
+              <div class="batch-run-plan" aria-label="자동 실행 계획"><span>자동 실행</span><strong>씨앗 기획 · {batchForm.planner_model_key === 'qwen' ? 'Qwen' : 'Gemma'}</strong><i aria-hidden="true">→</i><strong>본문 집필 · {batchForm.writer_model_key === 'gemma' ? 'Gemma' : 'Qwen'}</strong><small>한 번에 최대 {batchForm.max_concurrency}개</small></div>
+              <details class="batch-advanced">
+                <summary>고급 설정</summary>
+                <div class="grid-3">
+                  <label>씨앗 기획 모델<select aria-label="씨앗 기획 모델" bind:value={batchForm.planner_model_key} disabled={!!batchBusy}><option value="qwen">Qwen</option><option value="gemma">Gemma</option></select></label>
+                  <label>본문 집필 모델<select aria-label="본문 집필 모델" bind:value={batchForm.writer_model_key} disabled={!!batchBusy}><option value="gemma">Gemma</option><option value="qwen">Qwen</option></select></label>
+                  <label>동시 작업 수<input aria-label="동시 작업 수" type="number" min="1" max="10" bind:value={batchForm.max_concurrency} disabled={!!batchBusy} /></label>
+                </div>
+              </details>
             {:else if batchStep === 'seeds'}
-              <div class="batch-stage-heading"><div><span>2단계 중 1단계 완료</span><h3>본문으로 키울 씨앗 선택</h3><p>제목과 간단한 내용을 고쳐도 됩니다. 최대 10개를 고르면 선택한 수만큼 집필 에이전트가 동시에 시작합니다.</p></div><strong>{batchSeeds.filter((seed) => seed.selected).length}/10 선택</strong></div>
+              <div class="batch-stage-heading"><div><span>2단계 중 1단계 완료</span><h3>본문으로 키울 씨앗 선택</h3><p>마음에 드는 것만 고르세요. 제목과 간단한 내용은 바로 고칠 수 있습니다.</p></div><strong>{batchSeeds.filter((seed) => seed.selected).length}/10 선택</strong></div>
               <div class="batch-seed-list">
                 {#each batchSeeds as seed, index}
                   <article class:selected={seed.selected} class="batch-seed-card">
                     <button type="button" class="batch-check" aria-label={`${seed.title} 선택`} aria-pressed={seed.selected} disabled={!!batchBusy || (!seed.selected && batchSeeds.filter((item) => item.selected).length >= 10)} on:click={() => toggleBatchSeed(seed.seed_id)}>{seed.selected ? '✓' : index + 1}</button>
-                    <div><input aria-label={`${index + 1}번 씨앗 제목`} bind:value={seed.title} disabled={!!batchBusy} /><textarea aria-label={`${index + 1}번 씨앗 간단 내용`} bind:value={seed.summary} disabled={!!batchBusy}></textarea></div>
+                    <div><input aria-label={`${index + 1}번 씨앗 제목`} bind:value={seed.title} disabled={!!batchBusy} /><textarea aria-label={`${index + 1}번 씨앗 간단 내용`} bind:value={seed.summary} disabled={!!batchBusy}></textarea>{#if seed.distinction}<p class="batch-distinction"><strong>차별점</strong> {seed.distinction}</p>{/if}{#if seed.source_basis?.length}<small class="batch-source-basis">근거 · {seed.source_basis.join(' · ')}</small>{/if}</div>
                   </article>
                 {/each}
               </div>
@@ -1306,6 +1325,7 @@
                     <label>한 줄 요약 <textarea class="batch-summary" aria-label={`${index + 1}번 생성 결과 요약`} bind:value={candidate.summary} disabled={!!batchBusy}></textarea></label>
                     <label>본문 <textarea class="batch-content" aria-label={`${index + 1}번 생성 결과 본문`} bind:value={candidate.content_text} disabled={!!batchBusy}></textarea></label>
                     <label>태그 <input aria-label={`${index + 1}번 생성 결과 태그`} bind:value={candidate.tagsText} disabled={!!batchBusy} placeholder="쉼표로 구분" /></label>
+                    <details class="batch-quality"><summary>설정 근거와 핵심 항목 <span>{candidate.character_count || candidate.content_text.length}자</span></summary><div>{#if candidate.details?.length}<dl>{#each candidate.details as detail}<div><dt>{detail.label}</dt><dd>{detail.value}</dd></div>{/each}</dl>{/if}{#if candidate.inherited_facts?.length}<section><strong>참고 자료에서 계승</strong>{#each candidate.inherited_facts as fact}<p>{fact}</p>{/each}</section>{/if}{#if candidate.candidate_facts?.length}<section><strong>새 설정 후보</strong>{#each candidate.candidate_facts as fact}<p>{fact}</p>{/each}</section>{/if}</div></details>
                     {#if candidate.warnings?.length}<div class="batch-warnings">{#each candidate.warnings as warning}<p>{warning}</p>{/each}</div>{/if}
                   </article>
                 {/each}
@@ -1314,14 +1334,14 @@
             {/if}
           </div>
           <footer>
-            <small>{batchStep === 'setup' ? '씨앗 제안에는 에이전트 1개만 사용합니다.' : batchStep === 'seeds' ? '선택 개수가 실제 동시성입니다. 최대 10개.' : '저장해도 자동으로 정사가 되지 않고 후보로 남습니다.'}</small>
+            <small>{batchStep === 'setup' ? '권장 모델과 동시 작업 수는 자동으로 준비했습니다.' : batchStep === 'seeds' ? `선택한 자료를 최대 ${batchForm.max_concurrency}개씩 나누어 작성합니다.` : '저장해도 자동으로 정식 설정이 되지 않고 후보로 남습니다.'}</small>
             <div>
               {#if batchStep !== 'setup'}<button type="button" class="ghost" disabled={!!batchBusy} on:click={() => batchStep = batchStep === 'results' ? 'seeds' : 'setup'}>이전 단계</button>{/if}
               <button type="button" class="ghost" disabled={!!batchBusy} on:click={closeSettingsModal}>취소</button>
               {#if batchStep === 'setup'}
                 <button type="button" class="primary" disabled={!!batchBusy || !batchForm.source_page_id || !batchForm.category_key || batchForm.seed_count < 6 || batchForm.seed_count > 30} on:click={proposeBatchSeeds}>씨앗 제안받기</button>
               {:else if batchStep === 'seeds'}
-                <button type="button" class="primary" disabled={!!batchBusy || !batchSeeds.some((seed) => seed.selected)} on:click={generateBatchCandidates}>선택한 {batchSeeds.filter((seed) => seed.selected).length}개 본문 만들기</button>
+                <button type="button" class="primary" disabled={!!batchBusy || !batchSeeds.some((seed) => seed.selected) || batchForm.max_concurrency < 1 || batchForm.max_concurrency > 10} on:click={generateBatchCandidates}>선택한 {batchSeeds.filter((seed) => seed.selected).length}개 본문 만들기</button>
               {:else}
                 <button type="button" class="primary" disabled={!!batchBusy || !batchCandidates.some((candidate) => candidate.selected)} on:click={acceptBatchCandidates}>선택한 {batchCandidates.filter((candidate) => candidate.selected).length}개 후보 저장</button>
               {/if}

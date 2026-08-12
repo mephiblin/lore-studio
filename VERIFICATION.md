@@ -1,6 +1,6 @@
 # 검증 기록
 
-최신 갱신: 2026-08-11
+최신 갱신: 2026-08-12
 기준 브랜치: `agent/project-taxonomy-and-ui-polish`
 환경: DGX Spark, 실제 로컬 모델 endpoint
 
@@ -11,7 +11,7 @@
 - Gemma Docker bridge proxy: `lore-studio-gemma-vllm-proxy.socket` active/enabled, `172.17.0.1:18093 → 127.0.0.1:18092`; 실행 중 backend 컨테이너의 `/v1/models`에서 Gemma alias 확인 PASS
 - 모델 설정 UI: production build와 Chromium 1600×900·390×844·360×844 집중 회귀 `3 passed, 1 viewport skip`; 실제 운영 화면도 세 viewport 모두 Writer=Gemma·Utility/Vision=Qwen, 로컬 선택기 3개, 가로 overflow 0, console/page error 0 PASS
 - 모델 설정 DB: 변경 전 `backups/lore-studio-20260810-200130.dump`, 운영 upgrade와 별도 fresh PostgreSQL `upgrade → downgrade 0007 → upgrade` PASS. fresh migration에서 발견한 기존 `0005` index 검사와 신규 migration 멱등성도 보정
-- 세계관 자료 양산: 기획 1호출로 씨앗 6개, 사용자 선택·수정 3개만 최대 active worker 3으로 병렬 생성, 부분 실패 시 성공 1·실패 1을 분리 보존, accept 전 ConceptPage 불변, 2개 명시 저장 후 모두 `CANDIDATE`, 같은 run 중복 저장 409 PASS. 실제 Gemma로 씨앗 6 → 선택 worker 1 → 후보 `수호자들의 정기, 붉은 해초 스프` 저장, 실제 Qwen으로 씨앗 6개와 첫 제안 `첫 번째 달의 침묵` 생성을 완료하고 두 임시 프로젝트 모두 0개로 정리. 모의 모델 UI는 1600×900·390×844·360×844에서 단계 전환·고정 footer·overflow 0 PASS
+- 세계관 자료 양산: 기본 `Qwen 기획 → Gemma 집필 → 동시 작업 4개`와 접힌 고급 설정, 간단·보통·상세 길이, 씨앗 차별점·참고 근거, 자료 종류별 핵심 항목·계승 사실·새 설정 후보를 구현. 선택 3개·`max_concurrency=2`에서 실제 최대 active worker 2, 부분 실패 시 성공 1·실패 1 분리 보존, accept 전 ConceptPage 불변, 명시 저장 후 `CANDIDATE`, 신뢰된 worker 품질 snapshot 저장, 같은 run 중복 저장 409 PASS. 실제 Qwen은 항구 음식 씨앗 6개를 제안했고, Gemma 3-worker 실행에서 처음 확인된 418자 과소 본문·`candidate_fact` 본문 노출·비정상 JSON을 기준으로 과소 분량/ 내부 표식/구조화 응답 자동 재작성과 첫 완전 JSON 객체 복구를 추가. 최종 실모델 결과는 915자·내부 표식 0·계승 사실 4·새 후보 사실 2, 저장 후 `usage_role=CANDIDATE`·`authority_state=CANDIDATE` PASS. 모의 모델 UI는 1600×900·390×844·360×844에서 기본 경로·접힌 고급 설정·단계 전환·고정 footer·가로 overflow 0 PASS. 실제 검증용 프로젝트는 삭제 후 404, 소속 ConceptPage 0개로 정리됨
 - 현장 구술 작성: `세계 내부 구술` Output Profile, `현장 징후에서 경고로` Writing Recipe, `현장 증언 문체` Voice Profile을 분리해 추가. 전용 `max_tokens`·고정 글자 수 없이 기존 분량 계약을 공유하며, 실제 Gemma는 `ORIENT → ANCHOR → EXEMPLIFY → WITHHOLD → ESCALATE → STING` 계획과 1인칭 현장 구술을 생성. 은종의 주인 확정·내부 소제목 노출 없음, 임시 프로젝트 삭제 PASS
 - 전체 UI 회귀 중 발견한 기존 경계: Diablo 관계 카드 검사가 최근 수정 자료 순서에 의존하던 것을 관계 있는 `두리엘`의 명시 선택으로 고정. 모바일 로어북의 네 번째 테마 버튼을 우측 고정 모델 설정 링크가 가리던 재현을 확인하고 44px 영역 예약 후 집중 `3 passed, 1 skipped`, 전체 `45 passed, 11 skipped` PASS
 
@@ -21,10 +21,10 @@
 - 프로젝·글 만들기 fallback 커버: 제목을 Unicode 문자 기준 최대 16자로 확장하고 8자를 넘으면 `8자\n나머지`로 표시. 공용 `coverFallbackLabel`·`white-space:pre-line`을 사용하며 긴 임시 프로젝을 생성·검증·삭제하는 desktop/mobile Playwright PASS. 좌측 `로컬 우선` 설명은 DOM에서 제거했고 1600×900·390×844·360×844에서 문구 0개·가로 overflow 0px·커버 비율 1.778·console/page error 0개, 임시 `UX 검증` 프로젝 0개 PASS
 - 세계관 자료 AI 수정 422 회귀: Tiptap 전체 선택의 실제 `selection_from=0`과 백엔드·JSON Schema의 최솟값 1 불일치를 재현하고 0을 정상 문서 경계로 수정. 실제 Diablo/두리엘 본문을 Chromium 1600×900에서 전체 선택해 요청한 결과 HTTP 200·`CANDIDATE`·`persisted:false`·저장 본문 불변·가로 overflow 0·console error 0 PASS. 422 표준 검증 상세를 필드별로 표시하고 추가 지시 2,000자·연결 자료 12개·문자열 ID/경계 목록 제한을 프론트에서 선검증. 집중 Playwright desktop/mobile 2 passed
 - Ruff: `All checks passed`
-- pytest: `36 passed, 3 skipped` (자료 양산 병렬성·명시 저장·현장 구술 자산 계약 포함; Writer/Utility, Embedding, Vision 실제 endpoint tests는 기본 suite에서 의도적으로 skip)
+- pytest: `46 passed, 3 skipped` (자료 양산 모델 분리·동시성 semaphore·구조화 품질·JSON 복구·자동 재작성·명시 저장 포함; Writer/Utility, Embedding, Vision 실제 endpoint tests는 기본 suite에서 의도적으로 skip)
 - 실제 모델 opt-in: `3 passed` (Writer/Utility structured output, BGE-M3 1024차원, Vision data URL)
-- SvelteKit adapter-node production build: PASS
-- Playwright Chromium desktop 1600×900/mobile 390×844 실제 인수 자료 포함 회귀: `45 passed, 11 skipped`
+- SvelteKit adapter-node production build 및 backend/frontend 컨테이너 재빌드·재기동, `/api/v1/health` PASS. 자료 양산 집중 Playwright는 desktop/mobile 및 desktop에서 강제한 360px 계약 `3 passed, 1 viewport skip`
+- Playwright Chromium desktop 1600×900/mobile 390×844 실제 인수 자료 포함 회귀: `45 passed, 11 skipped`. 병렬 실행에서 프로젝트 전환 직후 0개 상태를 읽던 기존 테스트는 첫 자료 노출을 기다리도록 동기화
 - 세계관 본문 AI 모델 선택: AI 수정에서 Qwen, 이어진 AI 작성에서 Gemma를 선택해 요청 `model_key`와 제안 모델명이 일치하고 desktop/mobile에서 가로 overflow 0 PASS. 실제 요청도 Qwen 수정=`qwen36-heretic-mtp`·`http://host.docker.internal:18091/v1`, Gemma 초안=`gemma4-26b-heretic-mtp`·`http://host.docker.internal:18093/v1`로 GenerationRun에 기록됐으며 둘 다 `CANDIDATE`·`persisted=false`, 원문 불변, 임시 프로젝트 0개로 정리 PASS
 - 빈 데이터/기능별 조건 skip UI 회귀: `27 passed, 29 skipped`
 - 문체·필력: DRAFT 명시 승인·사용 후 새 버전·공용/프로젝트 범위·권리별 짧은 예시 격리 API, 다섯 번째 로컬 탭과 내부 스크롤·고정 footer 모달, 글 만들기 `모델 기본 문체`/승인 프로필 명시 선택, profile/version/example GenerationRun snapshot, 원고 필력 점검과 승인형 수정 제안 PASS

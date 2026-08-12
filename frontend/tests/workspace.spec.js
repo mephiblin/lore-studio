@@ -412,6 +412,7 @@ test('dense Diablo materials stay bounded and use its project taxonomy', async (
 
   await page.goto('/playbook');
   await page.getByLabel('현재 프로젝트').selectOption({ label: 'Diablo' });
+  await expect(page.locator('.wizard-choice-card').first()).toBeVisible();
   await expect(page.locator('.wizard-scope-bar')).toHaveCount(0);
   await expect(page.locator('.scope-switch')).toHaveCount(0);
   expect(await page.locator('.wizard-choice-card').count()).toBeLessThanOrEqual(18);

@@ -243,7 +243,7 @@ class ConceptSeedRequest(BaseModel):
     project_id: str
     source_page_id: str
     category_key: str
-    model_key: Literal["qwen", "gemma"]
+    model_key: Literal["qwen", "gemma"] = "qwen"
     seed_count: int = Field(default=12, ge=6, le=30)
     additional_instruction: str = Field(default="", max_length=4000)
 
@@ -252,6 +252,8 @@ class ConceptSeedRead(BaseModel):
     seed_id: str
     title: str = Field(min_length=1, max_length=300)
     summary: str = Field(min_length=1, max_length=1200)
+    distinction: str = Field(default="", max_length=600)
+    source_basis: list[str] = Field(default_factory=list, max_length=6)
 
 
 class ConceptSeedResponse(BaseModel):
@@ -265,6 +267,9 @@ class ConceptSeedResponse(BaseModel):
 class ConceptBatchGenerateRequest(BaseModel):
     seed_run_id: str
     selected_seeds: list[ConceptSeedRead] = Field(min_length=1, max_length=10)
+    writer_model_key: Literal["qwen", "gemma"] = "gemma"
+    length_key: Literal["brief", "standard", "detailed"] = "standard"
+    max_concurrency: int = Field(default=4, ge=1, le=10)
 
     @field_validator("selected_seeds")
     @classmethod
@@ -283,6 +288,10 @@ class ConceptBatchCandidateRead(BaseModel):
     content_text: str
     tags: list[str]
     warnings: list[str]
+    details: list[dict[str, str]] = Field(default_factory=list)
+    inherited_facts: list[str] = Field(default_factory=list)
+    candidate_facts: list[str] = Field(default_factory=list)
+    character_count: int = 0
 
 
 class ConceptBatchFailureRead(BaseModel):
@@ -297,6 +306,9 @@ class ConceptBatchGenerateResponse(BaseModel):
     requested_count: int
     candidates: list[ConceptBatchCandidateRead]
     failures: list[ConceptBatchFailureRead]
+    writer_model_key: Literal["qwen", "gemma"]
+    length_key: Literal["brief", "standard", "detailed"]
+    max_concurrency: int
 
 
 class ConceptBatchCandidateAccept(BaseModel):

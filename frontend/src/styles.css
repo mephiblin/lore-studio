@@ -450,6 +450,15 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
 .batch-intro strong { color:var(--ink); font:600 17px/1.3 Georgia, "Noto Serif KR", serif; }
 .batch-intro p { margin:6px 0 0; color:var(--muted-text); font-size:11px; line-height:1.65; }
 .batch-setup-grid { align-items:end; }
+.batch-run-plan { display:flex; align-items:center; gap:9px; min-width:0; padding:10px 12px; border:1px solid #b7c7c1; background:#f1f5f2; color:var(--ink); }
+.batch-run-plan span { flex:0 0 auto; color:var(--signal); font-size:9px; font-weight:850; letter-spacing:.08em; text-transform:uppercase; }
+.batch-run-plan strong { font-size:11px; }
+.batch-run-plan i { color:#78918a; font-style:normal; }
+.batch-run-plan small { margin-left:auto; color:var(--muted-text); font-size:10px; white-space:nowrap; }
+.batch-advanced { border-top:1px solid var(--line); }
+.batch-advanced summary { width:max-content; padding:9px 0 0; color:var(--muted-text); cursor:pointer; font-size:10px; font-weight:750; }
+.batch-advanced[open] summary { margin-bottom:10px; color:var(--ink); }
+.batch-advanced .grid-3 { align-items:end; }
 .batch-stage-heading { display:flex; align-items:start; justify-content:space-between; gap:18px; padding-bottom:13px; border-bottom:1px solid var(--line); }
 .batch-stage-heading span { color:var(--signal); font-size:9px; font-weight:850; letter-spacing:.08em; }
 .batch-stage-heading h3 { margin:3px 0 0; color:var(--ink); font:600 21px/1.25 Georgia, "Noto Serif KR", serif; }
@@ -467,6 +476,9 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
 .batch-seed-card > div { min-width:0; display:grid; gap:7px; }
 .batch-seed-card input { color:var(--ink); font-weight:760; }
 .batch-seed-card textarea { min-height:72px; resize:vertical; }
+.batch-distinction { margin:0; color:var(--ink-soft); font-size:10px; line-height:1.55; }
+.batch-distinction strong { margin-right:4px; color:var(--signal); font-size:9px; }
+.batch-source-basis { display:block; color:var(--muted-text); font-size:9px; line-height:1.5; }
 .batch-check { width:32px; height:32px; display:grid; place-items:center; padding:0; border:1px solid var(--line-strong); border-radius:3px; color:var(--muted-text); background:var(--paper); font:750 11px/1 monospace; }
 .batch-seed-card.selected .batch-check { color:#fff; border-color:var(--lichen); background:var(--lichen); }
 .batch-result-card { display:grid; gap:9px; padding:15px; border:1px solid var(--line); background:#fff; }
@@ -475,6 +487,17 @@ details > summary { padding: 13px 0; color: var(--ink); font-size: 13px; font-we
 .batch-result-select input { width:16px; height:16px; }
 .batch-result-card textarea.batch-summary { min-height:68px; }
 .batch-result-card textarea.batch-content { min-height:240px; line-height:1.65; }
+.batch-quality { border:1px solid var(--line); background:var(--paper-deep); }
+.batch-quality summary { display:flex; justify-content:space-between; gap:12px; padding:9px 11px; color:var(--ink-soft); cursor:pointer; font-size:10px; font-weight:800; }
+.batch-quality summary span { color:var(--muted-text); font-weight:650; }
+.batch-quality > div { display:grid; gap:10px; padding:0 11px 11px; }
+.batch-quality dl { display:grid; gap:6px; margin:0; }
+.batch-quality dl div { display:grid; grid-template-columns:minmax(90px, .32fr) minmax(0, 1fr); gap:10px; padding-top:6px; border-top:1px solid var(--line); }
+.batch-quality dt { color:var(--ink); font-size:9px; font-weight:800; }
+.batch-quality dd { margin:0; color:var(--muted-text); font-size:10px; line-height:1.5; }
+.batch-quality section { display:grid; gap:3px; }
+.batch-quality section strong { color:var(--ink); font-size:9px; }
+.batch-quality section p { margin:0; color:var(--muted-text); font-size:10px; line-height:1.45; }
 .batch-warnings, .batch-failures { padding:11px 13px; border:1px solid #d2aaa4; color:#713b36; background:#f8e9e5; font-size:10px; line-height:1.5; }
 .batch-warnings p, .batch-failures p { margin:3px 0 0; }
 
@@ -1221,11 +1244,15 @@ html[data-lorebook-theme] .app-main.workspace-main { transition: background-colo
   .archive-list-actions { max-width:132px; }
   .archive-list-actions button { flex:1 1 100%; }
   .batch-setup-grid { grid-template-columns:1fr; }
+  .batch-run-plan { flex-wrap:wrap; }
+  .batch-run-plan small { width:100%; margin-left:0; }
+  .batch-advanced .grid-3 { grid-template-columns:1fr; }
   .batch-stage-heading { flex-direction:column; gap:6px; }
   .batch-stage-heading > strong { padding:0; }
   .batch-seed-card { grid-template-columns:32px minmax(0, 1fr); padding:9px; }
   .batch-result-card { padding:12px; }
   .batch-result-card textarea.batch-content { min-height:210px; }
+  .batch-quality dl div { grid-template-columns:1fr; gap:3px; }
   .review-summary > span { white-space: normal; }
   .run-actions { grid-template-columns: 1fr; }
   .wizard-card-grid { max-height: min(54vh, 460px); overscroll-behavior: contain; }

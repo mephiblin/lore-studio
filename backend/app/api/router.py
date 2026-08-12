@@ -118,6 +118,7 @@ from app.services.concept_ai import (
 from app.services.concept_batch import (
     BatchContext,
     ConceptBatchError,
+    extract_candidate_quality,
     generate_selected_seeds,
     propose_seeds,
 )
@@ -823,7 +824,7 @@ async def create_concept_batch_seeds(
         model=result.model,
         endpoint=result.endpoint,
         status="completed",
-        prompt_components={"concept_batch": "seed_planning_v1"},
+        prompt_components={"concept_batch": "seed_planning_v2"},
         selected_concept_ids=[source.id],
         params_json=result.params,
         usage_json=result.usage,
@@ -885,19 +886,22 @@ async def generate_concept_batch(
     )
     if category_exists is None:
         raise _error(409, "CONCEPT_BATCH_CATEGORY_REMOVED", "선택했던 자료 종류가 삭제되었습니다.")
-    model_key = seed_run.input_json.get("model_key")
-    if model_key not in {"qwen", "gemma"}:
+    planner_model_key = seed_run.input_json.get("model_key")
+    if planner_model_key not in {"qwen", "gemma"}:
         raise _error(
             409,
             "CONCEPT_SEED_RUN_INVALID",
             "씨앗 생성 기록의 모델 정보가 올바르지 않습니다.",
         )
-    profile = local_text_profile(model_key)
+    writer_model_key = payload.writer_model_key
+    profile = local_text_profile(writer_model_key)
     results = await generate_selected_seeds(
         harness.gateway,
         profile=profile,
         context=context,
         seeds=selected_seeds,
+        length_key=payload.length_key,
+        max_concurrency=payload.max_concurrency,
     )
 
     candidates: list[dict[str, Any]] = []
@@ -913,14 +917,17 @@ async def generate_concept_batch(
                 model=profile.model,
                 endpoint=profile.base_url,
                 status="failed",
-                prompt_components={"concept_batch": "candidate_writer_v1"},
+                prompt_components={"concept_batch": "candidate_writer_v2"},
                 selected_concept_ids=[context.source_page_id],
                 input_hash=seed_run.input_hash,
                 input_json={
                     "seed_run_id": seed_run.id,
                     "source_page_id": context.source_page_id,
                     "category_key": context.category_key,
-                    "model_key": model_key,
+                    "planner_model_key": planner_model_key,
+                    "writer_model_key": writer_model_key,
+                    "length_key": payload.length_key,
+                    "max_concurrency": payload.max_concurrency,
                     "seed": seed,
                 },
                 error_json={"code": code, "message": message},
@@ -943,7 +950,7 @@ async def generate_concept_batch(
             model=result.model,
             endpoint=result.endpoint,
             status="completed",
-            prompt_components={"concept_batch": "candidate_writer_v1"},
+            prompt_components={"concept_batch": "candidate_writer_v2"},
             selected_concept_ids=[context.source_page_id],
             params_json=result.params,
             usage_json=result.usage,
@@ -952,10 +959,13 @@ async def generate_concept_batch(
                 "seed_run_id": seed_run.id,
                 "source_page_id": context.source_page_id,
                 "category_key": context.category_key,
-                "model_key": model_key,
+                "planner_model_key": planner_model_key,
+                "writer_model_key": writer_model_key,
+                "length_key": payload.length_key,
+                "max_concurrency": payload.max_concurrency,
                 "seed": seed,
             },
-            output_text=result.content,
+            output_text=json.dumps(candidate, ensure_ascii=False),
         )
         db.add(run)
         db.flush()
@@ -966,6 +976,9 @@ async def generate_concept_batch(
         "requested_count": len(selected_seeds),
         "candidates": candidates,
         "failures": failures,
+        "writer_model_key": writer_model_key,
+        "length_key": payload.length_key,
+        "max_concurrency": payload.max_concurrency,
     }
 
 
@@ -1042,6 +1055,7 @@ def accept_concept_batch(
     pages: list[ConceptPage] = []
     for item in payload.candidates:
         worker = runs_by_id[item.run_id]
+        quality = extract_candidate_quality(worker.output_text or "")
         page = ConceptPage(
             project_id=seed_run.project_id,
             title=item.title.strip(),
@@ -1061,7 +1075,15 @@ def accept_concept_batch(
                     "seed_run_id": seed_run.id,
                     "seed_id": worker.input_json.get("seed", {}).get("seed_id", ""),
                     "source_page_id": context.source_page_id,
-                    "model_key": seed_run.input_json.get("model_key", ""),
+                    "planner_model_key": seed_run.input_json.get("model_key", ""),
+                    "writer_model_key": worker.input_json.get("writer_model_key", ""),
+                    "length_key": worker.input_json.get("length_key", "standard"),
+                    "details": quality.get("details", []),
+                    "inherited_facts": quality.get("inherited_facts", []),
+                    "candidate_facts": quality.get("candidate_facts", []),
+                    "warnings": quality.get("warnings", []),
+                    "generated_character_count": quality.get("character_count", 0),
+                    "character_count": len(item.content_text.strip()),
                 }
             },
         )

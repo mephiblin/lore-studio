@@ -15,11 +15,17 @@
     "seed": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["seed_id", "title", "summary"],
+      "required": ["seed_id", "title", "summary", "distinction", "source_basis"],
       "properties": {
         "seed_id": { "type": "string", "pattern": "^seed-[1-9][0-9]*$" },
         "title": { "type": "string", "minLength": 1, "maxLength": 300 },
-        "summary": { "type": "string", "minLength": 1, "maxLength": 1200 }
+        "summary": { "type": "string", "minLength": 1, "maxLength": 1200 },
+        "distinction": { "type": "string", "minLength": 1, "maxLength": 600 },
+        "source_basis": {
+          "type": "array",
+          "maxItems": 6,
+          "items": { "type": "string", "minLength": 1, "maxLength": 300 }
+        }
       }
     },
     "seedRequest": {
@@ -46,7 +52,14 @@
           "minItems": 1,
           "maxItems": 10,
           "items": { "$ref": "#/$defs/seed" }
-        }
+        },
+        "writer_model_key": { "$ref": "#/$defs/modelKey", "default": "gemma" },
+        "length_key": {
+          "type": "string",
+          "enum": ["brief", "standard", "detailed"],
+          "default": "standard"
+        },
+        "max_concurrency": { "type": "integer", "minimum": 1, "maximum": 10, "default": 4 }
       }
     },
     "candidate": {

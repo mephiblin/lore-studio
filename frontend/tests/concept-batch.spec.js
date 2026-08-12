@@ -56,7 +56,9 @@ async function mockEditor(page) {
         seeds: Array.from({ length: 6 }, (_, index) => ({
           seed_id: `seed-${index + 1}`,
           title: `성역의 음식 ${index + 1}`,
-          summary: `지역과 계층을 드러내는 음식 글감 ${index + 1}`
+          summary: `지역과 계층을 드러내는 음식 글감 ${index + 1}`,
+          distinction: `다른 지역 ${index + 1}의 식재료와 계층을 다룬다.`,
+          source_basis: ['성역의 사람들은 각 지역의 풍습을 지켰다.']
         }))
       };
     } else if (path === '/concept-batches/generate') {
@@ -66,9 +68,14 @@ async function mockEditor(page) {
         candidates: captured.generate.selected_seeds.map((seed, index) => ({
           run_id: `worker-${index + 1}`, seed_id: seed.seed_id, title: seed.title,
           summary: seed.summary, content_text: `${seed.title}의 유래다.\n\n성역 사람들은 이 음식을 나눈다.`,
-          tags: ['음식', '성역'], warnings: []
+          tags: ['음식', '성역'], warnings: [],
+          details: [{ label: '사회적 용도', value: '의식 때 공동체가 나누어 먹는다.' }],
+          inherited_facts: ['각 지역의 풍습이 이어진다.'],
+          candidate_facts: ['의식 때 이 음식을 나눈다.'],
+          character_count: 34
         })),
-        failures: []
+        failures: [], writer_model_key: captured.generate.writer_model_key,
+        length_key: captured.generate.length_key, max_concurrency: captured.generate.max_concurrency
       };
     } else if (path === '/concept-batches/accept') {
       captured.accept = request.postDataJSON();
@@ -100,19 +107,22 @@ async function mockEditor(page) {
   return captured;
 }
 
-test('world material batch grows selected seeds with matching concurrency and saves only reviewed candidates', async ({ page }) => {
+test('world material batch keeps the default path short and saves only reviewed candidates', async ({ page }) => {
   const captured = await mockEditor(page);
   await page.goto('/editor');
   await page.getByRole('button', { name: '자료 양산' }).click();
   const dialog = page.getByRole('dialog', { name: '세계관 자료 양산' });
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByText('먼저 글감의 지도를 만듭니다.')).toBeVisible();
-  await dialog.getByLabel('사용할 모델').selectOption('qwen');
+  await expect(dialog.getByText('한 번 정하면, 씨앗을 고르는 일만 남습니다.')).toBeVisible();
+  await expect(dialog.getByLabel('자동 실행 계획')).toContainText('씨앗 기획 · Qwen');
+  await expect(dialog.getByLabel('자동 실행 계획')).toContainText('본문 집필 · Gemma');
+  await expect(dialog.getByLabel('씨앗 기획 모델')).toBeHidden();
   await dialog.getByLabel('제안받을 씨앗 수').fill('6');
   await dialog.getByLabel('추가 지시').fill('지역별 재료 차이를 드러내 줘.');
   await dialog.getByRole('button', { name: '씨앗 제안받기' }).click();
 
   await expect(dialog.getByRole('heading', { name: '본문으로 키울 씨앗 선택' })).toBeVisible();
+  await expect(dialog.getByText('차별점').first()).toBeVisible();
   expect(captured.seeds).toMatchObject({
     model_key: 'qwen', source_page_id: source.id, category_key: category.key,
     seed_count: 6, additional_instruction: '지역별 재료 차이를 드러내 줘.'
@@ -126,14 +136,20 @@ test('world material batch grows selected seeds with matching concurrency and sa
   await expect(dialog.getByRole('heading', { name: '완성 결과 검토' })).toBeVisible();
   expect(captured.generate.selected_seeds).toHaveLength(3);
   expect(captured.generate.selected_seeds[0].summary).toBe('사용자가 다듬은 첫 번째 음식 씨앗');
+  expect(captured.generate).toMatchObject({
+    writer_model_key: 'gemma', length_key: 'standard', max_concurrency: 4
+  });
   await dialog.getByLabel('1번 생성 결과 제목').fill('핏빛 밀로 구운 순례빵');
   await dialog.locator('.batch-result-select input').nth(2).uncheck();
+  await dialog.getByText('설정 근거와 핵심 항목').first().click();
+  await expect(dialog.getByText('참고 자료에서 계승').first()).toBeVisible();
   await dialog.getByRole('button', { name: '선택한 2개 후보 저장' }).click();
 
   await expect(dialog).toBeHidden();
   await expect(page.getByText('2개 결과를 검토 후보 자료로 저장했습니다.')).toBeVisible();
   expect(captured.accept.candidates).toHaveLength(2);
   expect(captured.accept.candidates[0].title).toBe('핏빛 밀로 구운 순례빵');
+  expect(captured.accept.candidates[0].candidate_facts).toBeUndefined();
   expect(captured.accept.seed_run_id).toBe('seed-run-1');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
