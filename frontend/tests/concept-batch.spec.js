@@ -195,3 +195,58 @@ test('existing material AI rewrite and draft dialogs select Qwen or Gemma per re
   expect(captured.draft.model_key).toBe('gemma');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
+
+test('mobile AI draft keeps its fields scrollable and submit action visible', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'deterministic mobile-height contract');
+  await page.setViewportSize({ width: 390, height: 500 });
+  const captured = await mockEditor(page);
+  await page.goto('/editor');
+  await page.getByRole('button', { name: '글 편집' }).click();
+  await page.getByRole('button', { name: 'AI 작성' }).click();
+
+  const dialog = page.getByRole('dialog', { name: 'AI 작성' });
+  const body = dialog.locator('.ai-draft-body');
+  const footer = dialog.locator('footer');
+  const submit = dialog.getByRole('button', { name: '초안 제안' });
+  await dialog.getByLabel('무엇을 작성할까요?').fill('항구의 공동 화덕 풍경을 작성해 줘.');
+
+  await expect(dialog).toBeVisible();
+  await expect(footer).toBeVisible();
+  await expect(submit).toBeVisible();
+  const geometry = await dialog.evaluate((element) => {
+    const body = element.querySelector('.ai-draft-body');
+    const footer = element.querySelector('footer');
+    const submit = element.querySelector('button[type="submit"]');
+    const dialogRect = element.getBoundingClientRect();
+    const bodyRect = body.getBoundingClientRect();
+    const footerRect = footer.getBoundingClientRect();
+    const submitRect = submit.getBoundingClientRect();
+    return {
+      dialogTop: dialogRect.top,
+      dialogBottom: dialogRect.bottom,
+      bodyBottom: bodyRect.bottom,
+      footerTop: footerRect.top,
+      footerBottom: footerRect.bottom,
+      submitBottom: submitRect.bottom,
+      bodyOverflowY: getComputedStyle(body).overflowY,
+      bodyScrollable: body.scrollHeight > body.clientHeight,
+      submitAtPoint: document.elementFromPoint(
+        submitRect.left + submitRect.width / 2,
+        submitRect.top + submitRect.height / 2,
+      ) === submit,
+    };
+  });
+  expect(geometry.dialogTop).toBeGreaterThanOrEqual(0);
+  expect(geometry.dialogBottom).toBeLessThanOrEqual(500);
+  expect(geometry.bodyBottom).toBeLessThanOrEqual(geometry.footerTop);
+  expect(geometry.footerBottom).toBeLessThanOrEqual(500);
+  expect(geometry.submitBottom).toBeLessThanOrEqual(500);
+  expect(geometry.bodyOverflowY).toBe('auto');
+  expect(geometry.bodyScrollable).toBe(true);
+  expect(geometry.submitAtPoint).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+
+  await submit.click();
+  await expect(page.getByRole('region', { name: 'AI 본문 제안' })).toContainText('Gemma · 본문 초안');
+  expect(captured.draft.prompt).toBe('항구의 공동 화덕 풍경을 작성해 줘.');
+});

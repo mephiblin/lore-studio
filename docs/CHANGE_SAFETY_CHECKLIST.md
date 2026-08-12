@@ -113,6 +113,7 @@
 - [ ] 실제로 스크롤되지 않는 모바일 자식에 `overscroll-behavior: contain`을 두어 부모 문서 제스처를 차단하지 않는다.
 - [ ] 모바일 AI 패널의 긴 선택 문장·pre·input이 flex/grid min-content 폭으로 편집기와 문서 폭을 늘리지 않는다.
 - [ ] 모바일에서 입력·submit을 자동 scroll/focus한 후 `elementFromPoint`가 하단 메뉴가 아니라 해당 조작을 가리킨다.
+- [ ] 모바일 `AI 작성` modal을 390×500처럼 키보드가 올라온 낮은 가시 높이로 줄여도 가운데 body만 스크롤되고, 참고 자료 목록의 하단이 footer를 넘지 않으며 `초안 제안`이 viewport 안에서 click/tap target이 된다.
 - [ ] 360px command bar에서 프로젝트 선택·생성이 한 행, 글 만들기는 5+4 두 행, 원고 작업은 3칸 한 행을 유지한다.
 - [ ] 1개, 18개, 19개, 73개 자료에서 카드·더 보기·스크롤이 모두 정상이다.
 - [ ] CSS `:has`, `color-mix`, sticky 등 사용 기능이 지원 대상 Chromium에서 실제 동작한다.

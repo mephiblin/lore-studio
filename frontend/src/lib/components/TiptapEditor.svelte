@@ -44,6 +44,8 @@
   let busy = '';
   let aiError = '';
   let cursorAtDraftOpen = 1;
+  let visibleViewportHeight = 0;
+  let visibleViewportTop = 0;
 
   $: filteredSources = sourceOptions.filter((source) => {
     const query = sourceQuery.trim().toLowerCase();
@@ -89,6 +91,19 @@
       onSelectionUpdate: rememberSelection,
       onUpdate: ({ editor: currentEditor }) => editorChanged(currentEditor)
     });
+    const syncVisibleViewport = () => {
+      visibleViewportHeight = Math.round(window.visualViewport?.height || window.innerHeight);
+      visibleViewportTop = Math.round(window.visualViewport?.offsetTop || 0);
+    };
+    syncVisibleViewport();
+    window.visualViewport?.addEventListener('resize', syncVisibleViewport);
+    window.visualViewport?.addEventListener('scroll', syncVisibleViewport);
+    window.addEventListener('resize', syncVisibleViewport);
+    return () => {
+      window.visualViewport?.removeEventListener('resize', syncVisibleViewport);
+      window.visualViewport?.removeEventListener('scroll', syncVisibleViewport);
+      window.removeEventListener('resize', syncVisibleViewport);
+    };
   });
 
   $: if (editor) {
@@ -395,13 +410,19 @@
 </div>
 
 {#if draftOpen}
-  <div class="ai-modal-backdrop" role="presentation" on:mousedown={(event) => event.target === event.currentTarget && (draftOpen = false)}>
+  <div
+    class="ai-modal-backdrop"
+    role="presentation"
+    style={`--ai-visible-height:${visibleViewportHeight ? `${visibleViewportHeight}px` : '100dvh'};--ai-visible-top:${visibleViewportTop}px`}
+    on:mousedown={(event) => event.target === event.currentTarget && (draftOpen = false)}
+  >
     <div class="ai-draft-modal" role="dialog" aria-modal="true" aria-labelledby="ai-draft-title">
       <form class="ai-draft-form" on:submit|preventDefault={submitDraft}>
       <header>
         <div><span>세계관 자료</span><h2 id="ai-draft-title">AI 작성</h2></div>
         <button type="button" class="icon-close" aria-label="AI 작성 닫기" on:click={() => draftOpen = false}>×</button>
       </header>
+      <div class="ai-draft-body">
       <label class="prompt-field">무엇을 작성할까요?
         <textarea bind:value={draftPrompt} placeholder="예: 이 장소의 출입 절차와 주민이 느끼는 긴장을 3개 단락으로 작성해 줘."></textarea>
       </label>
@@ -438,6 +459,7 @@
           {#if !filteredSources.length}<div class="empty-source">조건에 맞는 자료가 없습니다.</div>{/if}
         </div>
       </section>
+      </div>
 
       <footer>
         <small>결과는 저장 전 검토할 제안으로만 생성됩니다.</small>
@@ -536,12 +558,13 @@
   .proposal-warnings { margin:9px 0 0 50px; padding-left:16px; color:#765f25; font-size:11px; }
   .stale-warning { margin:9px 0 0; color:#923c2f; font-size:12px; font-weight:700; }
 
-  .ai-modal-backdrop { position:fixed; inset:0; z-index:1000; display:grid; place-items:center; padding:20px; background:rgba(15, 29, 27, .42); backdrop-filter:blur(2px); }
-  .ai-draft-modal { width:min(620px, 100%); max-height:min(760px, calc(100vh - 40px)); display:flex; flex-direction:column; gap:16px; overflow:hidden; border:1px solid rgba(255,255,255,.5); border-radius:9px; background:var(--paper); box-shadow:0 24px 80px rgba(10,30,27,.28); padding:20px; }
+  .ai-modal-backdrop { position:fixed; top:var(--ai-visible-top, 0); right:0; bottom:auto; left:0; height:var(--ai-visible-height, 100dvh); z-index:1000; display:grid; place-items:center; padding:20px; background:rgba(15, 29, 27, .42); backdrop-filter:blur(2px); }
+  .ai-draft-modal { width:min(620px, 100%); max-height:min(760px, calc(100dvh - 40px)); display:flex; flex-direction:column; overflow:hidden; border:1px solid rgba(255,255,255,.5); border-radius:9px; background:var(--paper); box-shadow:0 24px 80px rgba(10,30,27,.28); padding:20px; }
   .ai-draft-form { min-height:0; display:flex; flex:1 1 auto; flex-direction:column; gap:16px; overflow:hidden; }
-  .ai-draft-modal header { display:flex; align-items:flex-start; justify-content:space-between; }
+  .ai-draft-modal header { flex:0 0 auto; display:flex; align-items:flex-start; justify-content:space-between; }
   .ai-draft-modal header span { color:var(--signal); font-size:11px; font-weight:900; letter-spacing:.09em; text-transform:uppercase; }
   .ai-draft-modal h2 { margin:2px 0 0; color:var(--ink); font:700 25px/1.2 Georgia, "Noto Serif KR", serif; }
+  .ai-draft-body { min-width:0; min-height:0; display:flex; flex:1 1 auto; flex-direction:column; gap:16px; overflow-x:hidden; overflow-y:auto; padding:1px 3px 4px 1px; scrollbar-width:thin; scrollbar-color:var(--line-strong) transparent; }
   .prompt-field textarea { min-height:100px; resize:vertical; }
   .ai-draft-modal fieldset { min-width:0; margin:0; padding:0; border:0; }
   .ai-draft-modal legend { margin-bottom:7px; color:var(--muted-text); font-size:12px; font-weight:800; }
@@ -554,9 +577,9 @@
   .draft-meta select { min-width:120px; }
   .reference-count { display:flex; align-items:center; gap:8px; font-size:12px; }
   .reference-count span { color:var(--muted); }
-  .source-picker { min-height:0; display:flex; flex:1 1 auto; flex-direction:column; gap:8px; }
+  .source-picker { min-height:0; display:flex; flex:0 0 auto; flex-direction:column; gap:8px; }
   .source-picker > p { margin:0; color:var(--muted); font-size:11px; line-height:1.5; }
-  .source-list { min-height:90px; max-height:260px; overflow:auto; border:1px solid var(--line); border-radius:5px; background:#fff; }
+  .source-list { min-height:90px; overflow:visible; border:1px solid var(--line); border-radius:5px; background:#fff; }
   .source-list label { display:flex; align-items:flex-start; gap:9px; padding:10px 11px; border-bottom:1px solid var(--line); }
   .source-list label:last-child { border-bottom:0; }
   .source-list label.selected { background:#f1f6ef; }
@@ -565,7 +588,7 @@
   .source-list strong { color:var(--ink); font-size:13px; }
   .source-list small { overflow:hidden; color:var(--muted); font-size:11px; text-overflow:ellipsis; white-space:nowrap; }
   .empty-source { padding:20px; color:var(--muted); font-size:12px; text-align:center; }
-  .ai-draft-modal footer { display:flex; align-items:center; justify-content:space-between; gap:14px; padding-top:4px; border-top:1px solid var(--line); }
+  .ai-draft-modal footer { flex:0 0 auto; display:flex; align-items:center; justify-content:space-between; gap:14px; padding-top:10px; border-top:1px solid var(--line); background:var(--paper); }
   .ai-draft-modal footer small { color:var(--muted); }
 
   @media (min-width: 821px) {
@@ -585,7 +608,7 @@
     .editor-content :global(.ProseMirror) { min-height: 360px; padding:22px 18px; font-size:15px; }
     .rewrite-controls { grid-template-columns:1fr; }
     .ai-modal-backdrop { align-items:end; padding:0; }
-    .ai-draft-modal { width:100%; max-height:92vh; border-radius:12px 12px 0 0; padding:18px; }
+    .ai-draft-modal { width:100%; max-height:min(92dvh, calc(100dvh - env(safe-area-inset-bottom))); border-radius:12px 12px 0 0; padding:18px; }
     .segmented { grid-template-columns:1fr; }
     .draft-meta, .ai-draft-modal footer { align-items:stretch; flex-direction:column; }
     .ai-draft-modal footer .panel-actions { width:100%; margin-top:0; }

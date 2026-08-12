@@ -13,7 +13,7 @@
 - 모델 설정 DB: 변경 전 `backups/lore-studio-20260810-200130.dump`, 운영 upgrade와 별도 fresh PostgreSQL `upgrade → downgrade 0007 → upgrade` PASS. fresh migration에서 발견한 기존 `0005` index 검사와 신규 migration 멱등성도 보정
 - 세계관 자료 양산: 기본 `Qwen 기획 → Gemma 집필 → 동시 작업 4개`와 접힌 고급 설정, 간단·보통·상세 길이, 씨앗 차별점·참고 근거, 자료 종류별 핵심 항목·계승 사실·새 설정 후보를 구현. 선택 3개·`max_concurrency=2`에서 실제 최대 active worker 2, 부분 실패 시 성공 1·실패 1 분리 보존, accept 전 ConceptPage 불변, 명시 저장 후 `CANDIDATE`, 신뢰된 worker 품질 snapshot 저장, 같은 run 중복 저장 409 PASS. 실제 Qwen은 항구 음식 씨앗 6개를 제안했고, Gemma 3-worker 실행에서 처음 확인된 418자 과소 본문·`candidate_fact` 본문 노출·비정상 JSON을 기준으로 과소 분량/ 내부 표식/구조화 응답 자동 재작성과 첫 완전 JSON 객체 복구를 추가. 최종 실모델 결과는 915자·내부 표식 0·계승 사실 4·새 후보 사실 2, 저장 후 `usage_role=CANDIDATE`·`authority_state=CANDIDATE` PASS. 모의 모델 UI는 1600×900·390×844·360×844에서 기본 경로·접힌 고급 설정·단계 전환·고정 footer·가로 overflow 0 PASS. 실제 검증용 프로젝트는 삭제 후 404, 소속 ConceptPage 0개로 정리됨
 - 현장 구술 작성: `세계 내부 구술` Output Profile, `현장 징후에서 경고로` Writing Recipe, `현장 증언 문체` Voice Profile을 분리해 추가. 전용 `max_tokens`·고정 글자 수 없이 기존 분량 계약을 공유하며, 실제 Gemma는 `ORIENT → ANCHOR → EXEMPLIFY → WITHHOLD → ESCALATE → STING` 계획과 1인칭 현장 구술을 생성. 은종의 주인 확정·내부 소제목 노출 없음, 임시 프로젝트 삭제 PASS
-- 전체 UI 회귀 중 발견한 기존 경계: Diablo 관계 카드 검사가 최근 수정 자료 순서에 의존하던 것을 관계 있는 `두리엘`의 명시 선택으로 고정. 모바일 로어북의 네 번째 테마 버튼을 우측 고정 모델 설정 링크가 가리던 재현을 확인하고 44px 영역 예약 후 집중 `3 passed, 1 skipped`, 전체 `45 passed, 11 skipped` PASS
+- 전체 UI 회귀 중 발견한 기존 경계: Diablo 관계 카드 검사가 최근 수정 자료 순서에 의존하던 것을 관계 있는 `두리엘`의 명시 선택으로 고정. 모바일 로어북의 네 번째 테마 버튼을 우측 고정 모델 설정 링크가 가리던 재현을 확인하고 44px 영역 예약 후 집중 `3 passed, 1 skipped` PASS
 
 - 프로젝트 로컬 `$lore-studio-ui-safety`: skill package 형식 검증 PASS, 기준 문서·5개 생명주기 route와 `/settings` 유틸리티·Alembic head·manifest·API 경유·충돌/디버그 표식 정적 preflight PASS
 - `kill-ai-slop` 프론트 점검: 초기 10개 그룹·64개 scanner 후보를 문맥 분류해 정적 `로컬 우선` 광륜 상태 점, 카드·커버·테마 버튼의 위치/크기 hover, 범용 카드의 대형 그림자, 커버 버튼 glass blur, fallback 커버의 다중 그라데이션·동심원, 홈·로어북 중복 eyebrow를 제거. 재스캔 56개는 로어북 열람 테마·서사 본문 serif·실제 순서·상태 표시·modal 레이어로 확인해 의도적 유지. 카드 hover 전후 geometry 불변, fallback `background-image:none`, `.status-dot` 0개 PASS
@@ -24,7 +24,7 @@
 - pytest: `46 passed, 3 skipped` (자료 양산 모델 분리·동시성 semaphore·구조화 품질·JSON 복구·자동 재작성·명시 저장 포함; Writer/Utility, Embedding, Vision 실제 endpoint tests는 기본 suite에서 의도적으로 skip)
 - 실제 모델 opt-in: `3 passed` (Writer/Utility structured output, BGE-M3 1024차원, Vision data URL)
 - SvelteKit adapter-node production build 및 backend/frontend 컨테이너 재빌드·재기동, `/api/v1/health` PASS. 자료 양산 집중 Playwright는 desktop/mobile 및 desktop에서 강제한 360px 계약 `3 passed, 1 viewport skip`
-- Playwright Chromium desktop 1600×900/mobile 390×844 실제 인수 자료 포함 회귀: `45 passed, 11 skipped`. 병렬 실행에서 프로젝트 전환 직후 0개 상태를 읽던 기존 테스트는 첫 자료 노출을 기다리도록 동기화
+- Playwright Chromium desktop 1600×900/mobile 390×844 실제 인수 자료 포함 회귀: `46 passed, 12 skipped`. 390×500 낮은 가시 높이의 AI 작성 modal 테스트를 추가했고, 병렬 실행에서 프로젝트 전환 직후 0개 상태를 읽던 기존 테스트는 첫 자료 노출을 기다리도록 동기화
 - 세계관 본문 AI 모델 선택: AI 수정에서 Qwen, 이어진 AI 작성에서 Gemma를 선택해 요청 `model_key`와 제안 모델명이 일치하고 desktop/mobile에서 가로 overflow 0 PASS. 실제 요청도 Qwen 수정=`qwen36-heretic-mtp`·`http://host.docker.internal:18091/v1`, Gemma 초안=`gemma4-26b-heretic-mtp`·`http://host.docker.internal:18093/v1`로 GenerationRun에 기록됐으며 둘 다 `CANDIDATE`·`persisted=false`, 원문 불변, 임시 프로젝트 0개로 정리 PASS
 - 빈 데이터/기능별 조건 skip UI 회귀: `27 passed, 29 skipped`
 - 문체·필력: DRAFT 명시 승인·사용 후 새 버전·공용/프로젝트 범위·권리별 짧은 예시 격리 API, 다섯 번째 로컬 탭과 내부 스크롤·고정 footer 모달, 글 만들기 `모델 기본 문체`/승인 프로필 명시 선택, profile/version/example GenerationRun snapshot, 원고 필력 점검과 승인형 수정 제안 PASS
@@ -57,6 +57,7 @@
 - 모바일 UI 재감사: 390×844·360×844 다섯 route에서 세계관 본문의 dead scroll zone을 제거하고 본문 중앙 wheel이 문서 `scrollY`를 이동함을 확인. 360px command bar는 글 만들기 `292→184px`, 원고 작업 `186→134px`, 로어북 목차 `171→122px`; 프로젝트 도구 한 행·가로 overflow 0px PASS
 - 모바일 로어북: `/lorebook` 목차 → `?entry=<id>` 독립 읽기 → `← 목차로` 복귀, 직접 URL·새로고침, 11,969자 문서 scroll, 네 테마, 글 편집 왕복 PASS. desktop은 mobile 목차 `display:none`, 책장+본문 grid, reader `808/7,577px` 유지
 - 모바일 세계관 AI 패널: 긴 선택 문장으로 편집기가 `3,393.7px`로 늘어나던 min-content 폭과 submit pointer interception을 재현·수정. shell/panel `min-width:0`·sticky review 후 정상 click, AI 수정→반영→AI 작성→반영 실제 Chromium PASS
+- 모바일 세계관 `AI 작성`: 390×844에서 참고 자료 목록과 footer가 약 70px 겹치고, 390×500 입력 focus 상태에서 `초안 제안` bottom이 704px로 밀리면서 form `overflow:hidden`으로 접근할 수 없던 실패를 재현. fixed header/footer + 단일 scroll body로 수정한 후 390×844·360×844에서 가로 overflow 0, 390×500에서 body `253/1113px` 스크롤·footer bottom 481px·submit click target PASS. mock API로 실제 제출→Gemma 본문 초안 제안 표시까지 PASS
 - 모바일 프로젝트 생성 창 366×758(하단 메뉴 위), 프로젝트 제목 첫 화면 y=408, 로어북 읽기 기본/편집 왕복, 원고 도구 점프 PASS
 - 원고 저장 회귀: 제목·문단 수정과 새 문단 추가 → 다음 단계 자동 저장 → 새로고침 복원 → 테스트 데이터 원상복구 PASS
 - JSON Schema/YAML/Python bundle validation: PASS
