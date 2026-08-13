@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Add or update Lore Studio writing-lab workspace models in OpenWebUI."""
+"""Explicitly restore archived Lore Studio writing-lab models to OpenWebUI."""
 
 from __future__ import annotations
 
@@ -110,6 +110,11 @@ def main() -> int:
         help="Workspace-model runtime to sync; repeat to include both (default: both)",
     )
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--restore-archived-labs",
+        action="store_true",
+        help="Explicitly restore archived LAB workspace models to OpenWebUI",
+    )
     args = parser.parse_args()
 
     spec = yaml.safe_load(args.spec.read_text(encoding="utf-8"))
@@ -117,6 +122,12 @@ def main() -> int:
     if args.dry_run:
         print(json.dumps({"model_ids": [model["id"] for model in models]}, ensure_ascii=False, indent=2))
         return 0
+    if spec.get("archived", False) and not args.restore_archived_labs:
+        print(
+            "Writing LAB models are archived. Use --restore-archived-labs for an explicit restore.",
+            file=sys.stderr,
+        )
+        return 2
 
     token = os.environ.get("LORE_OPENWEBUI_TOKEN", "").strip()
     if not token:

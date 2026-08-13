@@ -6,6 +6,7 @@
 
 ## 자동 검증
 
+- OpenWebUI Lore Studio 실험 모델 정리: `lore-lab-*` 15개(Qwen 7·Gemma 8)와 `qwen36-diegetic-lore-writer-local` 1개를 정확한 ID 범위로 삭제. 일반 Qwen·Gemma provider와 다른 workspace 모델은 유지하고, 전체 DB와 삭제 행 JSON을 백업. 동기화 명세를 archive로 전환해 명시적 `--restore-archived-labs` 없이는 재등록하지 않음
 - 역할별 이중 vLLM 연결: `/settings`와 `model-connections` API로 Writer=`gemma4-26b-heretic-mtp`, Utility/Vision=`qwen36-heretic-mtp`, Embedding=`bge-m3`를 동시에 등록. key 원문 응답·감사 로그 비노출, `.env` fallback, 저장 전 `/v1/models`/alias 확인, Qwen·Gemma 모두 `enable_thinking=false`와 MTP 독립성 검증 PASS
 - Gemma vLLM 서버 기본 Thinking OFF: `chat_template_kwargs`를 보내지 않은 실호출이 `content=OK`, `reasoning_content=null`로 응답. 동일 요청의 MTP 메트릭은 draft 4/accepted 4로 유지 PASS. Lore Studio Writer DB override·Gemma 선택형 profile·설정 UI도 OFF로 일치
 - LLM fresh-context 감사: 모든 Writer·Utility·Vision·선택형 호출을 분류하고, `AI 작성`은 현재 본문·작성 경계·명시 선택 참고만 전달. 형식 재시도는 실패 assistant 출력을 제외하고 새로 작성하며, 이어쓰기·품질 수정만 현재 채택 초안을 의도적으로 재사용. 전 생성 호출 `max_tokens` 상한 확인 PASS
