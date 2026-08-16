@@ -35,14 +35,6 @@ def test_real_writer_and_utility_profiles() -> None:
     asyncio.run(run())
 
 
-@pytest.mark.skipif(not settings.run_embedding_tests, reason="RUN_EMBEDDING_TESTS=true에서만 실행")
-def test_real_embedding_profile() -> None:
-    vectors, metadata = asyncio.run(ModelGateway().embed(["검은 등대는 북부 항로를 지킨다."]))
-    assert len(vectors) == 1
-    assert len(vectors[0]) == settings.embedding_dimension
-    assert metadata["model"]
-
-
 @pytest.mark.skipif(not settings.run_vision_tests, reason="RUN_VISION_TESTS=true에서만 실행")
 def test_real_vision_profile() -> None:
     one_pixel_png = (

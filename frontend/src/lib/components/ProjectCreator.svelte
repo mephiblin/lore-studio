@@ -35,18 +35,31 @@
       busy = false;
     }
   }
+
+  function closeCreator() {
+    if (!busy) open = false;
+  }
+
 </script>
 
-<button class="secondary" on:click={() => open = !open} aria-expanded={open}>{open ? '닫기' : `+ ${buttonLabel}`}</button>
-{#if open}
-  <section class="project-create-panel stack" aria-label="새 프로젝트 만들기">
-    <div>
-      <strong>새 프로젝트 만들기</strong>
-      <p class="small">하나의 세계관과 그 자료·원고를 독립적으로 보관합니다.</p>
+<svelte:window on:keydown={(event) => event.key === 'Escape' && closeCreator()} />
+
+<div class="project-creator">
+  <button class="secondary" on:click={() => open = !open} aria-expanded={open} aria-haspopup="dialog">{open ? '닫기' : `+ ${buttonLabel}`}</button>
+  {#if open}
+    <button class="project-create-backdrop" aria-label="바깥 영역 눌러 닫기" on:click={closeCreator}></button>
+    <div class="project-create-panel stack" role="dialog" aria-modal="true" aria-labelledby="project-create-title">
+      <header class="row spread">
+        <div>
+          <strong id="project-create-title">새 프로젝트 만들기</strong>
+          <p class="small">하나의 세계관과 그 자료·원고를 독립적으로 보관합니다.</p>
+        </div>
+        <button class="icon-button project-create-close" aria-label="창 닫기" on:click={closeCreator}>×</button>
+      </header>
+      <label>프로젝트 이름 <input bind:value={name} placeholder="예: 수면 도시 연대기" /></label>
+      <label>한 줄 설명 <textarea bind:value={description} placeholder="이 세계의 핵심 전제를 적어 두세요."></textarea></label>
+      {#if error}<p class="notice-error">{error}</p>{/if}
+      <button class="primary project-create-submit" disabled={!name.trim() || busy} on:click={createProject}>{busy ? '만드는 중…' : '프로젝트 만들기'}</button>
     </div>
-    <label>프로젝트 이름 <input bind:value={name} placeholder="예: 수면 도시 연대기" /></label>
-    <label>한 줄 설명 <textarea bind:value={description} placeholder="이 세계의 핵심 전제를 적어 두세요."></textarea></label>
-    {#if error}<p class="notice-error">{error}</p>{/if}
-    <button class="primary" disabled={!name.trim() || busy} on:click={createProject}>{busy ? '만드는 중…' : '프로젝트 만들기'}</button>
-  </section>
-{/if}
+  {/if}
+</div>

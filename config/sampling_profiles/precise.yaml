@@ -1,0 +1,11 @@
+key: precise
+version: "1.0.0"
+name: 정밀
+description: 자료 충실도와 판단의 안정성을 우선합니다.
+best_for: [분석 보고서, 자료 해설, 설정 정리]
+parameters:
+  temperature: 0.38
+  top_p: 0.82
+  top_k: 24
+  frequency_penalty: 0.08
+  presence_penalty: 0.02

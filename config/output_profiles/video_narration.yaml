@@ -1,16 +1,23 @@
 key: video_narration
 version: "1.0.0"
 name: 영상 내레이션
+description: 소리 내어 읽기 좋고 시각 비트가 분명한 원고입니다.
+recommended_recipe_keys: [dramatized_lore, cause_consequence, progressive_exposition]
+recommended_voice_profile_key: spoken_lore
+recommended_sampling_profile: balanced
 rules:
   paragraph_density: medium
   sentence_length: short_to_medium
   spoken_clarity: high
+  narrator_scope: external_broad_but_incomplete
+  finished_manuscript_only: true
   visual_beat_interval_sentences: [2, 4]
   parentheses: avoid
   headings: false
-  evidence_display: hidden
-  target_units: spoken_seconds
-length_presets:
-  short: [90, 180]
-  normal: [240, 480]
-  long: [600, 900]
+  production_directions: on_request_only
+  evidence_display: natural
+  information_selection: listenable
+  meta_commentary: false
+  rhetorical_questions: sparse
+  ending_mode: opening_image_reframed
+  semantic_strength_preserved: true

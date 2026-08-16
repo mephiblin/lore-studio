@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lore-studio.local/schema/concept-ai-edit.schema.json",
+  "title": "Concept editor AI proposal contract",
+  "$defs": {
+    "bodyJson": {
+      "type": "object"
+    },
+    "boundaryFields": {
+      "type": "object",
+      "properties": {
+        "locked_facts": { "type": "array", "items": { "type": "string" } },
+        "open_questions": { "type": "array", "items": { "type": "string" } },
+        "forbidden_changes": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "rewriteRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["body_json", "selection_from", "selection_to", "selection_text"],
+      "properties": {
+        "body_json": { "$ref": "#/$defs/bodyJson" },
+        "model_key": { "enum": ["qwen", "gemma"], "default": "gemma" },
+        "selection_from": { "type": "integer", "minimum": 0 },
+        "selection_to": { "type": "integer", "minimum": 1 },
+        "selection_text": { "type": "string", "minLength": 1, "maxLength": 12000 },
+        "operation": {
+          "enum": ["polish", "shorter", "longer", "clarify", "consistency", "custom"]
+        },
+        "instruction": { "type": "string", "maxLength": 2000 },
+        "source_page_ids": {
+          "type": "array",
+          "maxItems": 12,
+          "uniqueItems": true,
+          "items": { "type": "string" }
+        },
+        "locked_facts": { "type": "array", "items": { "type": "string" } },
+        "open_questions": { "type": "array", "items": { "type": "string" } },
+        "forbidden_changes": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "draftRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["body_json", "prompt"],
+      "properties": {
+        "body_json": { "$ref": "#/$defs/bodyJson" },
+        "model_key": { "enum": ["qwen", "gemma"], "default": "gemma" },
+        "prompt": { "type": "string", "minLength": 1, "maxLength": 4000 },
+        "source_page_ids": {
+          "type": "array",
+          "maxItems": 12,
+          "uniqueItems": true,
+          "items": { "type": "string" }
+        },
+        "placement": { "enum": ["replace", "cursor", "append"] },
+        "length": { "enum": ["short", "normal", "long"] },
+        "locked_facts": { "type": "array", "items": { "type": "string" } },
+        "open_questions": { "type": "array", "items": { "type": "string" } },
+        "forbidden_changes": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "proposal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "concept_page_id",
+        "mode",
+        "model_key",
+        "status",
+        "persisted",
+        "base_body_hash",
+        "proposed_text",
+        "source_page_ids",
+        "warnings"
+      ],
+      "properties": {
+        "run_id": { "type": "string" },
+        "concept_page_id": { "type": "string" },
+        "mode": { "enum": ["rewrite_selection", "draft"] },
+        "model_key": { "enum": ["qwen", "gemma"] },
+        "status": { "const": "CANDIDATE" },
+        "persisted": { "const": false },
+        "base_body_hash": { "type": "string", "minLength": 64, "maxLength": 64 },
+        "original_text": { "type": "string" },
+        "proposed_text": { "type": "string", "minLength": 1 },
+        "selection_from": { "type": ["integer", "null"] },
+        "selection_to": { "type": ["integer", "null"] },
+        "source_page_ids": { "type": "array", "items": { "type": "string" } },
+        "warnings": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  },
+  "oneOf": [
+    { "$ref": "#/$defs/rewriteRequest" },
+    { "$ref": "#/$defs/draftRequest" },
+    { "$ref": "#/$defs/proposal" }
+  ]
+}

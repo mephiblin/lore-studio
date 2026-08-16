@@ -2,11 +2,15 @@ import asyncio
 import json
 
 import httpx
-import pytest
 from conftest import HandlerTransport
 
 from app.config import settings
-from app.services.model_gateway import ModelGateway, ModelGatewayError
+from app.services.model_gateway import ModelGateway, local_text_profile
+
+
+def test_both_selectable_local_models_disable_thinking() -> None:
+    assert local_text_profile("qwen").disable_thinking is True
+    assert local_text_profile("gemma").disable_thinking is True
 
 
 def test_utility_profile_resolves_model_and_records_call(monkeypatch) -> None:
@@ -42,23 +46,3 @@ def test_utility_profile_resolves_model_and_records_call(monkeypatch) -> None:
     assert result.role == "utility"
     assert result.model == "utility-test"
     assert result.audit_metadata()["usage"]["total_tokens"] == 12
-
-
-def test_embedding_dimension_mismatch_stops_indexing(monkeypatch) -> None:
-    monkeypatch.setattr(settings, "embedding_enabled", True)
-    monkeypatch.setattr(settings, "embedding_base_url", "http://embedding.test/v1")
-    monkeypatch.setattr(settings, "embedding_model", "bge-test")
-    monkeypatch.setattr(settings, "embedding_dimension", 3)
-
-    async def handler(request: httpx.Request) -> httpx.Response:
-        if request.url.path == "/v1/models":
-            return httpx.Response(200, json={"data": [{"id": "bge-test"}]})
-        return httpx.Response(
-            200,
-            json={"model": "bge-test", "data": [{"index": 0, "embedding": [0.1, 0.2]}]},
-        )
-
-    gateway = ModelGateway(transport=HandlerTransport(handler))
-    with pytest.raises(ModelGatewayError) as error:
-        asyncio.run(gateway.embed(["차원 불일치"] ))
-    assert error.value.code == "EMBEDDING_DIMENSION_MISMATCH"

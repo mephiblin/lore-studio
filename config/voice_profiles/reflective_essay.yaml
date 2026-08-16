@@ -1,0 +1,33 @@
+key: reflective_essay
+version: "1.0.0"
+name: 구체적 성찰 문체
+description: 구체적인 경험과 관찰에서 출발해 생각이 움직이는 과정을 담담하게 보여 줍니다.
+profile_json:
+  reader_effect: 한 사람의 구체적인 경험을 따라가며 자신의 생각도 조용히 확장하게 한다.
+  sentence_rhythm:
+    - 관찰은 선명하고 짧게, 성찰은 한 호흡 길게 이어 간다.
+    - 문단 끝마다 결론을 선언하지 않고 다음 생각으로 이어질 틈을 둔다.
+  description_rules:
+    - 추상적인 생각 앞에 감각, 사물, 행동 중 하나를 둔다.
+    - 경험을 과장해 보편적 진리로 포장하지 않는다.
+    - 회고자가 실제로 본 것과 나중에 알게 된 것, 지금의 해석을 구분한다.
+  dialogue_rules: []
+  figurative_language:
+    - 글 전체를 관통하는 이미지 한두 개만 반복 변주한다.
+  paragraph_rules:
+    - 경험, 질문, 성찰이 한 문단 안에서 무리하게 경쟁하지 않게 한다.
+    - 문단마다 깨달음을 선언하지 않고 관찰과 생각 사이에 여백을 둔다.
+  avoid_patterns:
+    - 누구나 아는 교훈으로 성급히 마무리
+    - 독자에게 감정을 강요하는 수사 질문의 반복
+    - 다른 사람의 비공개 기록을 회고자의 기억처럼 사용
+    - 기록의 공백을 운명이나 교훈으로 과장
+  best_for: [수필, 에세이, 회고, 여행기]
+  audit_rules:
+    - 성찰이 앞선 경험에서 실제로 이어지는지 확인한다.
+    - 구체성과 추상성의 균형이 한쪽으로 무너지지 않았는지 확인한다.
+    - 첫 장면이나 사물이 결말에서 새 의미를 얻는지 확인한다.
+    - 개인 경험의 범위를 넘어선 단정이 없는지 확인한다.
+  compatibility:
+    viewpoints: [first_observer, third_limited, omniscient]
+    tenses: [present, past]

@@ -1,15 +1,24 @@
 key: in_universe_report
 version: "1.0.0"
 name: 세계 내부 문서
+description: 세계 안의 작성자가 남긴 기록이나 보고처럼 표현합니다.
+recommended_recipe_keys: [in_universe_document, cause_consequence]
+recommended_voice_profile_key: in_universe_scribe
+recommended_sampling_profile: balanced
 rules:
   paragraph_density: medium
   sentence_length: medium
   spoken_clarity: low
-  narrator_scope: in_universe
+  narrator_scope: in_universe_bounded
+  author_knowledge: bounded
+  finished_manuscript_only: true
   headings: contextual
-  evidence_display: in_world
-  target_units: korean_characters
-length_presets:
-  short: [800, 1500]
-  normal: [2000, 4000]
-  long: [5000, 8000]
+  evidence_display: in_world_source
+  meta_commentary: false
+  information_selection: selective
+  temporal_access: document_time_only
+  source_access: author_accessible_only
+  document_furniture: evidence_or_request_only
+  institutional_interest: observable_in_wording
+  ending_mode: in_world_action
+  semantic_strength_preserved: true

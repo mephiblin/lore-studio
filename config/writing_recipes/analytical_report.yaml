@@ -1,0 +1,35 @@
+key: analytical_report
+version: "1.0.0"
+name: 질문에서 결론으로
+description: 조사 목적과 판단 기준을 먼저 밝히고, 핵심 근거와 비교·반론을 검토한 뒤 근거가 허용하는 범위의 결론에 도달합니다.
+best_for: 조사 보고서, 분석 보고서, 검토 의견서처럼 근거와 판단 과정을 분명히 보여 줘야 하는 글
+philosophy:
+  - 사실, 해석, 결론을 같은 층위에 섞지 않는다.
+  - 결론보다 판단 기준과 근거의 한계를 먼저 드러낸다.
+  - 권고나 결론의 강도는 확인된 근거의 강도를 넘지 않는다.
+required_moves:
+  - ORIENT
+  - ANCHOR
+  - COMPARE
+  - COMPLICATE
+  - INTERPRET
+optional_moves:
+  - NARROW
+  - EXEMPLIFY
+  - WITHHOLD
+  - STING
+planner_rules:
+  - 첫 블록에 조사 질문, 범위, 판단 기준을 명시한다.
+  - 핵심 주장마다 어떤 자료나 관찰에 기대는지 표시한다.
+  - 대안 설명이나 반대 근거를 검토한 뒤 결론을 제시한다.
+  - 자료의 누락과 작성자의 의도를 별개로 다루고, 누락만으로 은폐를 확정하지 않는다.
+  - 결론은 거짓·낮음·불충분·부분 설명 중 근거가 허용하는 가장 낮은 충분 강도로 계획한다.
+style_defaults:
+  information_density: high
+  evidence_visibility: explicit
+  certainty_visible: true
+audit_rules:
+  - 사실과 해석과 결론이 문장 수준에서 구분되는지 확인한다.
+  - 결론이 근거의 범위보다 강하게 단정되지 않았는지 확인한다.
+  - 떠남·증상·이동·누락이 실종·변이·은폐로 강화되지 않았는지 확인한다.
+  - 대안 설명과 이를 가를 추가 근거가 함께 제시되는지 확인한다.

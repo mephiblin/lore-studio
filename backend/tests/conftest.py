@@ -21,7 +21,7 @@ def isolated_session() -> Session:
         "sqlite+pysqlite:///:memory:",
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
-        execution_options={"schema_translate_map": {"lore_app": None, "lore_vector": None}},
+        execution_options={"schema_translate_map": {"lore_app": None}},
     )
     Base.metadata.create_all(engine)
     return Session(engine)

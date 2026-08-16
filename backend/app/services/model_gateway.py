@@ -9,8 +9,10 @@ from typing import Any, Literal
 import httpx
 
 from app.config import ModelRole, settings
+from app.services.model_connections import effective_model_profile
 
 ResponseMode = Literal["text", "json_object", "json_schema"]
+SelectableTextModel = Literal["qwen", "gemma"]
 
 
 class ModelGatewayError(RuntimeError):
@@ -28,10 +30,25 @@ class ModelProfile:
     model: str
     timeout_seconds: int
     context_budget: int
+    disable_thinking: bool = False
 
     @classmethod
     def from_settings(cls, role: ModelRole) -> "ModelProfile":
-        return cls(**settings.model_profile(role))  # type: ignore[arg-type]
+        return cls(**effective_model_profile(role))  # type: ignore[arg-type]
+
+
+def local_text_profile(model_key: SelectableTextModel) -> ModelProfile:
+    """Return the explicit Qwen/Gemma endpoint shared by selectable writing tools."""
+    prefix = f"{model_key}_selectable"
+    return ModelProfile(
+        role="utility" if model_key == "qwen" else "writer",
+        base_url=str(getattr(settings, f"{prefix}_model_base_url")),
+        api_key=str(getattr(settings, f"{prefix}_model_api_key")),
+        model=str(getattr(settings, f"{prefix}_model_name")),
+        timeout_seconds=int(getattr(settings, f"{prefix}_model_timeout_seconds")),
+        context_budget=int(getattr(settings, f"{prefix}_context_budget")),
+        disable_thinking=bool(getattr(settings, f"{prefix}_disable_thinking")),
+    )
 
 
 @dataclass
@@ -74,13 +91,22 @@ class ModelGateway:
     def _headers(profile: ModelProfile) -> dict[str, str]:
         return {"Authorization": f"Bearer {profile.api_key}"} if profile.api_key else {}
 
+    @staticmethod
+    def _chat_template_params(profile: ModelProfile) -> dict[str, Any]:
+        if not profile.disable_thinking:
+            return {}
+        return {"chat_template_kwargs": {"enable_thinking": False}}
+
     async def list_models(self, role: ModelRole) -> list[dict[str, Any]]:
         profile = self.profile(role)
+        return await self.list_models_for_profile(profile)
+
+    async def list_models_for_profile(self, profile: ModelProfile) -> list[dict[str, Any]]:
         if not profile.base_url:
             raise ModelGatewayError(
-                f"{role} 모델 엔드포인트가 설정되지 않았습니다.",
+                f"{profile.role} 모델 엔드포인트가 설정되지 않았습니다.",
                 code="MODEL_PROFILE_NOT_CONFIGURED",
-                role=role,
+                role=profile.role,
             )
         try:
             async with self._client(profile) as client:
@@ -92,27 +118,23 @@ class ModelGateway:
                 data = response.json()
         except (httpx.HTTPError, ValueError) as exc:
             raise ModelGatewayError(
-                f"{role} 모델 서버의 /v1/models 확인에 실패했습니다: {exc}",
+                f"{profile.role} 모델 서버의 /v1/models 확인에 실패했습니다: {exc}",
                 code="MODEL_HEALTH_FAILED",
-                role=role,
+                role=profile.role,
             ) from exc
         models = data.get("data", []) if isinstance(data, dict) else []
         return [item for item in models if isinstance(item, dict)]
 
     async def resolve_model(self, profile: ModelProfile) -> tuple[str, dict[str, Any]]:
-        models = await self.list_models(profile.role)
+        models = await self.list_models_for_profile(profile)
+        return self._resolve_model_from_list(profile, models)
+
+    @staticmethod
+    def _resolve_model_from_list(
+        profile: ModelProfile, models: list[dict[str, Any]]
+    ) -> tuple[str, dict[str, Any]]:
         if profile.model:
             match = next((item for item in models if item.get("id") == profile.model), None)
-            if match is None and profile.role == "embedding":
-                normalized = profile.model.lower().replace("_", "-")
-                match = next(
-                    (
-                        item
-                        for item in models
-                        if str(item.get("id", "")).lower().replace("_", "-").startswith(normalized)
-                    ),
-                    None,
-                )
             if match is None:
                 available = ", ".join(str(item.get("id", "")) for item in models[:8]) or "없음"
                 raise ModelGatewayError(
@@ -139,9 +161,10 @@ class ModelGateway:
         return str(loaded["id"]), loaded
 
     @staticmethod
-    def _capabilities(model_info: dict[str, Any]) -> dict[str, Any]:
+    def _capabilities(profile: ModelProfile, model_info: dict[str, Any]) -> dict[str, Any]:
         architecture = model_info.get("architecture", {})
-        input_modalities = architecture.get("input_modalities", ["text"])
+        default_modalities = ["text", "image"] if profile.role == "vision" else ["text"]
+        input_modalities = architecture.get("input_modalities", default_modalities)
         return {
             "chat": True,
             "streaming": True,
@@ -154,28 +177,32 @@ class ModelGateway:
 
     async def health(self, role: ModelRole) -> dict[str, Any]:
         profile = self.profile(role)
+        return await self.health_profile(profile)
+
+    async def health_profile(self, profile: ModelProfile) -> dict[str, Any]:
         try:
-            model, info = await self.resolve_model(profile)
+            models = await self.list_models_for_profile(profile)
+            model, info = self._resolve_model_from_list(profile, models)
             return {
-                "role": role,
+                "role": profile.role,
                 "available": True,
                 "model": model,
-                "capabilities": self._capabilities(info),
+                "models": [str(item.get("id", "")) for item in models if item.get("id")],
+                "capabilities": self._capabilities(profile, info),
                 "error": None,
             }
         except ModelGatewayError as exc:
             return {
-                "role": role,
+                "role": profile.role,
                 "available": False,
                 "model": profile.model,
+                "models": [],
                 "capabilities": {},
                 "error": {"code": exc.code, "message": str(exc)},
             }
 
     async def health_all(self) -> list[dict[str, Any]]:
         roles: list[ModelRole] = ["writer", "utility", "vision"]
-        if settings.embedding_enabled:
-            roles.append("embedding")
         return list(await asyncio.gather(*(self.health(role) for role in roles)))
 
     async def _post_completion(
@@ -204,15 +231,17 @@ class ModelGateway:
                     role=profile.role,
                     model=str(data.get("model") or payload["model"]),
                     endpoint=profile.base_url,
-                    params={
-                        key: value
-                        for key, value in payload.items()
-                        if key not in {"messages", "model"}
-                    },
+                    params={key: value for key, value in payload.items() if key not in {"messages", "model"}},
                     usage=data.get("usage", {}),
                     timings=data.get("timings", {}),
                 )
-            except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as exc:
+            except (
+                httpx.HTTPError,
+                KeyError,
+                IndexError,
+                TypeError,
+                ValueError,
+            ) as exc:
                 last_error = exc
                 if attempt + 1 < attempts:
                     await asyncio.sleep(0.25 * (2**attempt))
@@ -236,12 +265,57 @@ class ModelGateway:
         extra_params: dict[str, Any] | None = None,
     ) -> ModelCallResult:
         profile = self.profile(role)
+        try:
+            return await self.complete_for_profile(
+                profile,
+                messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                response_mode=response_mode,
+                json_schema=json_schema,
+                schema_name=schema_name,
+                seed=seed,
+                extra_params=extra_params,
+            )
+        except ModelGatewayError:
+            if role != "utility" or not settings.allow_utility_writer_fallback:
+                raise
+            writer = self.profile("writer")
+            result = await self.complete_for_profile(
+                writer,
+                messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                response_mode=response_mode,
+                json_schema=json_schema,
+                schema_name=schema_name,
+                seed=seed,
+                extra_params=extra_params,
+            )
+            result.fallback_from = "utility"
+            return result
+
+    async def complete_for_profile(
+        self,
+        profile: ModelProfile,
+        messages: list[dict[str, Any]],
+        *,
+        temperature: float = 0.7,
+        max_tokens: int | None = None,
+        response_mode: ResponseMode = "text",
+        json_schema: dict[str, Any] | None = None,
+        schema_name: str = "lore_studio_response",
+        seed: int | None = None,
+        extra_params: dict[str, Any] | None = None,
+    ) -> ModelCallResult:
+        """Complete against one explicit profile without role fallback."""
         model, _ = await self.resolve_model(profile)
         payload: dict[str, Any] = {
             "model": model,
             "messages": messages,
             "temperature": temperature,
             "stream": False,
+            **self._chat_template_params(profile),
         }
         if max_tokens is not None:
             payload["max_tokens"] = max_tokens
@@ -254,21 +328,15 @@ class ModelGateway:
                 raise ValueError("json_schema 응답에는 스키마가 필요합니다.")
             payload["response_format"] = {
                 "type": "json_schema",
-                "json_schema": {"name": schema_name, "schema": json_schema, "strict": True},
+                "json_schema": {
+                    "name": schema_name,
+                    "schema": json_schema,
+                    "strict": True,
+                },
             }
         if extra_params:
             payload.update(extra_params)
-        try:
-            return await self._post_completion(profile, payload)
-        except ModelGatewayError:
-            if role != "utility" or not settings.allow_utility_writer_fallback:
-                raise
-            writer = self.profile("writer")
-            writer_model, _ = await self.resolve_model(writer)
-            fallback_payload = dict(payload, model=writer_model)
-            result = await self._post_completion(writer, fallback_payload)
-            result.fallback_from = "utility"
-            return result
+        return await self._post_completion(profile, payload)
 
     async def stream_complete(
         self,
@@ -286,6 +354,7 @@ class ModelGateway:
             "messages": messages,
             "temperature": temperature,
             "stream": True,
+            **self._chat_template_params(profile),
         }
         if max_tokens is not None:
             payload["max_tokens"] = max_tokens
@@ -316,53 +385,3 @@ class ModelGateway:
                 code="MODEL_STREAM_FAILED",
                 role=role,
             ) from exc
-
-    async def embed(self, texts: list[str]) -> tuple[list[list[float]], dict[str, Any]]:
-        if not settings.embedding_enabled:
-            raise ModelGatewayError(
-                "임베딩이 비활성화되어 있습니다.",
-                code="EMBEDDING_DISABLED",
-                role="embedding",
-            )
-        profile = self.profile("embedding")
-        model, _ = await self.resolve_model(profile)
-        payload = {"model": model, "input": texts}
-        try:
-            async with self._client(profile) as client:
-                response = await client.post(
-                    f"{profile.base_url.rstrip('/')}/embeddings",
-                    json=payload,
-                    headers=self._headers(profile),
-                )
-                response.raise_for_status()
-                data = response.json()
-            rows = sorted(data.get("data", []), key=lambda item: item.get("index", 0))
-            embeddings = [row["embedding"] for row in rows]
-        except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
-            raise ModelGatewayError(
-                f"임베딩 서버 호출에 실패했습니다: {exc}",
-                code="EMBEDDING_REQUEST_FAILED",
-                role="embedding",
-            ) from exc
-        if len(embeddings) != len(texts):
-            raise ModelGatewayError(
-                "임베딩 응답 개수가 요청과 다릅니다.",
-                code="EMBEDDING_COUNT_MISMATCH",
-                role="embedding",
-            )
-        dimensions = {len(vector) for vector in embeddings}
-        if dimensions and dimensions != {settings.embedding_dimension}:
-            actual = ", ".join(str(value) for value in sorted(dimensions))
-            raise ModelGatewayError(
-                f"임베딩 차원이 설정({settings.embedding_dimension})과 다릅니다: {actual}",
-                code="EMBEDDING_DIMENSION_MISMATCH",
-                role="embedding",
-            )
-        return embeddings, {
-            "role": "embedding",
-            "model": str(data.get("model") or model),
-            "endpoint": profile.base_url,
-            "usage": data.get("usage", {}),
-            "dimension": settings.embedding_dimension,
-            "version": settings.embedding_version,
-        }

@@ -1,0 +1,11 @@
+key: expressive
+version: "1.0.0"
+name: 표현 풍부
+description: 장면과 목소리의 다양한 표현을 허용하되 정사 경계는 그대로 유지합니다.
+best_for: [소설 장면, 수필, 세계 내부 구술]
+parameters:
+  temperature: 0.72
+  top_p: 0.90
+  top_k: 44
+  frequency_penalty: 0.20
+  presence_penalty: 0.12

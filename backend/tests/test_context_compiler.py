@@ -9,7 +9,7 @@ from app.services.context_compiler import compile_context, tiptap_to_text
 def make_db() -> Session:
     engine = create_engine(
         "sqlite+pysqlite:///:memory:",
-        execution_options={"schema_translate_map": {"lore_app": None, "lore_vector": None}},
+        execution_options={"schema_translate_map": {"lore_app": None}},
     )
     Base.metadata.create_all(engine)
     return Session(engine)
@@ -26,6 +26,26 @@ def test_tiptap_to_text_extracts_nested_text() -> None:
     text = tiptap_to_text(doc)
     assert "제목" in text
     assert "본문" in text
+
+
+def test_tiptap_to_text_preserves_markdown_line_breaks() -> None:
+    doc = {
+        "type": "doc",
+        "content": [
+            {
+                "type": "paragraph",
+                "content": [
+                    {"type": "text", "text": "첫 줄"},
+                    {"type": "hardBreak"},
+                    {"type": "text", "text": "둘째 줄"},
+                ],
+            },
+            {"type": "horizontalRule"},
+            {"type": "codeBlock", "content": [{"type": "text", "text": "watch()"}]},
+        ],
+    }
+
+    assert tiptap_to_text(doc) == "첫 줄\n둘째 줄\n\nwatch()"
 
 
 def test_context_separates_facts_and_discourse_references() -> None:
@@ -80,3 +100,33 @@ def test_context_separates_facts_and_discourse_references() -> None:
     assert "외부 IP 사실" not in str(pack)
     assert pack["locked_facts"][0]["fact"] == "북부 항로에 존재한다"
     assert pack["policy"]["reference_facts_are_forbidden"] is True
+    assert pack["output_profile"]["key"] == "lore_article"
+    assert "target_units" not in pack["output_profile"]["rules"]
+    assert pack["sampling_profile"]["key"] == "balanced"
+    assert pack["sampling_profile"]["parameters"]["top_k"] == 32
+
+
+def test_context_depth_is_disabled_without_selected_materials() -> None:
+    db = make_db()
+    project = Project(name="빈 자료", slug="empty-materials")
+    recipe = WritingRecipe(
+        key="report",
+        version="1.0.0",
+        name="보고서",
+        recipe_json={"key": "report", "required_moves": ["ORIENT", "ANCHOR", "INTERPRET"]},
+        is_builtin=True,
+    )
+    db.add_all([project, recipe])
+    db.flush()
+    session = PlaybookSession(
+        project_id=project.id,
+        writing_recipe_id=recipe.id,
+        concept_slots={},
+        settings_json={"context_depth": "max"},
+    )
+    db.add(session)
+    db.commit()
+
+    pack = compile_context(db, session)
+    assert pack["selected_concepts"] == []
+    assert pack["generation_settings"]["context_depth"] == "core"

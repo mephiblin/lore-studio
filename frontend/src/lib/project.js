@@ -13,3 +13,8 @@ export function rememberProject(projectId) {
   if (browser && projectId) localStorage.setItem(PROJECT_KEY, projectId);
 }
 
+export function forgetProject(projectId) {
+  if (browser && localStorage.getItem(PROJECT_KEY) === projectId) {
+    localStorage.removeItem(PROJECT_KEY);
+  }
+}

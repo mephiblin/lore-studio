@@ -1,0 +1,22 @@
+{
+  "evaluated_at": "2026-08-11T14:18:06.679630+00:00",
+  "fixture": "회백항 319년 동부 수문 재개방 의식 — Planner 전개 계약 포함",
+  "comparison": "symbolic_gothic_scaffolded",
+  "results": [
+    {
+      "runtime": "gemma",
+      "profile": "symbolic_gothic",
+      "workspace_model": "lore-lab-symbolic_gothic-gemma",
+      "served_model": "gemma4-26b-heretic-mtp",
+      "elapsed_seconds": 4.975,
+      "usage": {
+        "prompt_tokens": 3376,
+        "total_tokens": 3676,
+        "completion_tokens": 300,
+        "prompt_tokens_details": null
+      },
+      "finish_reason": "stop",
+      "content": "행렬의 앞줄이 청동 단을 밟자 발밑에서 둔탁한 울림이 일었다. 철거된 종탑 쪽에서 낮고 둔탁한 종소리가 정확히 한 번 울렸다. 사람들은 그 소리를 덮기 위해 일제히 웃음을 터뜨렸고, 그 웃음소리가 잦아들기도 전에 다시 발을 옮겨 전진했다.\n\n소금빛 유리가 비치는 수면 위로 빛이 산란하며 행렬의 얼굴과 옷의 색을 지워버렸다. 그 순간, 아까와 똑같이 낮고 둔탁한 종소리가 정확히 한 번 울렸다. 노래하던 사람들의 박자가 어긋나며 멈추었고, 사람들은 옆에 선 이의 어깨를 붙잡으며 중심을 잡았다.\n\n젖은 검은 돌 단상 위에서 시의회 대표가 재개방은 안전의 증거라고 선포했다. 그 말이 채 끝나기도 전에, 다시 한번 낮고 둔탁한 종소리가 정확히 한 번 울려 퍼졌다. 이번에는 누구도 웃지 않았고, 누구도 노래하지 않았다.\n\n행렬의 배가 열린 수문 앞에 이르렀다. 그러나 아무도 노를 물에 넣지 않았다. 들린 노와 검은 돌 위로, 수면 위로 사라지는 등불의 반사만이 어른거렸다."
+    }
+  ]
+}

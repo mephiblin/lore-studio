@@ -1,0 +1,9 @@
+[Unit]
+Description=Docker-internal socket for Lore Studio Gemma vLLM
+
+[Socket]
+ListenStream=172.17.0.1:18093
+NoDelay=true
+
+[Install]
+WantedBy=sockets.target

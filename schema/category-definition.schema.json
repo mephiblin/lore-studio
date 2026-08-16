@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.lore-studio/schema/category-definition.schema.json",
+  "title": "CategoryDefinition",
+  "type": "object",
+  "required": [
+    "project_id",
+    "key",
+    "name",
+    "template_json"
+  ],
+  "properties": {
+    "project_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "description": "프로젝트 안에서 안정적으로 유지되는 내부 식별자"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "description": {
+      "type": "string",
+      "deprecated": true,
+      "description": "이전 데이터 호환용이며 기본 자료 종류 화면에서는 사용하지 않음"
+    },
+    "template_json": {
+      "type": "object",
+      "description": "자료 종류별 선택 속성과 표시 템플릿",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

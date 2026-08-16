@@ -4,27 +4,23 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
-from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     JSON,
     Boolean,
     DateTime,
     Float,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.types import TypeDecorator
 
-from app.config import settings
 from app.db import Base
-
-APP_SCHEMA = "lore_app"
-VECTOR_SCHEMA = "lore_vector"
 
 
 def new_id() -> str:
@@ -35,23 +31,23 @@ def utcnow() -> datetime:
     return datetime.now(UTC)
 
 
-class EmbeddingVector(TypeDecorator[list[float]]):
-    """Use pgvector in PostgreSQL and JSON in isolated SQLite tests."""
-
-    impl = JSON
-    cache_ok = True
-
-    def load_dialect_impl(self, dialect):  # type: ignore[no-untyped-def]
-        if dialect.name == "postgresql":
-            return dialect.type_descriptor(Vector(settings.embedding_dimension))
-        return dialect.type_descriptor(JSON())
-
-
 class TimestampMixin:
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
     )
+
+
+class ModelConnectionSetting(Base, TimestampMixin):
+    __tablename__ = "model_connection_settings"
+
+    role: Mapped[str] = mapped_column(String(32), primary_key=True)
+    base_url: Mapped[str] = mapped_column(Text, nullable=False)
+    api_key: Mapped[str | None] = mapped_column(Text, nullable=True)
+    model: Mapped[str] = mapped_column(String(300), default="", nullable=False)
+    timeout_seconds: Mapped[int] = mapped_column(Integer, nullable=False)
+    context_budget: Mapped[int] = mapped_column(Integer, nullable=False)
+    disable_thinking: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
 
 class Project(Base, TimestampMixin):
@@ -67,6 +63,9 @@ class Project(Base, TimestampMixin):
     concept_pages: Mapped[list["ConceptPage"]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )
+    categories: Mapped[list["CategoryDefinition"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan"
+    )
 
 
 class CategoryDefinition(Base, TimestampMixin):
@@ -74,8 +73,8 @@ class CategoryDefinition(Base, TimestampMixin):
     __table_args__ = (UniqueConstraint("project_id", "key", name="uq_category_project_key"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
-    project_id: Mapped[str | None] = mapped_column(
-        ForeignKey("projects.id", ondelete="CASCADE"), nullable=True, index=True
+    project_id: Mapped[str] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True
     )
     key: Mapped[str] = mapped_column(String(100), nullable=False)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -83,10 +82,18 @@ class CategoryDefinition(Base, TimestampMixin):
     template_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     is_builtin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
+    project: Mapped[Project] = relationship(back_populates="categories")
+
 
 class ConceptPage(Base, TimestampMixin):
     __tablename__ = "concept_pages"
     __table_args__ = (
+        ForeignKeyConstraint(
+            ["project_id", "category_key"],
+            ["category_definitions.project_id", "category_definitions.key"],
+            name="fk_concept_page_project_category",
+            ondelete="RESTRICT",
+        ),
         Index("ix_concept_project_namespace_role", "project_id", "namespace", "usage_role"),
     )
 
@@ -205,15 +212,72 @@ class WritingRecipe(Base, TimestampMixin):
 
 class VoiceProfile(Base, TimestampMixin):
     __tablename__ = "voice_profiles"
+    __table_args__ = (
+        Index(
+            "uq_voice_profile_project_key_version",
+            "project_id",
+            "key",
+            "version",
+            unique=True,
+            postgresql_where=text("project_id IS NOT NULL"),
+            sqlite_where=text("project_id IS NOT NULL"),
+        ),
+        Index(
+            "uq_voice_profile_shared_key_version",
+            "key",
+            "version",
+            unique=True,
+            postgresql_where=text("project_id IS NULL"),
+            sqlite_where=text("project_id IS NULL"),
+        ),
+        Index("ix_voice_profiles_source_analysis_id", "source_analysis_id"),
+        Index("ix_voice_profiles_status", "status"),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
-    project_id: Mapped[str] = mapped_column(
-        ForeignKey("projects.id", ondelete="CASCADE"), index=True, nullable=False
+    project_id: Mapped[str | None] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True, nullable=True
     )
+    key: Mapped[str] = mapped_column(String(120), nullable=False)
+    version: Mapped[str] = mapped_column(String(40), default="1.0.0", nullable=False)
     name: Mapped[str] = mapped_column(String(300), nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="", nullable=False)
     profile_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
-    source_analysis_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
-    approved: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    source_analysis_id: Mapped[str | None] = mapped_column(
+        ForeignKey("reference_analyses.id", ondelete="SET NULL"), nullable=True
+    )
+    is_builtin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="DRAFT", nullable=False)
+
+
+class VoiceProfileExample(Base, TimestampMixin):
+    __tablename__ = "voice_profile_examples"
+    __table_args__ = (
+        Index(
+            "ix_voice_profile_examples_profile",
+            "voice_profile_id",
+            "status",
+            "position",
+        ),
+        Index("ix_voice_profile_examples_source_page", "source_concept_page_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    voice_profile_id: Mapped[str] = mapped_column(
+        ForeignKey("voice_profiles.id", ondelete="CASCADE"), nullable=False
+    )
+    source_concept_page_id: Mapped[str | None] = mapped_column(
+        ForeignKey("concept_pages.id", ondelete="SET NULL"), nullable=True
+    )
+    label: Mapped[str] = mapped_column(String(300), nullable=False)
+    excerpt: Mapped[str] = mapped_column(Text, nullable=False)
+    teaches_json: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    scene_tags: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    rights_basis: Mapped[str] = mapped_column(String(32), default="ANALYSIS_ONLY", nullable=False)
+    use_in_generation: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    position: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="ACTIVE", nullable=False)
+    excerpt_hash: Mapped[str] = mapped_column(String(128), nullable=False)
 
 
 class PlaybookSession(Base, TimestampMixin):
@@ -231,6 +295,10 @@ class PlaybookSession(Base, TimestampMixin):
     voice_profile_id: Mapped[str | None] = mapped_column(
         ForeignKey("voice_profiles.id", ondelete="SET NULL"), nullable=True
     )
+    voice_selection_mode: Mapped[str] = mapped_column(
+        String(32), default="model_default", nullable=False
+    )
+    voice_example_ids: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     output_profile: Mapped[str] = mapped_column(String(100), default="lore_article", nullable=False)
     settings_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     random_pool_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
@@ -449,65 +517,12 @@ class Attachment(Base, TimestampMixin):
     caption: Mapped[str] = mapped_column(Text, default="", nullable=False)
 
 
-class EmbeddingChunk(Base, TimestampMixin):
-    __tablename__ = "embedding_chunks"
-    __table_args__ = (
-        UniqueConstraint(
-            "project_id",
-            "source_id",
-            "chunk_hash",
-            "embedding_model",
-            "embedding_version",
-            name="uq_embedding_chunk_version",
-        ),
-        Index("ix_embedding_scope", "project_id", "universe_namespace", "source_role"),
-        {"schema": VECTOR_SCHEMA},
-    )
-
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
-    project_id: Mapped[str] = mapped_column(
-        ForeignKey(f"{APP_SCHEMA}.projects.id", ondelete="CASCADE"), index=True, nullable=False
-    )
-    concept_page_id: Mapped[str | None] = mapped_column(
-        ForeignKey(f"{APP_SCHEMA}.concept_pages.id", ondelete="CASCADE"), nullable=True, index=True
-    )
-    source_id: Mapped[str] = mapped_column(String(36), nullable=False)
-    universe_namespace: Mapped[str] = mapped_column(String(200), index=True, nullable=False)
-    source_role: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
-    index_scope: Mapped[str] = mapped_column(String(32), default="FACT", index=True, nullable=False)
-    chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
-    chunk_text: Mapped[str] = mapped_column(Text, nullable=False)
-    chunk_hash: Mapped[str] = mapped_column(String(64), nullable=False)
-    search_text: Mapped[str] = mapped_column(Text, default="", nullable=False)
-    embedding: Mapped[list[float]] = mapped_column(EmbeddingVector(), nullable=False)
-    embedding_model: Mapped[str] = mapped_column(String(300), nullable=False)
-    embedding_dimension: Mapped[int] = mapped_column(Integer, nullable=False)
-    embedding_version: Mapped[str] = mapped_column(String(100), nullable=False)
-
-
-class IndexJob(Base, TimestampMixin):
-    __tablename__ = "index_jobs"
-
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
-    project_id: Mapped[str] = mapped_column(
-        ForeignKey("projects.id", ondelete="CASCADE"), index=True, nullable=False
-    )
-    concept_page_id: Mapped[str | None] = mapped_column(
-        ForeignKey("concept_pages.id", ondelete="CASCADE"), nullable=True, index=True
-    )
-    action: Mapped[str] = mapped_column(String(32), default="REINDEX", nullable=False)
-    status: Mapped[str] = mapped_column(String(32), default="PENDING", index=True, nullable=False)
-    attempt_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    error_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
-    stats_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
-
-
 class AuditLog(Base, TimestampMixin):
     __tablename__ = "audit_logs"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
-    project_id: Mapped[str] = mapped_column(
-        ForeignKey("projects.id", ondelete="CASCADE"), index=True, nullable=False
+    project_id: Mapped[str | None] = mapped_column(
+        ForeignKey("projects.id", ondelete="SET NULL"), index=True, nullable=True
     )
     action: Mapped[str] = mapped_column(String(100), nullable=False)
     entity_type: Mapped[str] = mapped_column(String(100), nullable=False)

@@ -3,11 +3,38 @@ import { env } from '$env/dynamic/public';
 
 const apiPort = env.PUBLIC_API_PORT || '18000';
 
+const API_FIELD_LABELS = {
+  body_json: '본문',
+  selection_from: '선택 시작 위치',
+  selection_to: '선택 끝 위치',
+  selection_text: '선택 영역',
+  operation: '수정 방식',
+  instruction: '추가 지시',
+  source_page_ids: '연결 자료'
+};
+
 export const API_BASE =
   env.PUBLIC_API_BASE_URL ||
   (browser
     ? `${window.location.protocol}//${window.location.hostname}:${apiPort}/api/v1`
     : `http://localhost:${apiPort}/api/v1`);
+
+function validationMessage(issues) {
+  if (!Array.isArray(issues) || !issues.length) return '';
+  return issues.slice(0, 3).map((issue) => {
+    const field = issue?.loc?.at(-1);
+    const label = API_FIELD_LABELS[field] || field || '요청 값';
+    const limit = issue?.ctx?.max_length;
+    if (limit && ['string_too_long', 'too_long'].includes(issue?.type)) {
+      const unit = field === 'source_page_ids' ? '개' : '자';
+      return `${label}은(는) ${Number(limit).toLocaleString('ko-KR')}${unit} 이하여야 합니다.`;
+    }
+    if (issue?.type === 'greater_than_equal' && Number.isFinite(issue?.ctx?.ge)) {
+      return `${label}은(는) ${issue.ctx.ge} 이상이어야 합니다.`;
+    }
+    return `${label}: ${issue?.msg || '요청 값을 확인해 주세요.'}`;
+  }).join(' ');
+}
 
 async function request(path, options = {}) {
   const response = await fetch(`${API_BASE}${path}`, {
@@ -24,6 +51,7 @@ async function request(path, options = {}) {
       const data = await response.json();
       if (typeof data.detail === 'string') detail = data.detail;
       else if (data.detail?.message) detail = `${data.detail.message} (${data.detail.code || 'API_ERROR'})`;
+      else if (Array.isArray(data.detail)) detail = validationMessage(data.detail) || detail;
     } catch {
       // Keep the HTTP status text.
     }

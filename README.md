@@ -1,15 +1,17 @@
 # Lore Studio v1.0
 
-Lore Studio는 세계관 자료, 프로젝트 집필 지침, 공유 전개 방식, 결과물 형식을 분리해 조합하고 로컬 LLM으로 근거가 추적되는 원고를 만드는 단일 사용자용 로컬 작업실입니다. 생성 원고에서 발견한 새 설정은 `CANDIDATE → DRAFT_SETTING → PROJECT_CANON` 승인 단계를 거치며 자동으로 정사가 되지 않습니다.
+Lore Studio는 세계관 자료, 프로젝트 집필 지침, 전개 방식, 결과물 형태를 분리해 조합하고 로컬 LLM으로 근거가 추적되는 글을 만드는 단일 사용자용 로컬 작업실입니다. 초안에서 발견한 설정 후보는 `CANDIDATE → DRAFT_SETTING → PROJECT_CANON` 승인 단계를 거치며 자동으로 정식 설정이 되지 않습니다.
 
 ## 현재 구현
 
-- FastAPI, PostgreSQL 16, `pgvector`, Alembic의 `lore_app`/`lore_vector` 분리 스키마
-- Writer/Utility/Vision/Embedding 역할별 OpenAI 호환 로컬 모델 게이트웨이
-- BGE-M3 청크 인덱싱, 프로젝트·namespace·source role 격리, FTS/Dense RRF 검색
-- 컨셉/관계/집필 지침/공유 전개 방식/플레이북 CRUD와 revision·audit log
-- Context → editable Plan → LoreBlock Draft → 세 감사 → revision 단계 기록
-- 문단 잠금, 부분 재작성 Diff 승인/폐기, 후보 추출/승인, Markdown/HTML/JSON 내보내기
+- FastAPI, PostgreSQL 16, Alembic의 `lore_app` 권위 스키마
+- Writer/Utility/Vision 역할별 OpenAI 호환 로컬 모델 게이트웨이
+- 세계관 자료/관계/집필 지침/프로젝트별 전개 방식/글 만들기 기록 CRUD와 revision·audit log
+- 참고 자료·자료 종류·길이를 고르면 Qwen이 차별점과 근거가 붙은 씨앗을 기획하고, 사용자가 고른 최대 10개만 Gemma가 종류별 핵심 항목과 설정 경계를 갖춘 후보 자료로 확장하는 자료 양산. 모델·동시 작업 수는 접힌 고급 설정에서 변경
+- 자료 경계 자동 컴파일 + 편집 가능한 글의 흐름 → LoreBlock 초안 → 세 감사 → revision 단계 기록
+- 제목·상태·전체 문단 원자 저장, 단계 이동 자동 저장, 문단 추가·삭제·잠금, 부분 재작성 Diff 승인/폐기
+- 최신 초안과 읽기 전용 원본 설계, 명시적인 보강 목표를 Writer에 전달하는 완성 다듬기와 별도 로어북 저장
+- 세계관 자료의 서식·Markdown 양방향 편집, 로어북 Markdown 읽기·편집, Markdown/HTML/JSON 내보내기
 - 이미지 Vision 제안, 참고 글 구조 분석, 내레이션 visual beat/ComfyUI 초안
 - 한국어 SvelteKit/Tiptap 데스크톱·모바일 UI와 Playwright 검증
 
@@ -29,7 +31,7 @@ docker compose up --build
 
 UI/API는 현재 신뢰하는 LAN 접속을 위해 `0.0.0.0`에 바인딩되며, DB는 로컬호스트에만 유지됩니다. 인증이 없으므로 라우터 포트 포워딩으로 인터넷에 공개하지 마십시오.
 
-현재 DGX 실측 설정은 Gemma 4 26B Writer/Utility/Vision과 BGE-M3 실제 endpoint만 사용합니다. 앱 내 가상 모델 경로는 제거했습니다. Qwen3.5-4B는 namespace 격리 평가 실패로 기본 Utility에서 제외했습니다. 결과는 [`docs/model-evaluations/utility-models.md`](docs/model-evaluations/utility-models.md)에 있습니다.
+모델 연결은 `/settings`에서 Writer·Utility·Vision 역할별 OpenAI 호환 endpoint를 시험하고 저장할 수 있으며, 저장값이 없으면 `.env`를 사용합니다. 현재 DGX에서는 세 역할마다 Qwen3.6 또는 Gemma4 vLLM을 독립 선택할 수 있습니다. 기본 권장 분담은 Writer=Gemma·Utility/Vision=Qwen입니다. 과거 Qwen3.5-4B Utility 평가는 별도 결과이며 [`docs/model-evaluations/utility-models.md`](docs/model-evaluations/utility-models.md)에 보존합니다.
 
 ## 검증
 
@@ -37,20 +39,25 @@ UI/API는 현재 신뢰하는 LAN 접속을 위해 `0.0.0.0`에 바인딩되며,
 make test
 make lint
 make build
+make validate
+# 검은 항로 검증 자료가 적재된 환경의 전체 인수 테스트
 make e2e
 make test-models
 ```
 
-기본 테스트는 인터넷과 모델 없이 통과합니다. `make test-models`만 실제 로컬 endpoint가 필요합니다. 운영 명령은 `make migrate`, `make seed`, `make reindex`, `make backup`, 명시적 확인이 필요한 `make restore RESTORE_FILE=... RESTORE_CONFIRM=restore-lore-studio`입니다.
+`make test`, `make lint`, `make build`, `make validate`는 인터넷과 모델 없이 통과합니다. 기본 UI만 확인할 때는 `npm --prefix frontend run test:e2e`를 사용하고, `make e2e`는 검은 항로 프로젝트와 초안이 적재된 인수 환경을 대상으로 합니다. `make test-models`만 실제 로컬 endpoint가 필요합니다. 운영 명령은 `make migrate`, `make seed`, `make backup`, 명시적 확인이 필요한 `make restore RESTORE_FILE=... RESTORE_CONFIRM=restore-lore-studio`입니다.
 
 ## 문서
 
 - 첫 설치: [`docs/LOCAL_SETUP.md`](docs/LOCAL_SETUP.md)
 - 모델: [`docs/LOCAL_MODELS.md`](docs/LOCAL_MODELS.md)
 - 사용 순서: [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md)
-- 화면 구조와 용어: [`docs/INFORMATION_ARCHITECTURE.md`](docs/INFORMATION_ARCHITECTURE.md)
+- 화면 구조와 용어: [`docs/INFORMATION_ARCHITECTURE.md`](docs/INFORMATION_ARCHITECTURE.md), [`docs/UI_PAGE_CONTRACT.md`](docs/UI_PAGE_CONTRACT.md)
 - 운영/백업: [`docs/OPERATIONS.md`](docs/OPERATIONS.md), [`docs/BACKUP_RESTORE.md`](docs/BACKUP_RESTORE.md)
-- 데이터 경계: [`docs/EMBEDDING_ISOLATION.md`](docs/EMBEDDING_ISOLATION.md), [`docs/SECURITY_AND_DATA.md`](docs/SECURITY_AND_DATA.md)
-- 개발/상태: [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md), [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md)
+- 데이터 경계: [`docs/SECURITY_AND_DATA.md`](docs/SECURITY_AND_DATA.md)
+- 개발/상태: [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md), [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md), [`docs/CHANGE_SAFETY_CHECKLIST.md`](docs/CHANGE_SAFETY_CHECKLIST.md)
+- 제품·작문 계약: [`docs/PROJECT_SPECIFICATION.md`](docs/PROJECT_SPECIFICATION.md), [`docs/WRITING_SYSTEM.md`](docs/WRITING_SYSTEM.md)
+- 검증·남은 작업: [`VERIFICATION.md`](VERIFICATION.md), [`TASKS.md`](TASKS.md)
+- 프로젝트 UI 점검 skill: [`.codex/skills/lore-studio-ui-safety/SKILL.md`](.codex/skills/lore-studio-ui-safety/SKILL.md)
 
 모델 파일, `.env`, 사용자 데이터, 백업, 평가 원문과 생성 artifact는 Git에서 제외됩니다.
