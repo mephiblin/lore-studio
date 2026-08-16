@@ -21,6 +21,7 @@ backend/alembic/versions/20260809_0005_voice_profiles.py
 backend/alembic/versions/20260809_0006_project_delete_audit.py
 backend/alembic/versions/20260810_0007_model_connection_settings.py
 backend/alembic/versions/20260810_0008_model_thinking_mode.py
+backend/alembic/versions/20260813_0009_remove_embedding.py
 backend/app/__init__.py
 backend/app/api/__init__.py
 backend/app/api/model_connections.py
@@ -43,7 +44,6 @@ backend/app/services/model_gateway.py
 backend/app/services/model_connections.py
 backend/app/services/revisions.py
 backend/app/services/sampling.py
-backend/app/services/search.py
 backend/app/services/utility_tools.py
 backend/app/services/writing_moves.py
 backend/pyproject.toml
@@ -58,9 +58,9 @@ backend/tests/test_concept_batch.py
 backend/tests/test_draft_editing.py
 backend/tests/test_generation_pipeline.py
 backend/tests/test_local_models.py
+backend/tests/test_llm_call_contract.py
 backend/tests/test_model_gateway.py
 backend/tests/test_model_connections.py
-backend/tests/test_search.py
 backend/tests/test_sampling_profiles.py
 backend/tests/test_writing_recipes.py
 backend/tests/test_voice_profiles.py
@@ -119,7 +119,6 @@ docs/BACKUP_RESTORE.md
 docs/CHANGE_SAFETY_CHECKLIST.md
 docs/DATA_MODEL.md
 docs/DEVELOPMENT.md
-docs/EMBEDDING_ISOLATION.md
 docs/IMPLEMENTATION_STATUS.md
 docs/INFORMATION_ARCHITECTURE.md
 docs/LLM_HARNESS.md
@@ -160,6 +159,7 @@ frontend/src/lib/components/TiptapEditor.svelte
 frontend/src/lib/components/WritingBriefSpecimen.svelte
 frontend/src/lib/extensions/LoreBlock.js
 frontend/src/lib/labels.js
+frontend/src/lib/markdown.js
 frontend/src/lib/project.js
 frontend/src/routes/+layout.svelte
 frontend/src/routes/+page.svelte
@@ -176,6 +176,7 @@ frontend/svelte.config.js
 frontend/tests/workspace.spec.js
 frontend/tests/model-settings.spec.js
 frontend/tests/concept-batch.spec.js
+frontend/tests/markdown.spec.js
 frontend/vite.config.js
 sample/README.md
 sample/concept-pages/black-lighthouse.md
@@ -198,7 +199,6 @@ scripts/compare_utility_models.py
 scripts/download_fallback_model.py
 scripts/evaluate_openwebui_writing_lab.py
 scripts/evaluate_utility_model.py
-scripts/reindex_all.py
 scripts/seed_diablo_lore.py
 scripts/seed_world.py
 scripts/smoke_test.sh

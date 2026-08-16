@@ -359,15 +359,15 @@
 
 ## 9-A. 모델 연결 유틸리티 `/settings`
 
-Writer·Utility·Vision·Embedding 역할별 OpenAI 호환 연결을 시험하고 저장하는 운영 화면입니다. 글·설정 자료를 다루는 여섯 번째 생명주기 페이지가 아니므로 `01–05` 번호와 모바일 하단 5칸을 유지합니다.
+Writer·Utility·Vision 역할별 OpenAI 호환 연결을 시험하고 저장하는 운영 화면입니다. 글·설정 자료를 다루는 여섯 번째 생명주기 페이지가 아니므로 `01–05` 번호와 모바일 하단 5칸을 유지합니다.
 
 - 데스크톱에서는 좌측 메뉴 하단의 별도 `모델 연결`, 모바일에서는 우측 상단의 icon-only 톱니 링크로 접근합니다. 현재 위치는 `aria-current=page`로 표시합니다.
-- `.model-profile-grid`는 데스크톱 2열, 820px 이하 1열입니다. 브라우저 자연 스크롤을 사용하고 마지막 Embedding 카드의 저장 버튼이 모바일 하단 메뉴에 가리지 않아야 합니다.
+- `.model-profile-grid`는 데스크톱 2열, 820px 이하 1열입니다. 브라우저 자연 스크롤을 사용하고 마지막 Vision 카드의 저장 버튼이 모바일 하단 메뉴에 가리지 않아야 합니다.
 - 각 역할 카드는 Base URL, 모델 alias, API 키, timeout, context 예산과 `.env 기본값 / 앱 저장값` 출처를 보여 줍니다.
 - API 키 입력은 password이며 비워 저장하면 기존 키를 유지합니다. 서버 응답·감사 로그는 키 원문을 반환하지 않고 `저장됨` 여부만 표시합니다.
 - `연결 시험`은 저장하지 않습니다. `시험하고 저장`은 `/v1/models`와 alias를 확인한 경우에만 DB를 바꾸며, 실패하면 편집값과 재시도 동작을 유지합니다.
 - Writer·Utility·Vision 카드의 `이 PC의 로컬 vLLM` 선택은 Qwen(`host.docker.internal:18091/v1`, `qwen36-heretic-mtp`)과 Gemma(`host.docker.internal:18093/v1`, `gemma4-26b-heretic-mtp`)를 각각 제공합니다. 역할별로 서로 다른 모델을 선택할 수 있고 `직접 입력`도 유지합니다.
-- `이 PC 권장 분담 적용`은 Writer에 Gemma, Utility·Vision에 Qwen을 채우며 Embedding 값을 바꾸지 않습니다. 로컬 Qwen과 Gemma는 모두 `Thinking 끄기`를 기본으로 사용하고, thinking 비활성화는 응답 추론 모드만 바꾸며 vLLM native MTP를 끄지 않습니다.
+- `이 PC 권장 분담 적용`은 Writer에 Gemma, Utility·Vision에 Qwen을 채웁니다. 로컬 Qwen과 Gemma는 모두 `Thinking 끄기`를 기본으로 사용하고, thinking 비활성화는 응답 추론 모드만 바꾸며 vLLM native MTP를 끄지 않습니다.
 - 인증 없는 신뢰 LAN 앱과 DB 평문 secret 저장 경계를 화면 하단에 경고하고 인터넷 직접 공개를 금지합니다.
 
 ## 10. 상태별 공통 표현
@@ -413,7 +413,7 @@ Writer·Utility·Vision·Embedding 역할별 OpenAI 호환 연결을 시험하�
 | 확인·작성 | 왼쪽 원고 설계가 사라짐, 흐름과 초안이 서로 다른 긴 영역에 중복됨, 수정 후 확인으로 못 돌아옴, 취소해도 선택이 남음, 실행 전 단계가 녹색 |
 | 원고 작업 | 제목 toolbar의 과도한 여백·버튼 오정렬, 문단 카드 사이의 큰 공백, 세 원고 도구가 동시에 본문과 경쟁, 완성 다듬기에서 최초 형식·시점·전개를 다시 선택하게 함, 보강 선택이 Finalizer 입력과 분리됨, 완성본 확인의 반복 수정 버튼, 모바일 단계 이동 후 새 화면 상단 이탈, 본문 스크롤 불가, 하단 계속 버튼 접근 불가 |
 | 로어북 | 기본 편집 상태, 출처 초안까지 함께 삭제, provenance가 본문보다 우세, mobile에서 목차·select·긴 본문이 동시 노출됨, mobile 읽기에서 `목차로`가 없음, 테마가 본문·내보내기 데이터에 섞임, 질감 때문에 읽기·편집 대비가 무너짐, 문서 밖 여백이 밝게 떠 보임, 공통 `글 편집` 버튼이 테마마다 달라짐, 어반 판타지가 공포 질감으로 퇴행함 |
-| 모델 연결 | 모바일 하단 메뉴가 6칸으로 늘어남, API 키가 응답·감사 기록에 보임, 연결 시험 실패 후 저장됨, Qwen·Gemma 중 하나만 선택 가능함, 권장 분담이 Embedding까지 덮음, 360px 가로 overflow |
+| 모델 연결 | 모바일 하단 메뉴가 6칸으로 늘어남, API 키가 응답·감사 기록에 보임, 연결 시험 실패 후 저장됨, Qwen·Gemma 중 하나만 선택 가능함, 360px 가로 overflow |
 | 공통 | tooltip 잘림, 모바일 가로 overflow, 빈 command bar, 죽은 버튼, orphan modal |
 
 ## 13. 변경 시 적용 순서

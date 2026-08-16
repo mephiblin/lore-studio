@@ -24,7 +24,6 @@
   let pageFilter = '';
   let categoryFilter = 'all';
   let relations = [];
-  let indexStats = null;
   let cardSuggestion = null;
   let boundarySuggestion = null;
   let referenceAnalysis = null;
@@ -155,10 +154,9 @@
     closeSettingsModal();
     categoryFilter = 'all';
     try {
-      [pages, cards, indexStats, categories, recipes, voiceProfiles] = await Promise.all([
+      [pages, cards, categories, recipes, voiceProfiles] = await Promise.all([
         api.get(`/concept-pages?project_id=${projectId}`),
         api.get(`/direction-cards?project_id=${projectId}`),
-        api.get(`/index/stats?project_id=${projectId}`),
         api.get(`/categories?project_id=${projectId}`),
         api.get(`/writing-recipes?project_id=${projectId}`),
         api.get(`/voice-profiles?project_id=${projectId}`)
@@ -946,17 +944,6 @@
     } catch (e) { error = e.message; }
   }
 
-  async function reindexPage() {
-    if (!selectedPage) return;
-    busy = '검색 인덱스에 반영하는 중'; error = '';
-    try {
-      const job = await api.post('/index/jobs', { project_id: projectId, concept_page_id: selectedPage.id });
-      await api.post(`/index/jobs/${job.id}/run`, {});
-      indexStats = await api.get(`/index/stats?project_id=${projectId}`);
-      message = '최신 내용을 자료 검색에 반영했습니다.';
-    } catch (e) { error = e.message; }
-    finally { busy = ''; }
-  }
 </script>
 
 <svelte:window on:keydown={handleModalKeydown} />
@@ -1121,8 +1108,6 @@
               <summary>고급 정보</summary>
               <div class="stack details-body">
                 <label>자료 범위 <input disabled={!pageEditing} bind:value={selectedPage.namespace} /></label>
-                <div class="notice"><strong>검색 상태</strong><div class="small">{indexStats?.indexed_pages || 0}개 자료 · {indexStats?.chunks || 0}개 조각</div></div>
-                <button class="secondary" disabled={!pageEditing} on:click={reindexPage}>최신 내용을 검색에 반영</button>
               </div>
             </details>
             {#if selectedPage.usage_role === 'DISCOURSE_REFERENCE'}

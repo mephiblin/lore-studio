@@ -14,8 +14,6 @@
 | 10 | editable plan | PASS | 실제 Gemma 5 blocks + 최종 확인 화면에 바로 열리는 ‘글의 흐름’ 편집 카드 |
 | 11 | Gemma Writer 전체 원고 | PASS | 1,039자/5 blocks |
 | 12 | 검증된 Utility | PASS | Gemma pass, Qwen reject |
-| 13 | BGE-M3 검색 | PASS | 실제 Compose Dense hit |
-| 14 | 임베딩 저장소 격리 | PASS | lore_studio_pgdata/lore_vector |
 | 15 | LoreBlock 저장 | PASS | 제목·상태·전체 문단 원자 저장, 문단 추가/수정/삭제, 단계 이동 자동 저장과 새로고침 복원, 모바일 편집 UI |
 | 16 | 부분 재작성 Diff 승인/취소 | PASS | real proposal/apply + dismiss API/UI, 모바일 원고 도구 점프와 결과 자동 이동 |
 | 17 | 근거와 감사 | PASS | UUID 대신 자료명 근거 chip + 3 auditors |
@@ -24,8 +22,8 @@
 | 20 | 참고 구조 분석·사실 격리 | PASS | raw body excluded + leakage tests |
 | 21 | MD/HTML/JSON export | PASS | 실제 byte 결과 |
 | 22 | 모델 서비스 미연결 UI E2E | PASS | 성공 응답 조작 없이 OFFLINE 상태와 반응형 UI 검증 |
-| 23 | 실제 Writer/Utility/Embedding 결과 | PASS | `VERIFICATION.md`/evaluation JSON |
-| 24 | migration/tests | PASS | PostgreSQL up/down/up, pytest/build/e2e |
+| 23 | 실제 Writer/Utility/Vision 결과 | PASS | `VERIFICATION.md`/evaluation JSON |
+| 24 | migration/tests | PASS | PostgreSQL upgrade, pytest/build/e2e |
 | 25 | 상태 문서 일치 | PASS | README/TASKS/status/audit updated |
 | 26 | 초안 전체를 완성본으로 통합 | PASS | 원본 설계 상속, 구조화 보강 지시, `FINAL_COHERENCE_PASS`, 초안과 로어북 문서 분리, 출처 해시 변경 감지 |
 | 27 | 로어북 독립 탐색 | PASS | 상단 로어북 메뉴, 기본 읽기/명시적 편집 모드, 줄바꿈 제목, 내보내기, 출처 초안 이동 |
@@ -44,7 +42,7 @@
 | 40 | 결과물 견본의 전체 원고 설계 | PASS | 주제·배경·주요 요소·갈등·변수·집필 지침·전개 방식·문체·필력을 원고 설계 장부에 표시하고 형식·시점·시제·분량 출력 장부와 분리, desktop/mobile 일치 |
 | 41 | 장문 실제 분량·로어북 스크롤 | PASS | 6,000자 이상 블록별 이어쓰기, 95% 문자 수 gate와 GenerationRun 감사, 짧은 초안의 원래 목표 복구, reader 실제 scrollTop 변화, 출처·provenance 단일 카드 |
 | 42 | 모바일 스크롤·로어북 목차 | PASS | 390px·360px 다섯 route, 세계관 본문 제스처·AI panel min-width/pointer 안전, 압축 command bar, `/lorebook` 목차 → `?entry` 읽기 → 복귀, 네 테마·직접 URL·desktop 2열 회귀 |
-| 43 | 역할별 로컬 모델 연결 | PASS | Writer·Utility·Vision의 Qwen·Gemma 독립 선택과 권장 분담, Embedding 연결 보존, 연결 시험/저장/`.env` 복귀, API key 응답·감사 로그 마스킹, 1600×900·390×844·360×844 UI 회귀 |
+| 43 | 역할별 로컬 모델 연결 | PASS | Writer·Utility·Vision의 Qwen·Gemma 독립 선택과 권장 분담, 연결 시험/저장/`.env` 복귀, API key 응답·감사 로그 마스킹, 1600×900·390×844·360×844 UI 회귀 |
 | 44 | 세계관 자료 씨앗·병렬 양산 | PASS | 기본 Qwen 기획→Gemma 집필·동시 작업 4개 자동 계획, 접힌 고급 설정, 차별점·근거가 붙은 6–30개 씨앗, 수정 후 1–10개 선택, 선택 수와 별도 worker 동시성, 간단·보통·상세 분량, 종류별 핵심 항목·계승 사실·새 후보 설정, 미선택 미호출, 부분 실패 보존, 명시 저장 전 DB 불변, 저장 후 CANDIDATE, 중복 저장 차단, desktop/mobile/360px modal 회귀 |
 | 45 | 세계관 본문 AI 요청별 모델 선택 | PASS | AI 수정·AI 작성의 Gemma/Qwen 선택 공유, API model_key·explicit profile·GenerationRun 실제 model/endpoint 일치, 선택 모델 무 fallback, 제안 모델 표시, desktop/mobile 회귀 |
 | 46 | 제한 화자의 현장 구술 | PASS | 결과물·전개·문체 분리, 목격·전언·추측과 지식 범위 계약, 전용 max token·고정 글자 수 없음, desktop/mobile 선택, 실제 Gemma 계획·원고, 임시 자료 삭제 |
@@ -53,5 +51,6 @@
 
 | 49 | 세계관 자료·로어북 Markdown | PASS | Tiptap↔Markdown 양방향 편집, 기존 `body_json` 호환, AI 제안 구조 반영, 로어북 `body_markdown` 원문 편집과 제목·강조·목록·인용·코드·링크·구분선 렌더링, raw HTML·URL 안전 검증 |
 | 50 | 세계관 AI 본문 평문 응답 | PASS | JSON 스키마·형식 재시도 없이 평문·Markdown 즉시 CANDIDATE 처리, 기존 JSON 호환, 빈 응답만 실패·감사 |
+| 51 | 미사용 임베딩 검색 제거 | PASS | 생성 컨텍스트의 명시 선택 계약 유지, 모델 역할·검색 API·재색인 UI·파생 벡터/작업 스키마 제거 migration |
 
 대표 실제 프로젝트 slug는 `black-route-chronicle`이며 로컬 전용 DB에 정식 세계관 자료 9개와 관계·집필 지침을 보관합니다. 기본 전개 방식 프리셋은 공용이고, 사용자가 만든 전개 방식과 참고 분석 승인 결과는 프로젝트에 귀속됩니다. 최신 자동 검증 수치는 루트 `VERIFICATION.md`를 권위 기록으로 사용합니다.

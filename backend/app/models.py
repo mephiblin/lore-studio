@@ -4,7 +4,6 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
-from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     JSON,
     Boolean,
@@ -20,13 +19,8 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.types import TypeDecorator
 
-from app.config import settings
 from app.db import Base
-
-APP_SCHEMA = "lore_app"
-VECTOR_SCHEMA = "lore_vector"
 
 
 def new_id() -> str:
@@ -35,18 +29,6 @@ def new_id() -> str:
 
 def utcnow() -> datetime:
     return datetime.now(UTC)
-
-
-class EmbeddingVector(TypeDecorator[list[float]]):
-    """Use pgvector in PostgreSQL and JSON in isolated SQLite tests."""
-
-    impl = JSON
-    cache_ok = True
-
-    def load_dialect_impl(self, dialect):  # type: ignore[no-untyped-def]
-        if dialect.name == "postgresql":
-            return dialect.type_descriptor(Vector(settings.embedding_dimension))
-        return dialect.type_descriptor(JSON())
 
 
 class TimestampMixin:
@@ -533,59 +515,6 @@ class Attachment(Base, TimestampMixin):
     checksum: Mapped[str] = mapped_column(String(128), default="", nullable=False)
     metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     caption: Mapped[str] = mapped_column(Text, default="", nullable=False)
-
-
-class EmbeddingChunk(Base, TimestampMixin):
-    __tablename__ = "embedding_chunks"
-    __table_args__ = (
-        UniqueConstraint(
-            "project_id",
-            "source_id",
-            "chunk_hash",
-            "embedding_model",
-            "embedding_version",
-            name="uq_embedding_chunk_version",
-        ),
-        Index("ix_embedding_scope", "project_id", "universe_namespace", "source_role"),
-        {"schema": VECTOR_SCHEMA},
-    )
-
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
-    project_id: Mapped[str] = mapped_column(
-        ForeignKey(f"{APP_SCHEMA}.projects.id", ondelete="CASCADE"), index=True, nullable=False
-    )
-    concept_page_id: Mapped[str | None] = mapped_column(
-        ForeignKey(f"{APP_SCHEMA}.concept_pages.id", ondelete="CASCADE"), nullable=True, index=True
-    )
-    source_id: Mapped[str] = mapped_column(String(36), nullable=False)
-    universe_namespace: Mapped[str] = mapped_column(String(200), index=True, nullable=False)
-    source_role: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
-    index_scope: Mapped[str] = mapped_column(String(32), default="FACT", index=True, nullable=False)
-    chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
-    chunk_text: Mapped[str] = mapped_column(Text, nullable=False)
-    chunk_hash: Mapped[str] = mapped_column(String(64), nullable=False)
-    search_text: Mapped[str] = mapped_column(Text, default="", nullable=False)
-    embedding: Mapped[list[float]] = mapped_column(EmbeddingVector(), nullable=False)
-    embedding_model: Mapped[str] = mapped_column(String(300), nullable=False)
-    embedding_dimension: Mapped[int] = mapped_column(Integer, nullable=False)
-    embedding_version: Mapped[str] = mapped_column(String(100), nullable=False)
-
-
-class IndexJob(Base, TimestampMixin):
-    __tablename__ = "index_jobs"
-
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
-    project_id: Mapped[str] = mapped_column(
-        ForeignKey("projects.id", ondelete="CASCADE"), index=True, nullable=False
-    )
-    concept_page_id: Mapped[str | None] = mapped_column(
-        ForeignKey("concept_pages.id", ondelete="CASCADE"), nullable=True, index=True
-    )
-    action: Mapped[str] = mapped_column(String(32), default="REINDEX", nullable=False)
-    status: Mapped[str] = mapped_column(String(32), default="PENDING", index=True, nullable=False)
-    attempt_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    error_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
-    stats_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
 
 
 class AuditLog(Base, TimestampMixin):

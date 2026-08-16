@@ -8,8 +8,8 @@ Overall status: COMPLETE
 - Top job: 세계관 자료·집필 지침·전개 방식·결과물 형태를 재현 가능한 글 만들기 기록으로 조합해 근거가 추적되는 초안과 완성본을 실제 모델로 만든다.
 - In scope: 첨부 v1.0의 DB, API, 역할별 모델, 검색, UI, 감사, 후보 승격, 멀티모달 최소 경로, 테스트, CI, 운영 문서.
 - Non-goals: 외부 cloud LLM, 다중 사용자 인증, 모델 파일 배포, 정식 설정 자동 승격, 실제 TTS/ComfyUI 서버 자체 제공.
-- Constraints: Ubuntu ARM64/DGX Spark, Docker Compose, PostgreSQL/pgvector, 로컬 OpenAI-compatible API, 프로젝트 데이터 격리.
-- Completion gates: 27개 인수 조건, 실제 Writer/Utility/Vision/Embedding 대표 실행, offline test/build/UI E2E, Compose/migration/browser, 모든 FIX_NOW 검증.
+- Constraints: Ubuntu ARM64/DGX Spark, Docker Compose, PostgreSQL, 로컬 OpenAI-compatible API, 프로젝트 데이터 격리.
+- Completion gates: 실제 Writer/Utility/Vision 대표 실행, offline test/build/UI E2E, Compose/migration/browser, 모든 FIX_NOW 검증.
 
 ## Product snapshot
 
@@ -20,7 +20,7 @@ Overall status: COMPLETE
 
 ## Current conclusion
 
-Lore Studio는 starter가 아니라 실제 local-first v1.0으로 신뢰할 수 있다. 운영 DB는 Alembic과 전용 vector schema를 사용하고, 권위·reference·namespace 경계는 모델 판단이 아닌 서비스 코드와 테스트가 강제한다. 현재 Compose는 가상 생성 경로 없이 Gemma Writer/Utility/Vision과 BGE-M3로 대표 생성·검색·이미지·수정·후보·export를 완료했다. 초안은 전체 문단 단위로 저장되고 최신 초안은 별도 완성 단계를 거쳐 로어북 문서가 된다. 외부 TTS/ComfyUI가 없을 때는 명시된 fallback만 사용한다.
+Lore Studio는 starter가 아니라 실제 local-first v1.0으로 신뢰할 수 있다. 운영 DB는 Alembic과 단일 권위 스키마를 사용하고, 권위·reference·namespace 경계는 모델 판단이 아닌 서비스 코드와 테스트가 강제한다. 현재 Compose는 가상 생성 경로 없이 Gemma Writer, Qwen Utility/Vision으로 생성·이미지·수정·후보·export를 수행한다. 초안은 전체 문단 단위로 저장되고 최신 초안은 별도 완성 단계를 거쳐 로어북 문서가 된다. 외부 TTS/ComfyUI가 없을 때는 명시된 fallback만 사용한다.
 
 2026-08-09에는 `CHANGE_SAFETY_CHECKLIST.md`와 `UI_PAGE_CONTRACT.md`를 기준으로 현재 다섯 페이지의 UI 안전성을 재감사했습니다. 글 만들기 하단 바의 과도한 수직 padding, 문체·필력 화면의 공통 설정 작업면 grid·스크롤 누락, 다량 설정 카드의 행 압축을 재현하고 수정했습니다. 실제 데이터 전체 E2E, 빈 데이터 E2E, desktop/mobile/narrow viewport, 100개 카드 stress 상태에서 모두 검증됐습니다.
 
@@ -30,10 +30,10 @@ Lore Studio는 starter가 아니라 실제 local-first v1.0으로 신뢰할 수 
 
 | ID | Severity | Domain | Finding | Evidence | Disposition | Acceptance criterion | Status |
 |---|---|---|---|---|---|---|---|
-| F-001 | P1 | Persistence | 운영 DB가 create_all에 의존하고 migration/vector 격리가 없었다. | PostgreSQL up/down/up; lore_app 21 tables와 lore_vector 1 table; dedicated volume/network. | FIX_NOW | Fresh PostgreSQL migration과 app startup이 통과한다. | VERIFIED |
-| F-002 | P1 | Models | 단일 profile이고 role routing, capability, retry, structured output, streaming 기록이 없었다. | Actual status와 calls; SSE progress; GenerationRun model/usage; gateway tests. | FIX_NOW | Writer/Utility/Vision/Embedding 실제 호출과 audit가 통과한다. | VERIFIED |
+| F-001 | P1 | Persistence | 운영 DB가 create_all에 의존하고 migration 격리가 없었다. | PostgreSQL migration; dedicated volume/network. | FIX_NOW | Fresh PostgreSQL migration과 app startup이 통과한다. | VERIFIED |
+| F-002 | P1 | Models | 단일 profile이고 role routing, capability, retry, structured output, streaming 기록이 없었다. | Actual status와 calls; SSE progress; GenerationRun model/usage; gateway tests. | FIX_NOW | Writer/Utility/Vision 실제 호출과 audit가 통과한다. | VERIFIED |
 | F-003 | P1 | Authority | 후보와 정사 승인 경계가 API invariant가 아니었다. | Illegal direct transition 409; candidate two-step promotion audit logs. | FIX_NOW | CANDIDATE에서만 명시 두 단계 승격이 가능하다. | VERIFIED |
-| F-004 | P1 | Retrieval | project-isolated FTS/vector/reindex가 없었다. | Real BGE-M3 index job and Dense hit; leakage/filter tests. | FIX_NOW | 명시 선택, role/namespace 격리, isolated vector search가 통과한다. | VERIFIED |
+| F-004 | P1 | Retrieval | 자동 검색을 생성 입력과 연결할 제품 계약이 없었다. | 생성 컨텍스트는 명시 선택 자료만 사용한다. | RETIRED | 사용되지 않는 검색 하위 시스템을 제거한다. | VERIFIED |
 | F-005 | P1 | Frontend | production build 실패와 핵심 편집 흐름 부재가 있었다. | Build PASS; Playwright desktop/mobile; reviewed screenshots; no overflow/errors. | FIX_NOW | 한국어 critical journey와 responsive build가 통과한다. | VERIFIED |
 | F-006 | P1 | Generation | editable Plan, LoreBlock, Diff, audits, candidates, exports가 없었다. | Actual 5-block plan, 5 LoreBlocks, real Diff, candidates and three exports. | FIX_NOW | 단계 IO와 대표 plan/draft/rewrite/audit/candidate/export가 저장된다. | VERIFIED |
 | F-007 | P2 | Operations | CI, backup/restore, model and security docs가 없었다. | Make targets, GitHub Actions, nine operation docs and guards. | FIX_NOW | 요청 명령과 CI config/bundle checks가 실행 가능하다. | VERIFIED |
@@ -49,8 +49,8 @@ Lore Studio는 starter가 아니라 실제 local-first v1.0으로 신뢰할 수 
 ### Decision and implementation
 
 - Selected approach: persistence/authority/search invariant를 서비스 경계에 먼저 두고 role gateway와 staged generation을 연결한 뒤 문서 중심 UI를 구축했다.
-- Alternatives considered: SQLite 운영, 외부 vector DB 공유, Qwen 자동 fallback, 자동 canon 승격은 각각 migration, isolation, safety, authority 계약을 위반해 배제했다.
-- Changes made: 22-table domain, Alembic, role gateway, hybrid search, 10-stage 초안 harness, LoreBlock/Diff/audits/candidates/reference/Vision/video fallback, 전체 초안 저장, `FINAL_COHERENCE_PASS`, 별도 로어북, responsive UI, tests/CI/ops.
+- Alternatives considered: SQLite 운영, Qwen 자동 fallback, 자동 canon 승격은 각각 migration, safety, authority 계약을 위반해 배제했다.
+- Changes made: Alembic, role gateway, 10-stage 초안 harness, LoreBlock/Diff/audits/candidates/reference/Vision/video fallback, 전체 초안 저장, `FINAL_COHERENCE_PASS`, 별도 로어북, responsive UI, tests/CI/ops.
 - Files / migrations / documentation: `backend/app`, `backend/alembic`, `frontend/src`, `frontend/tests`, `scripts`, `.github/workflows/ci.yml`, README/TASKS/VERIFICATION와 `docs` 전체.
 
 ### Verification
@@ -62,9 +62,9 @@ Lore Studio는 starter가 아니라 실제 local-first v1.0으로 신뢰할 수 
 | Frontend | `npm --prefix frontend run build` | PASS | adapter-node production output |
 | Browser real data | `make e2e` | PASS; 18 passed, 2 skipped | desktop 1600x900, mobile 390x844, 360x844 overflow, draft save/reload |
 | Model-offline UI | Compose with model endpoints unavailable | PASS | fabricated generation response 없이 OFFLINE 상태와 주요 UI 렌더링 |
-| PostgreSQL migration | Alembic upgrade, downgrade, upgrade | PASS | vector extension and two schemas |
-| Actual model stack | Compose status and representative API calls | PASS | live mode; Gemma and BGE available; endpoint/key hidden |
-| Actual model opt-in tests | `make test-models` | PASS; 3 passed | Writer/Utility JSON, BGE-M3 dimension, Vision data URL |
+| PostgreSQL migration | Alembic upgrade | PASS | `lore_app` schema |
+| Actual model stack | Compose status and representative API calls | PASS | live mode; Qwen and Gemma available; endpoint/key hidden |
+| Actual model opt-in tests | `make test-models` | PASS | Writer/Utility JSON, Vision data URL |
 | Actual creative loop | plan, generate, rewrite, candidate, reference, Vision, export, SSE | PASS | local DB runs and `VERIFICATION.md` metrics |
 | Utility evaluation | two real local model candidates, 9 cases each | PASS decision | Qwen rejected; Gemma selected; committed JSON/Markdown |
 
@@ -169,7 +169,7 @@ Lore Studio는 starter가 아니라 실제 local-first v1.0으로 신뢰할 수 
 - Primary user: DGX Spark의 Qwen·Gemma vLLM을 동시에 상주시켜 세계관 자료와 원고를 반복 생성하는 단일 사용자.
 - Top job: 각 AI 기능이 필요한 사용자 자료만 새 요청으로 전달하고, 이전 모델의 숨은 사고나 실패 응답에 끌려가지 않으며, 정해진 분량 안에서 검토 가능한 결과를 받는다.
 - In scope: Gemma vLLM 기본 thinking 정책, Lore Studio의 Writer·Utility·Vision 및 선택형 Qwen/Gemma 호출 전체, AI 작성·수정·자료 양산·플레이북·원고 도구의 메시지 문맥과 출력 상한, 앱 프리셋·운영 문서·감사 기록.
-- Non-goals: MTP speculative decoding 비활성화, 모델·양자화·KV 캐시 교체, Embedding 벡터 계산 의미 변경, 사용자 승인 없는 기존 본문 수정.
+- Non-goals: MTP speculative decoding 비활성화, 모델·양자화·KV 캐시 교체, 사용자 승인 없는 기존 본문 수정.
 - Constraints: Qwen/Gemma endpoint는 loopback과 Docker bridge proxy만 유지하고 두 모델 상주 메모리 구성을 바꾸지 않는다. 이어쓰기·명시적 품질 수정에는 이미 채택된 원고 조각을 문맥 자료로 사용할 수 있지만 숨은 reasoning이나 실패한 형식 응답은 다음 호출에 대화 이력으로 넘기지 않는다.
 - Completion gates: Gemma vLLM 무지정 요청이 thinking 없이 응답하고 MTP가 유지됨; 모든 텍스트·비전 호출이 정책표에 분류됨; AI 작성은 현재 본문·명시 선택 자료·작성 경계만 새 요청의 데이터로 사용함; 형식 복구는 실패 assistant 응답 없이 새 요청으로 수행함; 모든 생성 호출에 합당한 출력 상한·감사 기록이 있음; 전체 테스트·build·E2E·실모델 대표 호출과 최종 report validator PASS.
 

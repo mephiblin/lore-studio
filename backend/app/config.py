@@ -6,7 +6,7 @@ from typing import Literal
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-ModelRole = Literal["writer", "utility", "vision", "embedding", "fallback"]
+ModelRole = Literal["writer", "utility", "vision", "fallback"]
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -58,16 +58,6 @@ class Settings(BaseSettings):
     fallback_model_timeout_seconds: int = Field(default=300, ge=1)
     allow_utility_writer_fallback: bool = True
 
-    embedding_enabled: bool = True
-    embedding_provider: str = "openai_compatible"
-    embedding_base_url: str = "http://localhost:8081/v1"
-    embedding_api_key: str = "local"
-    embedding_model: str = "bge-m3"
-    embedding_dimension: int = Field(default=1024, ge=1)
-    embedding_version: str = "bge-m3-v1"
-    embedding_batch_size: int = Field(default=16, ge=1, le=256)
-    embedding_timeout_seconds: int = Field(default=180, ge=1)
-
     model_retry_attempts: int = Field(default=2, ge=0, le=5)
     allow_model_download: bool = False
     lore_studio_model_dir: Path = Path("/models/lore-studio")
@@ -76,7 +66,6 @@ class Settings(BaseSettings):
     fallback_mmproj_hf_file: str = ""
 
     run_local_model_tests: bool = False
-    run_embedding_tests: bool = False
     run_vision_tests: bool = False
 
     model_config = SettingsConfigDict(
@@ -92,15 +81,6 @@ class Settings(BaseSettings):
 
     def model_profile(self, role: ModelRole) -> dict[str, object]:
         prefix = role
-        if role == "embedding":
-            return {
-                "role": role,
-                "base_url": self.embedding_base_url,
-                "api_key": self.embedding_api_key,
-                "model": self.embedding_model,
-                "timeout_seconds": self.embedding_timeout_seconds,
-                "context_budget": 8_192,
-            }
         base_url = str(getattr(self, f"{prefix}_model_base_url"))
         api_key = str(getattr(self, f"{prefix}_model_api_key"))
         model = str(getattr(self, f"{prefix}_model_name"))

@@ -1,14 +1,14 @@
 # 구현 로드맵
 
-마지막 갱신: 2026-08-09
+마지막 갱신: 2026-08-13
 표기: `[x]` 완료, `[~]` 부분 구현, `[ ]` 이후 작업
 
 ## v1.0 완료
 
 ### 기반
 
-- [x] FastAPI/SvelteKit/PostgreSQL·pgvector/Alembic/Compose
-- [x] OpenAI 호환 Writer·Utility·Vision·Embedding 역할 분리
+- [x] FastAPI/SvelteKit/PostgreSQL/Alembic/Compose
+- [x] OpenAI 호환 Writer·Utility·Vision 역할 분리
 - [x] 프로젝트와 세계관 자료 CRUD, 권위 전이와 리비전
 
 ### 매일 쓰는 글 만들기
@@ -21,9 +21,8 @@
 - [x] 제목·상태·전체 문단 원자 저장, 문단 추가·삭제·잠금과 부분 재작성
 - [x] 최신 초안 전체를 다시 다듬는 완성 단계와 별도 로어북
 
-### 근거·검색·승인
+### 근거·승인
 
-- [x] FTS와 BGE-M3 Dense RRF 검색
 - [x] 프로젝트·namespace·source role·참고 자료 격리
 - [x] 문단별 자료명 근거와 Canon/Discourse/Style 감사
 - [x] 설정 후보 추출과 사용자 승인 전 자동 정식 설정 편입 금지
@@ -38,13 +37,11 @@
 
 ## v1.0 이후
 
-- [ ] 문체 예시 임베딩 검색 실험: 실제 사용 신호와 오염 방지 A/B gate를 통과한 경우에만 도입
 - [ ] 실제 TTS endpoint adapter와 음성 실측 시간
 - [ ] ComfyUI 작업 제출·진행 상태·결과 회수
 - [ ] PDF·웹·영상 전사 수집 파이프라인
 - [ ] 대형 관계 그래프와 타임라인 전용 화면
 - [ ] 반복·유사 전개 감지와 후속 글 추천
-- [ ] 다국어 cross-encoder reranker A/B
 - [ ] 다중 사용자 인증과 원격 배포 hardening
 
 구조 리팩토링 우선순위와 현재 파일 크기는 루트 [`TASKS.md`](../TASKS.md)를 권위 목록으로 사용합니다.

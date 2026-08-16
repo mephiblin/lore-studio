@@ -1,18 +1,18 @@
 # 검증 기록
 
-최신 갱신: 2026-08-12
+최신 갱신: 2026-08-13
 기준 브랜치: `agent/project-taxonomy-and-ui-polish`
 환경: DGX Spark, 실제 로컬 모델 endpoint
 
 ## 자동 검증
 
 - OpenWebUI Lore Studio 실험 모델 정리: `lore-lab-*` 15개(Qwen 7·Gemma 8)와 `qwen36-diegetic-lore-writer-local` 1개를 정확한 ID 범위로 삭제. 일반 Qwen·Gemma provider와 다른 workspace 모델은 유지하고, 전체 DB와 삭제 행 JSON을 백업. 동기화 명세를 archive로 전환해 명시적 `--restore-archived-labs` 없이는 재등록하지 않음
-- 역할별 이중 vLLM 연결: `/settings`와 `model-connections` API로 Writer=`gemma4-26b-heretic-mtp`, Utility/Vision=`qwen36-heretic-mtp`, Embedding=`bge-m3`를 동시에 등록. key 원문 응답·감사 로그 비노출, `.env` fallback, 저장 전 `/v1/models`/alias 확인, Qwen·Gemma 모두 `enable_thinking=false`와 MTP 독립성 검증 PASS
+- 역할별 이중 vLLM 연결: `/settings`와 `model-connections` API로 Writer=`gemma4-26b-heretic-mtp`, Utility/Vision=`qwen36-heretic-mtp`를 등록. key 원문 응답·감사 로그 비노출, `.env` fallback, 저장 전 `/v1/models`/alias 확인, Qwen·Gemma 모두 `enable_thinking=false`와 MTP 독립성 검증 PASS
 - Gemma vLLM 서버 기본 Thinking OFF: `chat_template_kwargs`를 보내지 않은 실호출이 `content=OK`, `reasoning_content=null`로 응답. 동일 요청의 MTP 메트릭은 draft 4/accepted 4로 유지 PASS. Lore Studio Writer DB override·Gemma 선택형 profile·설정 UI도 OFF로 일치
 - LLM fresh-context 감사: 모든 Writer·Utility·Vision·선택형 호출을 분류하고, `AI 작성`은 현재 본문·작성 경계·명시 선택 참고만 전달. 형식 재시도는 실패 assistant 출력을 제외하고 새로 작성하며, 이어쓰기·품질 수정만 현재 채택 초안을 의도적으로 재사용. 전 생성 호출 `max_tokens` 상한 확인 PASS
-- Markdown 편집·읽기: 세계관 자료의 Tiptap↔Markdown 양방향 전환과 AI Markdown 제안 반영, 로어북 `body_markdown` 원문 편집과 제목·강조·목록·인용·코드·링크·구분선 렌더링 PASS. raw HTML은 문자로 표시하고 스크립트 0개·위험 URL 미링크를 확인. 전체 Playwright 회귀 `49 passed, 13 skipped`
+- Markdown 편집·읽기: 세계관 자료의 Tiptap↔Markdown 양방향 전환과 AI Markdown 제안 반영, 로어북 `body_markdown` 원문 편집과 제목·강조·목록·인용·코드·링크·구분선 렌더링 PASS. raw HTML은 문자로 표시하고 위험 URL을 링크하지 않음
 - 세계관 `AI 작성` 본문 계약: Gemma가 생성한 정상 본문을 JSON 포장 실패로 폐기하던 원인을 제거. 평문·Markdown은 한 번의 text 응답으로 즉시 제안 처리하고 기존 완전 JSON은 호환 해제하며, 빈 응답만 `AI_RESPONSE_EMPTY`로 실패 감사하는 집중 테스트 PASS. 실제 Gemma는 `## 제목 + 두 문단` 평문 Markdown을 반환했고 Lore Studio가 `HTTP 200`, `CANDIDATE`, `persisted=false`로 수용했다. GenerationRun에는 `response_format`·형식 재시도 없이 Thinking OFF와 `max_tokens=900`만 기록됐으며 임시 프로젝트는 삭제 후 404
-- 실제 Lore ModelGateway: Gemma Writer가 정확히 `LORE_OK`, Qwen Utility가 `{"status":"ok"}` JSON을 반환하고 opt-in Writer/Utility·Vision·Embedding `3 passed`. `/models/status` 네 역할 `available=true`, Vision image capability와 Embedding 비-chat capability 표시 PASS
+- 실제 Lore ModelGateway: Gemma Writer가 정확히 `LORE_OK`, Qwen Utility가 `{"status":"ok"}` JSON을 반환하고 Vision image capability를 확인. `/models/status`는 Writer/Utility/Vision 세 역할만 반환 PASS
 - Gemma Docker bridge proxy: `lore-studio-gemma-vllm-proxy.socket` active/enabled, `172.17.0.1:18093 → 127.0.0.1:18092`; 실행 중 backend 컨테이너의 `/v1/models`에서 Gemma alias 확인 PASS
 - 모델 설정 UI: production build와 Chromium 1600×900·390×844·360×844 집중 회귀 `3 passed, 1 viewport skip`; 실제 운영 화면도 세 viewport 모두 Writer=Gemma·Utility/Vision=Qwen, 로컬 선택기 3개, 가로 overflow 0, console/page error 0 PASS
 - 모델 설정 DB: 변경 전 `backups/lore-studio-20260810-200130.dump`, 운영 upgrade와 별도 fresh PostgreSQL `upgrade → downgrade 0007 → upgrade` PASS. fresh migration에서 발견한 기존 `0005` index 검사와 신규 migration 멱등성도 보정
@@ -26,10 +26,11 @@
 - 프로젝·글 만들기 fallback 커버: 제목을 Unicode 문자 기준 최대 16자로 확장하고 8자를 넘으면 `8자\n나머지`로 표시. 공용 `coverFallbackLabel`·`white-space:pre-line`을 사용하며 긴 임시 프로젝을 생성·검증·삭제하는 desktop/mobile Playwright PASS. 좌측 `로컬 우선` 설명은 DOM에서 제거했고 1600×900·390×844·360×844에서 문구 0개·가로 overflow 0px·커버 비율 1.778·console/page error 0개, 임시 `UX 검증` 프로젝 0개 PASS
 - 세계관 자료 AI 수정 422 회귀: Tiptap 전체 선택의 실제 `selection_from=0`과 백엔드·JSON Schema의 최솟값 1 불일치를 재현하고 0을 정상 문서 경계로 수정. 실제 Diablo/두리엘 본문을 Chromium 1600×900에서 전체 선택해 요청한 결과 HTTP 200·`CANDIDATE`·`persisted:false`·저장 본문 불변·가로 overflow 0·console error 0 PASS. 422 표준 검증 상세를 필드별로 표시하고 추가 지시 2,000자·연결 자료 12개·문자열 ID/경계 목록 제한을 프론트에서 선검증. 집중 Playwright desktop/mobile 2 passed
 - Ruff: `All checks passed`
-- pytest: `48 passed, 3 skipped` (자료 양산 모델 분리·동시성 semaphore·구조화 품질·JSON 복구·자동 재작성·명시 저장과 세계관 AI 제안의 코드펜스·제어문자 복구, 동일 모델 사고 출력을 끈 1회 형식 재작성, 최종 실패 감사 포함; Writer/Utility, Embedding, Vision 실제 endpoint tests는 기본 suite에서 의도적으로 skip)
-- 실제 모델 opt-in: `3 passed` (Writer/Utility structured output, BGE-M3 1024차원, Vision data URL)
+- pytest: `51 passed, 2 skipped` (실제 endpoint 두 테스트만 기본 suite에서 의도적으로 skip)
+- 실제 모델 opt-in: `2 passed` (Writer/Utility structured output, Vision data URL)
+- 임베딩 제거: 모델 설정·gateway·검색/재색인 API·에디터 상태 UI·환경 변수·pgvector 패키지 제거, `20260813_0009`에서 `lore_vector`와 `index_jobs` 및 저장된 역할 설정 삭제. 세계관 자료·원고 행 수 보존 확인
 - SvelteKit adapter-node production build 및 backend/frontend 컨테이너 재빌드·재기동, `/api/v1/health` PASS. 자료 양산 집중 Playwright는 desktop/mobile 및 desktop에서 강제한 360px 계약 `3 passed, 1 viewport skip`
-- Playwright Chromium desktop 1600×900/mobile 390×844 실제 인수 자료 포함 회귀: `46 passed, 12 skipped`. 390×500 낮은 가시 높이의 AI 작성 modal 테스트를 추가했고, 병렬 실행에서 프로젝트 전환 직후 0개 상태를 읽던 기존 테스트는 첫 자료 노출을 기다리도록 동기화
+- Playwright Chromium 전체 suite: `31 passed, 31 intentional skips`; 모델 설정 집중 `3 passed, 1 skip`, 에디터 양산·AI 편집 집중 `8 passed, 2 skips`
 - 세계관 본문 AI 모델 선택: AI 수정에서 Qwen, 이어진 AI 작성에서 Gemma를 선택해 요청 `model_key`와 제안 모델명이 일치하고 desktop/mobile에서 가로 overflow 0 PASS. 실제 요청도 Qwen 수정=`qwen36-heretic-mtp`·`http://host.docker.internal:18091/v1`, Gemma 초안=`gemma4-26b-heretic-mtp`·`http://host.docker.internal:18093/v1`로 GenerationRun에 기록됐으며 둘 다 `CANDIDATE`·`persisted=false`, 원문 불변, 임시 프로젝트 0개로 정리 PASS
 - 빈 데이터/기능별 조건 skip UI 회귀: `28 passed, 30 skipped`
 - 문체·필력: DRAFT 명시 승인·사용 후 새 버전·공용/프로젝트 범위·권리별 짧은 예시 격리 API, 다섯 번째 로컬 탭과 내부 스크롤·고정 footer 모달, 글 만들기 `모델 기본 문체`/승인 프로필 명시 선택, profile/version/example GenerationRun snapshot, 원고 필력 점검과 승인형 수정 제안 PASS
@@ -67,20 +68,19 @@
 - 원고 저장 회귀: 제목·문단 수정과 새 문단 추가 → 다음 단계 자동 저장 → 새로고침 복원 → 테스트 데이터 원상복구 PASS
 - JSON Schema/YAML/Python bundle validation: PASS
 - Docker Compose build/up: DB healthy, backend 18000, frontend 5173
-- Alembic PostgreSQL head `20260810_0008`: 기존 데이터 backup 후 upgrade PASS; 프로젝트 삭제 후 `project_id=NULL` 감사 묘비 보존 PASS; 별도 fresh DB에서 전체 upgrade → `20260810_0007` downgrade → head 재-upgrade PASS
+- Alembic PostgreSQL head `20260813_0009`: 기존 데이터 backup 후 upgrade, 제거 대상 스키마·테이블·설정 부재와 원본 자료 보존 확인 PASS
 
 ## 2026-08-06 실행 상태
 
 - `/api/v1/health`: `status=ok`
-- `/api/v1/models/status`: `mode=live`; Writer/Utility/Vision/Embedding 모두 `available=true`
+- `/api/v1/models/status`: Writer/Utility/Vision 세 역할만 반환
 - Compose: DB healthy, backend `18000`, frontend `5173`
 - UI 용어: `세계관 자료 / 집필 지침 / 전개 방식 / 결과물 형태 / 초안 / 완성본 / 로어북`으로 통일
 
 ## 2026-08-05 실제 모델/DB 인수
 
-- `/models/status`: `mode=live`, Writer/Utility/Vision/Embedding 모두 available; endpoint/key 비노출
+- `/models/status`: `mode=live`, Writer/Utility/Vision 세 역할 available; endpoint/key 비노출
 - Utility 합성 9건: Qwen3.5-4B FAIL(66.7%, namespace 누출), Gemma4-26B PASS(88.9%, namespace 격리 통과)
-- BGE-M3: Compose backend에서 1024차원 1 page/1 chunk 재색인 COMPLETED, Dense 검색으로 `검은 등대` 반환, `dense_error=null`
 - Vision: 실제 PNG data URL 분석, caption/objects/tags/uncertainties 반환, `persisted=false`
 - Utility: 집필 지침 원문을 유지한 goals/sequence/must/avoid suggestion 반환
 - Planner: 근거가 배정된 5문단 글의 흐름 생성

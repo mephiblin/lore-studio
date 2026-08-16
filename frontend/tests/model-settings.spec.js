@@ -1,13 +1,13 @@
 import { expect, test } from '@playwright/test';
 
-const profiles = ['writer', 'utility', 'vision', 'embedding'].map((role) => ({
+const profiles = ['writer', 'utility', 'vision'].map((role) => ({
   role,
-  base_url: role === 'embedding' ? 'http://host.docker.internal:8010/v1' : '',
-  model: role === 'embedding' ? 'bge-m3' : '',
+  base_url: '',
+  model: '',
   timeout_seconds: 300,
   context_budget: 32768,
   disable_thinking: false,
-  api_key_configured: role === 'embedding',
+  api_key_configured: false,
   source: 'environment',
 }));
 
@@ -55,6 +55,7 @@ test('model settings assigns both local vLLMs and never echoes a saved key', asy
 
   await page.goto('/settings');
   await expect(page.getByRole('heading', { name: '모델 연결', level: 1 })).toBeVisible();
+  await expect(page.locator('.model-profile-card')).toHaveCount(3);
   await expect(page.locator('#primary-navigation a')).toHaveCount(5);
   await expect(page.getByRole('link', { name: '모델 연결 설정' })).toHaveAttribute('aria-current', 'page');
 
@@ -89,6 +90,7 @@ test('model settings remains usable at the narrow 360px contract width', async (
   await mockModelConnections(page);
   await page.goto('/settings');
   await expect(page.getByRole('heading', { name: '모델 연결', level: 1 })).toBeVisible();
+  await expect(page.locator('.model-profile-card')).toHaveCount(3);
   await expect(page.locator('#primary-navigation a')).toHaveCount(5);
   await expect(page.getByRole('link', { name: '모델 연결 설정' })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

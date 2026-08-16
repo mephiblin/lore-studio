@@ -1,6 +1,6 @@
 # 문체·필력(Voice Profile) 상세 구현 계획
 
-구현 상태: **WP-0~WP-7 완료** (2026-08-09). WP-8 예시 임베딩 검색은 실제 사용 신호와 오염 방지 A/B 조건을 충족한 뒤 진행하는 후속 실험으로 유지한다.
+구현 상태: **WP-0~WP-7 완료** (2026-08-09). WP-8 의미 검색 실험은 2026-08-13 제품 아키텍처 단순화 결정으로 취소했다.
 
 - 상태: 구현 대기
 - 작성일: 2026-08-09
@@ -11,7 +11,7 @@
 
 Lore Studio에 사용자 화면 기준 `문체·필력`, 내부 도메인 기준 `VoiceProfile`을 독립 작문 자산으로 추가한다. 이 기능은 세계관 사실, 집필 지침, 전개 방식, 결과물 형태를 대체하거나 하나의 프롬프트 필드로 합치지 않는다.
 
-첫 배포는 임베딩 검색 없이 다음 조합으로 구현한다.
+현재 제품은 의미 검색 없이 다음 조합으로 구현한다.
 
 1. 사용자가 직접 작성하거나 참고 글에서 승인한 문체 프로필 1개
 2. 프로필에 속한 짧고 다양한 긍정 예시 3~5개
@@ -19,7 +19,7 @@ Lore Studio에 사용자 화면 기준 `문체·필력`, 내부 도메인 기준
 4. 생성 후 반복·상투성·예시문 복제를 찾는 필력 점검
 5. 모든 프로필 버전·예시·모델 입력을 `GenerationRun`에 기록
 
-일반 의미 임베딩은 문체 능력을 직접 높이지 않는다. 임베딩은 예시문 저장소가 커졌을 때 현재 장면에 맞는 예시를 고르는 보조 검색으로만 도입한다. 원문 소설 전체를 BGE-M3로 검색해 Writer에 자동 투입하는 구조는 범위에서 제외한다.
+문체 예시는 사용자 명시 선택과 metadata 정렬만 사용합니다. 의미 벡터 검색이나 원문 소설 자동 검색은 제품 범위에서 제외합니다.
 
 ## 2. 정보 구조 원칙
 
@@ -639,46 +639,29 @@ Utility의 평가는 문학적 진실이 아니라 검토 후보다. 점수 하�
 - 수정 전/후 비교와 명시적 반영을 거친다.
 - 반영 후에도 `초안 전체 저장` 전까지 DB를 바꾸지 않는다.
 
-## 11. 임베딩 도입 조건과 후속 설계
+## 11. 의미 검색 제외 결정
 
-### 11.1 MVP에서 사용하지 않는 이유
+### 11.1 사용하지 않는 이유
 
-- BGE-M3 의미 임베딩은 현재 문장과 주제가 비슷한 예시를 우선할 수 있다.
 - 주제 유사성은 참고 작품의 인물·사건·세계 설정 유입 위험을 높인다.
-- 임베딩 자체는 Writer에 문체를 주입하지 않으며 결국 검색된 텍스트를 컨텍스트에 넣어야 한다.
 - 소수 예시는 사용자 선택과 metadata 정렬이 더 투명하고 재현 가능하다.
-- 현재 구현의 병목은 검색이 아니라 VoiceProfile이 API·컴파일러·Writer에 연결되지 않은 것이다.
+- VoiceProfile의 핵심은 검색이 아니라 승인된 규칙과 예시를 명시적으로 컴파일하는 것이다.
 
-### 11.2 도입 조건
-
-다음 조건을 모두 충족할 때 후속 단계로 검토한다.
-
-- 한 프로필에 활성 예시가 20개 이상 누적됨
-- 고정 예시 3~5개만으로 서로 다른 장면 유형을 커버하지 못한다는 실제 사용자 신호가 있음
-- metadata 선택 대비 검색 선택이 A/B에서 사용자 선호를 개선함
-- 원문 사실 유입과 표현 복제 gate를 통과함
-- 검색 결과와 제외 이유를 UI에서 설명할 수 있음
-
-20개는 제품 운영을 시작하기 위한 임시 기준이며 실제 사용 분포에 따라 조정한다.
-
-### 11.3 후속 검색 구조
+### 11.2 현재 선택 구조
 
 ```text
 현재 plan block
 → 결과물·시점·시제·scene_mode metadata 필터
 → 같은 VoiceProfile의 ACTIVE 예시로 scope 제한
-→ lexical + BGE-M3 후보 검색
-→ profile compatibility와 generation benefit 재정렬
+→ profile compatibility 정렬
 → 중복·권한·token budget 제거
 → 상위 2~4개 예시
 ```
 
 - 전체 소설 원문을 검색 대상으로 두지 않는다.
-- `VoiceProfileExample`의 승인 excerpt만 별도 `source_type=voice_example`로 색인한다.
-- 기존 factual scope와 다른 source role/type을 사용한다.
-- 검색 장애 시 metadata 기본 순서로 축소한다.
-- 검색 점수와 무관하게 사용자가 명시 선택한 예시가 우선한다.
-- 검색된 예시 ID·점수·embedding version을 GenerationRun에 저장한다.
+- `VoiceProfileExample`의 승인 excerpt만 사용한다.
+- 사용자가 명시 선택한 예시가 항상 우선한다.
+- 선택된 예시 ID를 GenerationRun에 저장한다.
 
 ## 12. 버전·승인·수명주기
 
@@ -990,7 +973,7 @@ desktop 1600×900, mobile 390×844/360×844에서 다음을 확인한다.
 | 공용 프로필 scope 누출 | 프로젝트 격리 실패 | nullable scope 검증·공용 source 제한 |
 | LLM 감사의 자의성 | 잘못된 수정 유도 | 결정론 검사 병행·항목별 제안·자동 적용 금지 |
 | 버전 덮어쓰기 | 재현성 상실 | 사용 후 새 version·입력 snapshot |
-| 임베딩 주제 편향 | 관련 작품 내용 유입 | MVP 미사용·후속 metadata-first·승인 excerpt만 색인 |
+| 의미 유사성 편향 | 관련 작품 내용 유입 | 자동 검색 미사용·승인 excerpt만 명시 선택 |
 | UI 단계 증가 | 글 만들기 피로 | 선택 사항·모델 기본 문체 카드·한 질문 원칙 유지 |
 
 ## 20. 연구 근거와 제품 해석
@@ -998,8 +981,8 @@ desktop 1600×900, mobile 390×844/360×844에서 다음을 확인한다.
 - [Anthropic의 프롬프트 모범 사례](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices#use-examples-effectively)는 출력 형식·톤·구조를 유도할 때 관련성 있고 다양한 구조화 예시 3~5개를 권한다. 제품에서는 이를 긴 원문 한 개가 아닌 짧은 긍정 예시 여러 개로 해석한다.
 - [Google Research의 Story Centaur](https://research.google/pubs/story-centaur-large-language-model-few-shot-learning-as-a-creative-writing-tool/)는 창작자가 few-shot 예시를 조합해 고유한 공동 창작 도구를 만드는 접근을 탐구했다.
 - [LaMP](https://arxiv.org/abs/2304.11406)와 [Pearl](https://arxiv.org/abs/2311.09180)은 사용자 이력 검색이 개인화 생성에 도움을 줄 수 있지만, 모든 문서가 유익한 것은 아니며 생성 효용에 맞춘 선택이 중요함을 보여 준다. 제품에서는 검색을 초기 필수 기능이 아니라 후속 실험으로 둔다.
-- [StyleVector 연구](https://arxiv.org/abs/2503.05213)는 개인 문서 기반 RAG에서 내용 의미와 문체 특성이 얽히는 문제를 지적한다. 제품에서는 원문 전체 검색 대신 일반화 프로필과 승인 excerpt를 분리한다.
-- [RisuAI Lorebook](https://github.com/kwaroran/RisuAI/wiki/Lorebook), [NovelAI Lorebook](https://docs.novelai.net/en/text/lorebook/), [SillyTavern Author's Note](https://docs.sillytavern.app/usage/core-concepts/authors-note/)와 [Example Messages](https://docs.sillytavern.app/usage/characters/)는 임베딩 없이 관련 텍스트를 컨텍스트에 직접 삽입해 표현을 유도한다. 제품의 MVP도 명시 선택·구조화 삽입을 우선한다.
+- [StyleVector 연구](https://arxiv.org/abs/2503.05213)는 개인 문서 기반 RAG에서 내용 의미와 문체 특성이 얽히는 문제를 지적한다. 제품에서는 원문 검색 없이 일반화 프로필과 승인 excerpt를 분리한다.
+- [RisuAI Lorebook](https://github.com/kwaroran/RisuAI/wiki/Lorebook), [NovelAI Lorebook](https://docs.novelai.net/en/text/lorebook/), [SillyTavern Author's Note](https://docs.sillytavern.app/usage/core-concepts/authors-note/)와 [Example Messages](https://docs.sillytavern.app/usage/characters/)는 관련 텍스트를 컨텍스트에 직접 삽입해 표현을 유도한다. 제품도 명시 선택·구조화 삽입을 사용한다.
 - LLM 보조가 개인 산출량이나 세부화를 늘리면서 집단 수준의 표현·아이디어를 동질화할 수 있다는 [연구](https://arxiv.org/abs/2402.01536)와 [후속 분석](https://arxiv.org/abs/2409.11360)이 있다. 제품에서는 이름 기반 작가 모사보다 사용자가 승인한 구체 규칙과 자기 예시를 우선한다.
 - 커뮤니티에서는 예시의 상황이 실제 문맥으로 유입될 수 있다는 [경험담](https://www.reddit.com/r/SillyTavernAI/comments/1506swd/)과 과도한 금지 규칙이 산문을 메마르게 할 수 있다는 [논의](https://www.reddit.com/r/SillyTavernAI/comments/1tdp55k/trying_to_ban_slop_makes_the_prose_worse/)가 있다. 이는 실험적 경험담이며 출시 gate의 대체 근거로 사용하지 않는다.
 

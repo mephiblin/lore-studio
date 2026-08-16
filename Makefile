@@ -6,7 +6,7 @@ API_URL ?= http://127.0.0.1:18000/api/v1
 POSTGRES_HOST_PORT ?= 55432
 HOST_DATABASE_URL ?= postgresql+psycopg://lore:lore@127.0.0.1:$(POSTGRES_HOST_PORT)/lore_studio
 
-.PHONY: bootstrap dev up down logs test test-models migrate seed reindex backup restore lint build e2e validate
+.PHONY: bootstrap dev up down logs test test-models migrate seed backup restore lint build e2e validate
 
 bootstrap:
 	test -f .env || cp .env.example .env
@@ -27,11 +27,10 @@ test:
 	APP_CONFIG_ROOT=$(CURDIR)/config $(PYTEST) -q
 
 test-models:
-	RUN_LOCAL_MODEL_TESTS=true RUN_EMBEDDING_TESTS=true RUN_VISION_TESTS=true \
-	WRITER_MODEL_BASE_URL=$${WRITER_MODEL_BASE_URL:-http://127.0.0.1:8080/v1} \
-	UTILITY_MODEL_BASE_URL=$${UTILITY_MODEL_BASE_URL:-http://127.0.0.1:8080/v1} \
-	VISION_MODEL_BASE_URL=$${VISION_MODEL_BASE_URL:-http://127.0.0.1:8080/v1} \
-	EMBEDDING_BASE_URL=$${EMBEDDING_BASE_URL:-http://127.0.0.1:8081/v1} \
+	RUN_LOCAL_MODEL_TESTS=true RUN_VISION_TESTS=true \
+	WRITER_MODEL_BASE_URL=$${WRITER_MODEL_BASE_URL:-http://127.0.0.1:18092/v1} \
+	UTILITY_MODEL_BASE_URL=$${UTILITY_MODEL_BASE_URL:-http://127.0.0.1:18090/v1} \
+	VISION_MODEL_BASE_URL=$${VISION_MODEL_BASE_URL:-http://127.0.0.1:18090/v1} \
 	$(PYTEST) -q backend/tests/test_local_models.py
 
 migrate:
@@ -40,9 +39,6 @@ migrate:
 
 seed:
 	LORE_STUDIO_API=$(API_URL) $(PYTHON) scripts/seed_world.py
-
-reindex:
-	LORE_STUDIO_API=$(API_URL) $(PYTHON) scripts/reindex_all.py
 
 backup:
 	mkdir -p backups

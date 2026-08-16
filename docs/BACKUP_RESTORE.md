@@ -9,7 +9,6 @@ make restore \
   RESTORE_FILE=backups/lore-studio-20260805-120000.dump \
   RESTORE_CONFIRM=restore-lore-studio
 make migrate
-make reindex
 ```
 
-먼저 새 임시 DB로 복구해 `lore_app`/`lore_vector` 테이블 수와 대표 문서를 확인하는 것을 권장합니다. 모델 GGUF는 DB 백업에 포함되지 않습니다.
+먼저 새 임시 DB로 복구해 `lore_app` 테이블 수와 대표 문서를 확인하는 것을 권장합니다. 모델 GGUF는 DB 백업에 포함되지 않습니다. `20260813_0009` 이전 백업에는 제거된 파생 벡터가 포함될 수 있지만 migration 후 자동 삭제됩니다.

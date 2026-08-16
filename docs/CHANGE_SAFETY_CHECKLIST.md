@@ -74,7 +74,7 @@
 - [ ] 저장하지 않은 수정은 목록·다른 화면·LLM 입력에 반영되지 않는다.
 - [ ] 삭제 확인문에 정확한 이름, 영향 범위, 되돌릴 수 없음이 표시된다.
 - [ ] 프로젝트 삭제는 소유 자료·세션·원고·로어북을 제거하고 감사 묘비는 보존한다.
-- [ ] 세계관 자료 삭제는 관계·리비전·인덱스 등 종속 데이터 처리와 일치한다.
+- [ ] 세계관 자료 삭제는 관계·리비전 등 종속 데이터 처리와 일치한다.
 - [ ] 로어북 삭제는 출처 초안을 보존한다.
 - [ ] 삭제 성공 후 목록, 현재 선택, 로컬 저장 프로젝트 ID가 고아 ID를 참조하지 않는다.
 - [ ] 삭제 실패 시 화면에서 먼저 사라지거나 성공 메시지를 표시하지 않는다.
@@ -160,7 +160,7 @@
 - [ ] SQLAlchemy 모델, Alembic head, DB의 실제 FK·nullable·cascade가 일치한다.
 - [ ] migration을 기존 데이터에서 `upgrade`하고 가능한 경우 임시 DB에서 `upgrade → downgrade → upgrade`했다.
 - [ ] API가 사용하는 HTTP 상태 코드와 프론트 성공·오류 분기가 일치한다.
-- [ ] 모델 설정 migration 뒤 기존 `.env` 프로필이 그대로 작동하며 Writer·Utility·Vision·Embedding override가 서로 격리되고, Writer·Utility·Vision은 Qwen·Gemma를 역할별로 독립 선택할 수 있다.
+- [ ] 모델 설정 migration 뒤 기존 `.env` 프로필이 그대로 작동하며 Writer·Utility·Vision override가 서로 격리되고, 세 역할은 Qwen·Gemma를 역할별로 독립 선택할 수 있다.
 - [ ] README, DEVELOPMENT, DATA_MODEL, IMPLEMENTATION_STATUS, ACCEPTANCE_TESTS, VERIFICATION의 head·용어·테스트 수치가 서로 모순되지 않는다.
 - [ ] 삭제·상태 전이·생성 입력처럼 장기 유지할 규칙이 문서와 코드 양쪽에 있다.
 - [ ] 제거한 기능의 문구, schema, fixture, 테스트, 문서 참조가 남지 않았다.
@@ -186,7 +186,7 @@ docker compose exec -T backend alembic current
 - [ ] 모든 명령이 성공했으며 skip은 개수와 이유를 기록했다.
 - [ ] 테스트 수 증가·감소가 기능 범위와 맞고 예상하지 않은 테스트 누락이 아니다.
 - [ ] 실패를 재실행만으로 숨기지 않고 원인과 수정 내용을 확인했다.
-- [ ] 실제 PostgreSQL에서 SQLite 테스트가 놓칠 FK·cascade·JSON·pgvector 동작을 확인했다.
+- [ ] 실제 PostgreSQL에서 SQLite 테스트가 놓칠 FK·cascade·JSON 동작을 확인했다.
 - [ ] production build와 실행 중 Compose의 `/api/v1/health`를 확인했다.
 
 ## 12. 이번 UI 변경 집중 회귀

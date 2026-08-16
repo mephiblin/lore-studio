@@ -879,34 +879,6 @@ class CandidateRead(ORMModel):
     created_at: datetime
 
 
-class ReindexRequest(BaseModel):
-    project_id: str
-    concept_page_id: str | None = None
-
-
-class IndexJobRead(ORMModel):
-    id: str
-    project_id: str
-    concept_page_id: str | None
-    action: str
-    status: str
-    attempt_count: int
-    error_json: dict[str, Any]
-    stats_json: dict[str, Any]
-    created_at: datetime
-    updated_at: datetime
-
-
-class SearchRequest(BaseModel):
-    project_id: str
-    query: str = ""
-    selected_page_ids: list[str] = Field(default_factory=list)
-    namespaces: list[str] = Field(default_factory=list)
-    source_roles: list[str] = Field(default_factory=list)
-    factual_only: bool = True
-    limit: int = Field(default=20, ge=1, le=100)
-
-
 class PlanUpdate(BaseModel):
     plan_json: dict[str, Any]
 

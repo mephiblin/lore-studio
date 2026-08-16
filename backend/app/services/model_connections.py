@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.config import ModelRole, settings
 from app.models import ModelConnectionSetting
 
-CONFIGURABLE_ROLES: tuple[ModelRole, ...] = ("writer", "utility", "vision", "embedding")
+CONFIGURABLE_ROLES: tuple[ModelRole, ...] = ("writer", "utility", "vision")
 _lock = RLock()
 _overrides: dict[ModelRole, dict[str, object]] = {}
 

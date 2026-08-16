@@ -10,7 +10,7 @@ from sqlalchemy import select
 import app.api.router as router_module
 from app.db import get_db
 from app.main import app
-from app.models import ConceptPage, GenerationRun, IndexJob
+from app.models import ConceptPage, GenerationRun
 from app.schemas import ConceptBatchGenerateRequest
 from app.services.concept_batch import BatchContext, _generate_one, _parse_object, propose_seeds
 from app.services.model_gateway import ModelCallResult, ModelGatewayError, ModelProfile
@@ -249,7 +249,6 @@ def test_seed_selection_drives_parallel_candidate_generation_and_explicit_save(
             for run in runs
             if run.task == "concept_batch_worker"
         )
-        assert db.scalar(select(IndexJob).where(IndexJob.concept_page_id == accepted[0]["id"]))
         stored = db.get(ConceptPage, accepted[0]["id"])
         assert stored is not None
         assert stored.body_json["type"] == "doc"

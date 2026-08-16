@@ -1,16 +1,14 @@
 # Lore Studio 작업 상태
 
-마지막 갱신: 2026-08-06
-현재 기준: `65c44fb` (`main`)
+마지막 갱신: 2026-08-13
 
 ## v1.0 완료
 
-- [x] 전용 PostgreSQL/pgvector volume·network·schema와 Alembic up/down/up
+- [x] 전용 PostgreSQL volume·network·schema와 Alembic migration
 - [x] 프로젝트별 자료 종류 생성·수정·안전 삭제, 세계관 자료, 관계/백링크, 프로젝트 집필 지침, 공용·프로젝트 전개 방식, 글 만들기 기록 CRUD
 - [x] 권위 상태와 감사 로그, revision, 후보 승인 경계
-- [x] Writer/Utility/Vision/Embedding 역할별 실제 모델 routing·health·retry·JSON Schema·streaming
+- [x] Writer/Utility/Vision 역할별 실제 모델 routing·health·retry·JSON Schema·streaming
 - [x] Utility 모델 합성 평가와 Qwen 탈락/Gemma 제한 fallback 기록
-- [x] 프로젝트/namespace/source-role 격리 BGE-M3 청크·재색인·FTS/Dense RRF
 - [x] editable plan, 10단계 generation stage, Tiptap LoreBlock와 근거 메타데이터
 - [x] 문단 잠금, 실제 부분 재작성 Diff, Canon/Discourse/Style 감사
 - [x] 설정 후보 추출과 이번 글만/설정 초안/정식 설정 승인, 참고 글 구조 분석 승인
@@ -29,7 +27,6 @@
 - [ ] ComfyUI 작업 제출/상태 수집(현재는 안전한 prompt 초안만)
 - [ ] 대형 관계 그래프·타임라인 전용 시각화
 - [ ] 다중 사용자 인증과 원격 배포 hardening
-- [ ] 다국어 cross-encoder reranker A/B(현재는 lexical + BGE-M3 RRF)
 
 ## 구조 정리 후보
 

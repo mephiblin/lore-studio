@@ -5,8 +5,7 @@
   const roleLabels = {
     writer: { name: 'Writer', description: '글의 흐름·초안·완성 다듬기' },
     utility: { name: 'Utility', description: '구조화 분석·감사·설정 후보 추출' },
-    vision: { name: 'Vision', description: '이미지 캡션·시각 자료 분석' },
-    embedding: { name: 'Embedding', description: '세계관 자료 검색 벡터 생성' }
+    vision: { name: 'Vision', description: '이미지 캡션·시각 자료 분석' }
   };
 
   const localModels = {
@@ -157,21 +156,19 @@
           </header>
 
           <div class="model-profile-fields">
-            {#if profile.role !== 'embedding'}
-              <label for={`${profile.role}-local-model`}>이 PC의 로컬 vLLM
-                <select
-                  id={`${profile.role}-local-model`}
-                  aria-label={`${roleLabels[profile.role].name} 로컬 모델`}
-                  value={localModelKey(profile)}
-                  on:change={(event) => applyLocalModel(profile.role, event.currentTarget.value)}
-                >
-                  <option value="custom">직접 입력</option>
-                  {#each Object.entries(localModels) as [key, preset]}
-                    <option value={key}>{preset.name} · {preset.model}</option>
-                  {/each}
-                </select>
-              </label>
-            {/if}
+            <label for={`${profile.role}-local-model`}>이 PC의 로컬 vLLM
+              <select
+                id={`${profile.role}-local-model`}
+                aria-label={`${roleLabels[profile.role].name} 로컬 모델`}
+                value={localModelKey(profile)}
+                on:change={(event) => applyLocalModel(profile.role, event.currentTarget.value)}
+              >
+                <option value="custom">직접 입력</option>
+                {#each Object.entries(localModels) as [key, preset]}
+                  <option value={key}>{preset.name} · {preset.model}</option>
+                {/each}
+              </select>
+            </label>
             <label for={`${profile.role}-base-url`}>Base URL<input id={`${profile.role}-base-url`} bind:value={profile.base_url} autocomplete="url" spellcheck="false" /></label>
             <label for={`${profile.role}-model`}>모델 alias<input id={`${profile.role}-model`} bind:value={profile.model} placeholder="비워 두면 로드된 모델 자동 선택" spellcheck="false" /></label>
             <label for={`${profile.role}-api-key`}>API 키 <span class="small">{profile.api_key_configured ? '저장됨 · 변경할 때만 입력' : '없음'}</span><input id={`${profile.role}-api-key`} type="password" bind:value={profile.api_key} placeholder={profile.api_key_configured ? '기존 키 유지' : '로컬은 EMPTY 또는 빈 값'} autocomplete="new-password" /></label>

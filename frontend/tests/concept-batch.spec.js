@@ -43,7 +43,6 @@ async function mockEditor(page) {
     else if (path === '/presets/direction-cards') body = [];
     else if (path === '/concept-pages' && request.method() === 'GET') body = [source];
     else if (path === '/direction-cards') body = [];
-    else if (path === '/index/stats') body = { total: 0 };
     else if (path === '/categories') body = [category];
     else if (path === '/writing-recipes') body = [];
     else if (path === '/voice-profiles') body = [];

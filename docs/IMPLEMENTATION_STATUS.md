@@ -1,14 +1,13 @@
 # Lore Studio v1.0 구현 상태
 
-마지막 갱신: 2026-08-12
+마지막 갱신: 2026-08-13
 기준: `agent/project-taxonomy-and-ui-polish` 브랜치의 실제 local-first 구현
 상태: **완료 — 실제 모델 모드로 실행 중**
 
 ## 완료 기능
 
-- 전용 PostgreSQL/pgvector/Alembic, 22개 도메인·검색 테이블과 revision/audit
-- 역할별 Writer/Utility/Vision/Embedding gateway와 공개-safe health, retry, structured output, SSE
-- 프로젝트/namespace/source role 격리 하이브리드 검색과 명시적 index job
+- 전용 PostgreSQL/Alembic 권위 저장소와 revision/audit
+- 역할별 Writer/Utility/Vision gateway와 공개-safe health, retry, structured output, SSE
 - 권위 전이, 프로젝트별 자료 종류/세계관 자료/관계/집필 지침/전개 방식/글 만들기 기록 API
 - editable Plan, 10 generation stages, LoreBlock, 세 감사, 잠금/부분 Diff
 - 후보 추출/명시 승인, 참고 구조 분석/승인, 이미지 Vision, export/video fallback
@@ -48,12 +47,13 @@
 - 6,000자 미만의 목표 글자 수 기반 `max_tokens` 안전 상한·95% 미달 시 마지막 문단 직전의 새 설정 없는 최대 3회 보강·미달 저장 차단, 6,000자 이상 초안·완성 보강의 전개 블록별 이어쓰기와 실제 글자 수 95% 저장 gate, 호출·목표·실제 분량 감사 기록
 - 긴 로어북 본문의 reader 내부 스크롤과 출처 초안·접힌 생성 설정을 합친 단일 출처 카드
 - `$lore-studio-ui-safety` 프로젝트 로컬 skill과 읽기 전용 정적 preflight: UI 계약·변경 체크리스트 기반 반복 점검, 5개 생명주기 route와 `/settings` 유틸리티·migration head·manifest·API 경유 규칙 확인, 기능 계약과 점검 절차의 변경 범위에 따른 문서·테스트·skill 동기화
-- Writer·Utility·Vision·Embedding 역할별 OpenAI 호환 모델 연결 시험·저장·`.env` 복귀 화면. Writer·Utility·Vision은 Qwen·Gemma를 독립 선택하고 권장 분담(Writer=Gemma, Utility/Vision=Qwen)을 적용할 수 있으며 API key 원문은 브라우저·감사 로그에 반환하지 않고 Embedding을 보존
+- Writer·Utility·Vision 역할별 OpenAI 호환 모델 연결 시험·저장·`.env` 복귀 화면. 세 역할은 Qwen·Gemma를 독립 선택하고 권장 분담(Writer=Gemma, Utility/Vision=Qwen)을 적용할 수 있으며 API key 원문은 브라우저·감사 로그에 반환하지 않음
+- 생성 컨텍스트에 연결되지 않던 임베딩 검색을 제거하고 모델 역할·API·재색인 UI·파생 벡터/작업 스키마·pgvector 의존성을 정리. 세계관 원본과 명시 선택 기반 생성 계약은 유지
 - Qwen·Gemma vLLM의 서버 기본 Thinking OFF와 앱 profile OFF를 일치시키되 native MTP는 유지. 생성 호출은 대화 history 없는 새 요청을 기본으로 하고, AI 본문 작성은 현재 본문·작성 경계·명시 선택 참고만 전달하며 JSON 형식을 강제하지 않고 평문·Markdown 본문을 한 번의 응답으로 바로 제안 처리함
 
 ## 실제 환경 증거
 
-2026-08-11 현재 Compose는 `/models/status`에서 Gemma Writer, Qwen Utility/Vision, BGE-M3 Embedding이 모두 `available=true`입니다. 두 vLLM은 loopback에 유지하고 Docker backend는 bridge 전용 socket proxy로 접근합니다. 실제 ModelGateway에서 Gemma `LORE_OK`, Qwen `{"status":"ok"}`와 opt-in Writer/Utility·Vision·Embedding 3건을 통과했습니다. 세계관 본문 AI의 명시 선택 실검증도 Qwen 수정=`qwen36-heretic-mtp@18091`, Gemma 초안=`gemma4-26b-heretic-mtp@18093`로 각각 기록됐고, 저장 전 제안과 원문 불변 계약을 지켰습니다. 실제 현장 구술 검증은 임시 프로젝트에서 `ORIENT → ANCHOR → EXEMPLIFY → WITHHOLD → ESCALATE → STING`의 계획과 Gemma 원고를 생성했고, 은종의 주인을 확정하거나 내부 소제목을 노출하지 않았으며 검증 자료는 삭제했습니다. 2026-08-05 대표 인수 실행은 5-block 계획, 1,039자/5 LoreBlock 원고, 실제 Diff, 2 후보, 세 export, Vision caption, Dense 검색을 완료했습니다. SSE progress/complete도 실제 Writer로 통과했습니다. 공유 `원인에서 파급으로` 프리셋의 실제 Utility 재검증은 `ORIENT → ANCHOR → EXEMPLIFY → ESCALATE → INTERPRET` 순서의 5-block 계획을 반환했습니다.
+현재 Compose의 `/models/status`는 Gemma Writer와 Qwen Utility/Vision 세 역할을 보고합니다. 두 vLLM은 loopback에 유지하고 Docker backend는 bridge 전용 socket proxy로 접근합니다. 실제 ModelGateway에서 Gemma `LORE_OK`, Qwen `{"status":"ok"}`와 Vision 호출을 검증했습니다. 세계관 본문 AI의 명시 선택 실검증도 Qwen 수정=`qwen36-heretic-mtp@18091`, Gemma 초안=`gemma4-26b-heretic-mtp@18093`로 각각 기록됐고, 저장 전 제안과 원문 불변 계약을 지켰습니다. 실제 현장 구술 검증은 임시 프로젝트에서 `ORIENT → ANCHOR → EXEMPLIFY → WITHHOLD → ESCALATE → STING`의 계획과 Gemma 원고를 생성했고 검증 자료는 삭제했습니다. SSE progress/complete도 실제 Writer로 통과했습니다.
 
 2026-08-12 상징적 우화 조합의 Gemma 실검에서는 `ORIENT → ANCHOR → ESCALATE → TURN → STING` 계획, 실제 선택 자료로 제한된 근거 ID, 동일한 종소리 세 번, 상징 비해설, 물리적 이미지 종결을 통과했다. 목표 1,200자에 `max_tokens=2400`을 주어도 803자에서 조기 종료했고 `min_tokens` 강제는 종결문 반복을 만들었으므로 채택하지 않았다. 충분한 근거 두 건과 500자 목표에서는 752자 원고를 정상 저장했고, 초과분을 기계 절단하지 않아 필수 귀결을 보존했다. 임시 프로젝트와 생성물은 검증 후 삭제했다.
 
@@ -62,14 +62,13 @@ Utility 9-case 결과는 Qwen3.5-4B가 namespace 누출로 탈락했고 Gemma4-2
 ## 최종 검증
 
 - Ruff PASS
-- pytest `48 passed, 3 skipped` (짧은 글 분량 복구·근거 ID 정규화·상징적 우화 자산 계약, 세계관 AI 제안 JSON 복구·자동 재작성·최종 실패 감사 포함; 실제 endpoint opt-in tests는 기본 run에서 skip)
-- 실제 모델 opt-in `3 passed` (Writer/Utility, Embedding, Vision)
+- pytest `51 passed, 2 skipped` (실제 Writer/Utility·Vision endpoint tests는 기본 run에서 의도적으로 skip)
+- 실제 모델 opt-in `2 passed` (Writer/Utility, Vision)
 - bundle/schema/YAML PASS
 - Svelte production build PASS
-- 실제 데이터 Playwright `46 passed, 12 skipped` (1600×900/390×844/360×844, 현장 구술 전개·문체·결과물 선택, 모바일 자료 본문 scroll·AI 패널·AI 작성 390×500 키보드 가시 높이·command bar·로어북 목차→읽기, 확인·작성 원고 설계·흐름/초안 교체, 원고 저장·완성 다듬기·긴 본문/출처 카드 포함)
-- 빈 데이터/기능별 조건 skip UI E2E `28 passed, 30 skipped`
+- Playwright 전체 suite `31 passed, 31 intentional skips`; 모델 설정 집중 `3 passed, 1 skip`, 에디터 양산·AI 편집 집중 `8 passed, 2 skips`
 - Compose build/up 및 DB health PASS
-- PostgreSQL Alembic `20260810_0008` 기존 데이터 upgrade, 프로젝트 삭제 감사 묘비 보존, 역할별 모델 연결·thinking 설정 및 임시 fresh DB upgrade/downgrade/upgrade PASS
+- PostgreSQL Alembic `20260813_0009` 기존 데이터 upgrade와 파생 검색 데이터 제거, 프로젝트 삭제 감사 묘비 보존, 역할별 모델 연결·thinking 설정 PASS
 - 프로젝트 로컬 skill package 검증과 UI 계약 정적 preflight `7 passed, 0 failures`
 
 ## 남은 제한
@@ -85,4 +84,4 @@ curl http://127.0.0.1:18000/api/v1/models/status
 make test && make lint && make e2e
 ```
 
-LAN UI는 `http://192.168.200.103:5173`, API 문서는 `http://192.168.200.103:18000/docs`입니다. PostgreSQL은 계속 `127.0.0.1:55432`에만 바인딩됩니다. BGE 검증용 호스트 서버는 8010 포트에서 실행 중이며 운영 재부팅 후 `docs/LOCAL_MODELS.md` 명령으로 다시 시작해야 합니다.
+LAN UI는 `http://192.168.200.103:5173`, API 문서는 `http://192.168.200.103:18000/docs`입니다. PostgreSQL은 계속 `127.0.0.1:55432`에만 바인딩됩니다.

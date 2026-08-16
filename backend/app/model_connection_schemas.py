@@ -5,7 +5,7 @@ from urllib.parse import urlparse
 
 from pydantic import BaseModel, Field, field_validator
 
-ModelConnectionRole = Literal["writer", "utility", "vision", "embedding"]
+ModelConnectionRole = Literal["writer", "utility", "vision"]
 
 
 class ModelConnectionUpdate(BaseModel):

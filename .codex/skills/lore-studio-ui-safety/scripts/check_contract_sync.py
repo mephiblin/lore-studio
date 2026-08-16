@@ -140,6 +140,10 @@ try:
     tracked = set(
         subprocess.check_output(["git", "ls-files"], cwd=ROOT, text=True).splitlines()
     )
+    deleted = set(
+        subprocess.check_output(["git", "ls-files", "--deleted"], cwd=ROOT, text=True).splitlines()
+    )
+    tracked -= deleted
 except (OSError, subprocess.CalledProcessError):
     tracked = set()
 for relative in sorted(tracked - manifest_entries):

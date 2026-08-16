@@ -71,6 +71,13 @@ def test_connection_test_does_not_persist(monkeypatch) -> None:
     assert result["models"] == ["qwen-test"]
 
 
+def test_only_generation_roles_are_configurable() -> None:
+    roles = [item["role"] for item in routes.list_model_connections()]
+    assert roles == ["writer", "utility", "vision"]
+    with pytest.raises(ValidationError):
+        ModelConnectionTest(role="embedding", **_payload().model_dump())
+
+
 def test_connection_url_rejects_embedded_credentials() -> None:
     with pytest.raises(ValidationError):
         _payload(base_url="http://user:pass@models.test/v1")

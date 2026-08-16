@@ -21,7 +21,7 @@ engine = create_engine(
     pool_pre_ping=True,
     connect_args=connect_args,
     execution_options=(
-        {"schema_translate_map": {"lore_app": None, "lore_vector": None}}
+        {"schema_translate_map": {"lore_app": None}}
         if settings.database_url.startswith("sqlite")
         else {}
     ),

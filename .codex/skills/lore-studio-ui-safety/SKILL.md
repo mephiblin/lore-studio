@@ -34,6 +34,7 @@ python3 .codex/skills/lore-studio-ui-safety/scripts/check_contract_sync.py
 ```
 
 Resolve failures before signoff. A preflight pass does not replace browser QA.
+The manifest check compares files that still exist in the worktree; intentional tracked deletions do not need stale manifest entries during the removal change.
 
 ## Build a coverage inventory
 

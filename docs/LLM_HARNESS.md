@@ -2,7 +2,7 @@
 
 ## 역할과 호출
 
-Writer는 초안 작성·완성본 다듬기·부분 재작성, Utility는 글의 흐름과 JSON 구조화, Vision은 이미지, Embedding은 BGE-M3를 담당합니다. 각 역할은 독립 endpoint/alias/timeout/context budget을 가지며 `/v1/models` discovery, retry, JSON object/schema, SSE token streaming, dimension check를 제공합니다. Utility 오류만 명시 설정에서 Writer로 제한 fallback합니다.
+Writer는 초안 작성·완성본 다듬기·부분 재작성, Utility는 글의 흐름과 JSON 구조화, Vision은 이미지를 담당합니다. 각 역할은 독립 endpoint/alias/timeout/context budget을 가지며 `/v1/models` discovery, retry, JSON object/schema, SSE token streaming을 제공합니다. Utility 오류만 명시 설정에서 Writer로 제한 fallback합니다.
 
 ## 권위 있는 입력
 
@@ -14,7 +14,7 @@ Planner는 title/angle/blocks(move, purpose, evidence_ids, budget, must/avoid, l
 
 `SamplingProfile`은 분량이나 글의 의미를 소유하지 않는 별도 런타임 계층입니다. Writer는 선택한 `temperature/top_p/top_k/frequency_penalty/presence_penalty`를 사용하고, Planner는 strict JSON 안정성을 위해 기존 고정 온도를 유지합니다. Finalizer는 선택값을 그대로 증폭하지 않고 temperature 0.48, top-p 0.86, top-k 32 상한으로 파생합니다. 선택 key·version·override가 반영된 실제 값은 Context pack, 원고 생성 입력, GenerationRun에 함께 저장합니다. 호출별 `max_tokens`는 목표를 강제하는 값이 아니라 모델이 낼 수 있는 최대 토큰 수를 막는 안전 상한이며 사용자 카드 설정이 아닙니다. 실제 분량 충족 여부는 한국어 글자 수를 재어 판정합니다.
 
-모델 장애 시 세션과 입력은 보존되고 구조화 오류는 명시 오류가 됩니다. Embedding 장애는 lexical search로 축소됩니다. 운영 경로는 실제 OpenAI 호환 endpoint만 호출하며 모델이 없거나 응답하지 않으면 성공 응답을 조작하지 않고 명시적으로 실패합니다.
+모델 장애 시 세션과 입력은 보존되고 구조화 오류는 명시 오류가 됩니다. 운영 경로는 실제 OpenAI 호환 endpoint만 호출하며 모델이 없거나 응답하지 않으면 성공 응답을 조작하지 않고 명시적으로 실패합니다.
 
 ## 호출별 새 문맥 규칙
 
@@ -28,7 +28,6 @@ Lore Studio의 생성 호출은 대화 세션을 재사용하지 않고 각 요�
 | 자료 양산 씨앗·worker | 고정된 참고 스냅샷, 선택 씨앗, 자료 종류 | 품질 보정이 필요한 현재 후보만 의도적으로 포함; 형식 실패 출력은 제외 |
 | 장문 초안·Finalizer | 현재 계획, 근거, 사용자가 수정·수용한 최신 초안 | 이어쓰기·보정 대상인 수용 본문만 의도적으로 포함 |
 | Vision | 현재 이미지와 분석 지시 | 포함하지 않음 |
-| Embedding | 현재 텍스트 청크 또는 검색어 | 해당 없음 |
 
 모든 로컬 생성 호출은 Thinking OFF를 기본으로 하며, 각 호출은 작업 분량과 복구 여유에 맞는 `max_tokens` 안전 상한을 명시합니다. 이 상한은 목표 글자 수가 아니며 실제 분량은 글자 수 계약으로 별도 검증합니다.
 

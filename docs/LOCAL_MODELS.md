@@ -5,7 +5,6 @@
 - Writer: 장문 초안 작성, 완성본 다듬기와 부분 재작성
 - Utility: JSON Schema 구조화, 카드/후보/참고 분석
 - Vision: data URL 이미지 캡션과 태그 제안
-- Embedding: BGE-M3 1024차원 검색 벡터
 
 ## 앱에서 연결
 
@@ -18,7 +17,7 @@
 | Qwen3.6 35B heretic MTP | `http://host.docker.internal:18091/v1` | `qwen36-heretic-mtp` | 끄기 |
 | Gemma4 26B heretic MTP | `http://host.docker.internal:18093/v1` | `gemma4-26b-heretic-mtp` | 끄기 (vLLM 서버 기본 OFF) |
 
-`이 PC 권장 분담 적용`은 Writer=Gemma, Utility·Vision=Qwen으로 채우고 BGE-M3 Embedding을 유지합니다. Qwen과 Gemma 모두 vLLM 서버 기본이 `chat_template_kwargs.enable_thinking=false`이며 Lore Studio도 같은 값을 명시적으로 전달합니다. 이 설정은 출력 추론 모드만 끄며 vLLM의 native MTP speculative decoding은 계속 작동합니다. Qwen-MM의 local Faster-Whisper는 별도 도구 서비스이며 Lore Studio의 네 모델 역할에는 포함하지 않습니다.
+`이 PC 권장 분담 적용`은 Writer=Gemma, Utility·Vision=Qwen으로 채웁니다. Qwen과 Gemma 모두 vLLM 서버 기본이 `chat_template_kwargs.enable_thinking=false`이며 Lore Studio도 같은 값을 명시적으로 전달합니다. 이 설정은 출력 추론 모드만 끄며 vLLM의 native MTP speculative decoding은 계속 작동합니다. Qwen-MM의 local Faster-Whisper는 별도 도구 서비스이며 Lore Studio의 세 모델 역할에는 포함하지 않습니다.
 
 `세계관 자료 → 자료 양산`과 기존 자료 본문의 `AI 수정 / AI 작성`에서는 역할 재배정과 별개인 `QWEN_SELECTABLE_*`·`GEMMA_SELECTABLE_*` 연결을 모델 이름으로 직접 선택합니다. 선택 모델의 explicit profile로 호출하므로 Qwen 작업 실패 시 Gemma로 자동 fallback하지 않습니다. 자료 양산의 씨앗 제안은 호출 1개이고, 본문 단계는 사용자가 고른 씨앗 1–10개 수만큼 동시 호출합니다.
 
@@ -32,24 +31,10 @@ systemctl --user enable --now lore-studio-gemma-vllm-proxy.socket
 
 이 socket은 `172.17.0.1:18093`만 열고 요청을 `127.0.0.1:18092`로 전달합니다. vLLM 자체를 LAN의 `0.0.0.0`에 공개하지 않습니다.
 
-Writer 라우터 예시:
+Compose에서 접근하려면 서버가 Docker bridge에서 접근 가능한 주소에 바인딩되어야 합니다. Lore Studio UI/API는 신뢰 LAN에 공개되지만 모델 포트는 호스트 방화벽으로 LAN 직접 접근을 제한하는 것을 권장합니다. alias는 `/v1/models`의 `id`와 `.env`의 `*_MODEL_NAME`이 정확히 일치해야 합니다. 이미지 입력은 모델과 짝이 맞는 mmproj가 필요합니다.
 
 ```bash
-llama-server -m /models/writer.gguf --mmproj /models/mmproj.gguf \
-  --alias Gemma4-26B --host 0.0.0.0 --port 8080 -c 65536
-```
-
-Embedding 예시:
-
-```bash
-llama-server -m /models/bge-m3-Q4_K_M.gguf --embedding --pooling cls \
-  --alias bge-m3 --host 0.0.0.0 --port 8010 -c 8192
-```
-
-Compose에서 접근하려면 서버가 `127.0.0.1`이 아니라 `0.0.0.0`에 바인딩돼야 합니다. Lore Studio UI/API는 신뢰 LAN에 공개되지만 모델 포트 8080/8010은 호스트 방화벽으로 LAN 직접 접근을 제한하는 것을 권장합니다. alias는 `curl http://127.0.0.1:8080/v1/models`의 `id`와 `.env`의 `*_MODEL_NAME`이 정확히 일치해야 합니다. 이미지 입력은 모델과 짝이 맞는 mmproj가 필요합니다.
-
-```bash
-EMBEDDING_BASE_URL=http://127.0.0.1:8010/v1 make test-models
+make test-models
 python scripts/evaluate_utility_model.py --output-dir artifacts/model-evaluation
 ```
 

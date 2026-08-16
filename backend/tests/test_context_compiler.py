@@ -9,7 +9,7 @@ from app.services.context_compiler import compile_context, tiptap_to_text
 def make_db() -> Session:
     engine = create_engine(
         "sqlite+pysqlite:///:memory:",
-        execution_options={"schema_translate_map": {"lore_app": None, "lore_vector": None}},
+        execution_options={"schema_translate_map": {"lore_app": None}},
     )
     Base.metadata.create_all(engine)
     return Session(engine)

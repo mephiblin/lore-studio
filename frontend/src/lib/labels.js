@@ -39,8 +39,7 @@ export const relationLabels = {
 export const modelRoleLabels = {
   writer: '글 작성',
   utility: '구성·분석',
-  vision: '이미지 이해',
-  embedding: '자료 검색'
+  vision: '이미지 이해'
 };
 
 export const moveLabels = {

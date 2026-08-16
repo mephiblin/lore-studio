@@ -135,16 +135,6 @@ class ModelGateway:
     ) -> tuple[str, dict[str, Any]]:
         if profile.model:
             match = next((item for item in models if item.get("id") == profile.model), None)
-            if match is None and profile.role == "embedding":
-                normalized = profile.model.lower().replace("_", "-")
-                match = next(
-                    (
-                        item
-                        for item in models
-                        if str(item.get("id", "")).lower().replace("_", "-").startswith(normalized)
-                    ),
-                    None,
-                )
             if match is None:
                 available = ", ".join(str(item.get("id", "")) for item in models[:8]) or "없음"
                 raise ModelGatewayError(
@@ -176,10 +166,10 @@ class ModelGateway:
         default_modalities = ["text", "image"] if profile.role == "vision" else ["text"]
         input_modalities = architecture.get("input_modalities", default_modalities)
         return {
-            "chat": profile.role != "embedding",
-            "streaming": profile.role != "embedding",
-            "json_object": profile.role != "embedding",
-            "json_schema": profile.role != "embedding",
+            "chat": True,
+            "streaming": True,
+            "json_object": True,
+            "json_schema": True,
             "vision": "image" in input_modalities,
             "input_modalities": input_modalities,
             "context_size": model_info.get("meta", {}).get("n_ctx"),
@@ -213,8 +203,6 @@ class ModelGateway:
 
     async def health_all(self) -> list[dict[str, Any]]:
         roles: list[ModelRole] = ["writer", "utility", "vision"]
-        if settings.embedding_enabled:
-            roles.append("embedding")
         return list(await asyncio.gather(*(self.health(role) for role in roles)))
 
     async def _post_completion(
@@ -397,53 +385,3 @@ class ModelGateway:
                 code="MODEL_STREAM_FAILED",
                 role=role,
             ) from exc
-
-    async def embed(self, texts: list[str]) -> tuple[list[list[float]], dict[str, Any]]:
-        if not settings.embedding_enabled:
-            raise ModelGatewayError(
-                "임베딩이 비활성화되어 있습니다.",
-                code="EMBEDDING_DISABLED",
-                role="embedding",
-            )
-        profile = self.profile("embedding")
-        model, _ = await self.resolve_model(profile)
-        payload = {"model": model, "input": texts}
-        try:
-            async with self._client(profile) as client:
-                response = await client.post(
-                    f"{profile.base_url.rstrip('/')}/embeddings",
-                    json=payload,
-                    headers=self._headers(profile),
-                )
-                response.raise_for_status()
-                data = response.json()
-            rows = sorted(data.get("data", []), key=lambda item: item.get("index", 0))
-            embeddings = [row["embedding"] for row in rows]
-        except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
-            raise ModelGatewayError(
-                f"임베딩 서버 호출에 실패했습니다: {exc}",
-                code="EMBEDDING_REQUEST_FAILED",
-                role="embedding",
-            ) from exc
-        if len(embeddings) != len(texts):
-            raise ModelGatewayError(
-                "임베딩 응답 개수가 요청과 다릅니다.",
-                code="EMBEDDING_COUNT_MISMATCH",
-                role="embedding",
-            )
-        dimensions = {len(vector) for vector in embeddings}
-        if dimensions and dimensions != {settings.embedding_dimension}:
-            actual = ", ".join(str(value) for value in sorted(dimensions))
-            raise ModelGatewayError(
-                f"임베딩 차원이 설정({settings.embedding_dimension})과 다릅니다: {actual}",
-                code="EMBEDDING_DIMENSION_MISMATCH",
-                role="embedding",
-            )
-        return embeddings, {
-            "role": "embedding",
-            "model": str(data.get("model") or model),
-            "endpoint": profile.base_url,
-            "usage": data.get("usage", {}),
-            "dimension": settings.embedding_dimension,
-            "version": settings.embedding_version,
-        }

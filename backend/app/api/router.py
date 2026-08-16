@@ -23,7 +23,6 @@ from app.models import (
     DirectionCard,
     GenerationRun,
     GenerationStage,
-    IndexJob,
     LoreBlock,
     LoreDocument,
     PlaybookSession,
@@ -69,7 +68,6 @@ from app.schemas import (
     FinalizationRequest,
     GenerationResult,
     ImageAnalysisRequest,
-    IndexJobRead,
     LoreBlockRead,
     LoreBlockUpdate,
     LoreBookUpdate,
@@ -87,9 +85,7 @@ from app.schemas import (
     ProseRevisionRequest,
     ReferenceAnalysisApprovalRequest,
     ReferenceAnalysisRead,
-    ReindexRequest,
     RewriteRequest,
-    SearchRequest,
     VoiceProfileCreate,
     VoiceProfileDuplicateRequest,
     VoiceProfileExampleCreate,
@@ -135,7 +131,6 @@ from app.services.harness import LoreHarness
 from app.services.model_gateway import ModelGatewayError, local_text_profile
 from app.services.revisions import add_concept_revision, add_lore_revision
 from app.services.sampling import resolve_sampling_profile
-from app.services.search import hybrid_search, index_stats, run_index_job
 from app.services.utility_tools import (
     analyze_image,
     analyze_reference,
@@ -657,7 +652,6 @@ def create_concept_page(payload: ConceptPageCreate, db: Session = Depends(get_db
     db.add(page)
     db.flush()
     add_concept_revision(db, page, reason="initial_create")
-    db.add(IndexJob(project_id=page.project_id, concept_page_id=page.id, action="REINDEX"))
     db.commit()
     db.refresh(page)
     return page
@@ -1091,7 +1085,6 @@ def accept_concept_batch(
         db.add(page)
         db.flush()
         add_concept_revision(db, page, reason="batch_candidate_accepted", author_type="ai")
-        db.add(IndexJob(project_id=page.project_id, concept_page_id=page.id, action="REINDEX"))
         pages.append(page)
     batch_id = new_id()
     db.add(
@@ -1442,7 +1435,6 @@ def update_concept_page(
         page.authority_state = requested_role
     db.add(page)
     add_concept_revision(db, page)
-    db.add(IndexJob(project_id=page.project_id, concept_page_id=page.id, action="REINDEX"))
     db.commit()
     db.refresh(page)
     return page
@@ -3058,7 +3050,6 @@ def create_candidate(payload: CandidateCreate, db: Session = Depends(get_db)) ->
     db.refresh(candidate)
     return candidate
 
-
 @router.post("/documents/{document_id}/extract-candidates", response_model=list[CandidateRead])
 async def extract_document_candidates(
     document_id: str, db: Session = Depends(get_db)
@@ -3389,41 +3380,3 @@ def decide_candidate(
     db.commit()
     db.refresh(candidate)
     return candidate
-
-
-@router.post("/index/jobs", response_model=IndexJobRead, status_code=status.HTTP_201_CREATED)
-def create_index_job(payload: ReindexRequest, db: Session = Depends(get_db)) -> IndexJob:
-    _get_or_404(db, Project, payload.project_id, "프로젝트")
-    if payload.concept_page_id:
-        page = _get_or_404(db, ConceptPage, payload.concept_page_id, "컨셉 페이지")
-        _require_project(page, payload.project_id, "컨셉 페이지")
-    job = IndexJob(**payload.model_dump(), action="REINDEX", status="PENDING")
-    db.add(job)
-    db.commit()
-    db.refresh(job)
-    return job
-
-
-@router.post("/index/jobs/{job_id}/run", response_model=IndexJobRead)
-async def execute_index_job(job_id: str, db: Session = Depends(get_db)) -> IndexJob:
-    job = _get_or_404(db, IndexJob, job_id, "인덱스 작업")
-    result = await run_index_job(db, job, harness.gateway)
-    if result.status == "FAILED":
-        raise _error(
-            502,
-            result.error_json.get("code", "INDEXING_FAILED"),
-            result.error_json.get("message", "재색인 실패"),
-        )
-    return result
-
-
-@router.post("/search")
-async def search_concepts(payload: SearchRequest, db: Session = Depends(get_db)) -> dict[str, Any]:
-    _get_or_404(db, Project, payload.project_id, "프로젝트")
-    return await hybrid_search(db, **payload.model_dump(), gateway=harness.gateway)
-
-
-@router.get("/index/stats")
-def get_index_stats(project_id: str = Query(...), db: Session = Depends(get_db)) -> dict[str, Any]:
-    _get_or_404(db, Project, project_id, "프로젝트")
-    return index_stats(db, project_id)
